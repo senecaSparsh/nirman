@@ -43,13 +43,13 @@ async function MobileSalesRevenueContent() {
       customer: { select: { name: true } },
       project: { select: { name: true } },
       builtUnit: { select: { unitType: true } },
-      payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } },
+      payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true, interestAmount: true } },
     },
     orderBy: { saleDate: "desc" },
   });
 
   const records = sales.map((s) => {
-    const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+    const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount) - toNum(p.interestAmount), 0);
     // Invoice value = sale price + GST — collections are received GST-inclusive
     const salePrice = toNum(s.salePrice) + toNum(s.gstAmount);
     return {

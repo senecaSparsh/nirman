@@ -67,7 +67,7 @@ async function MobilePendingPaymentsContent() {
         project: { select: { name: true } },
         payments: {
           where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] },
-          select: { amount: true },
+          select: { amount: true, interestAmount: true },
         },
       },
       orderBy: { saleDate: "asc" },
@@ -175,7 +175,7 @@ async function MobilePendingPaymentsContent() {
     .filter((r): r is NonNullable<typeof r> => r !== null && r.principal > 0.01);
 
   const receivableRows = sales.map((s) => {
-    const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+    const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount) - toNum(p.interestAmount), 0);
     const outstanding = Math.max(0, toNum(s.salePrice) + toNum(s.gstAmount) - collected - toNum(s.tdsAmount));
     const daysSinceSale = Math.floor((now.getTime() - s.saleDate.getTime()) / 86400000);
     return { id: s.id, saleNumber: s.saleNumber, customer: s.customer.name, project: s.project?.name ?? "—", outstanding, daysSinceSale, agingBucket: getAgingBucket(daysSinceSale) };

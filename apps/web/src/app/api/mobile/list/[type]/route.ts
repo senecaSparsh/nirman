@@ -435,7 +435,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
           email: true,
           gstin: true,
           createdAt: true,
-          assetSales: { where: { status: "ACTIVE" }, select: { salePrice: true, gstAmount: true, paymentStatus: true, payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } } } },
+          assetSales: { where: { status: "ACTIVE" }, select: { salePrice: true, gstAmount: true, paymentStatus: true, payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true, interestAmount: true } } } },
           materialSales: { where: { status: "ACTIVE" }, select: { totalAmount: true, paymentStatus: true, payments: { where: { status: { not: "VOID" }, direction: "IN", OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } } } },
         },
       });
@@ -446,7 +446,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         for (const s of c.assetSales) {
           activeCount++;
           totalValue += toNum(s.salePrice) + toNum(s.gstAmount);
-          totalPaid += s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+          totalPaid += s.payments.reduce((sum, p) => sum + toNum(p.amount) - toNum(p.interestAmount), 0);
           if (s.paymentStatus === "PENDING" || s.paymentStatus === "PARTIAL") dueCount++;
         }
         for (const s of c.materialSales) {

@@ -192,14 +192,14 @@ async function PendingPaymentsContent() {
       project: { select: { name: true } },
       payments: {
         where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] },
-        select: { amount: true },
+        select: { amount: true, interestAmount: true },
       },
     },
     orderBy: { saleDate: "asc" },
   });
 
   const receivableRows = sales.map((s) => {
-    const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+    const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount) - toNum(p.interestAmount), 0);
     // 194-IA: buyer-withheld TDS is settled to the ITD, not owed by the
     // customer — subtract it from what's collectible (same rule as the
     // finance banner and /api/sales list).

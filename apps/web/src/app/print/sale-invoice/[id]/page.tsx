@@ -60,7 +60,7 @@ export default async function SaleInvoicePage({
   const gstAmount = toNum(sale.gstAmount);
   const total = salePrice + gstAmount;
   const words = amountInWords(total);
-  const totalPaid = sale.payments.reduce((s, p) => s + (p.status !== "VOID" && (p.chequeStatus == null || p.chequeStatus === "CLEARED") ? toNum(p.amount) : 0), 0);
+  const totalPaid = sale.payments.reduce((s, p) => s + (p.status !== "VOID" && (p.chequeStatus == null || p.chequeStatus === "CLEARED") ? toNum(p.amount) - toNum(p.interestAmount) : 0), 0);
   const balanceDue = total - totalPaid;
 
   const assetLabel = sale.assetType === "LAND"

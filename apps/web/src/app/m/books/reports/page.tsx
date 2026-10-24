@@ -42,7 +42,7 @@ async function MobileReportsContent() {
     }),
     prisma.assetSale.findMany({
       where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
-      select: { salePrice: true, payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } } },
+      select: { salePrice: true, payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true, interestAmount: true } } },
     }),
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id, status: { in: ["RECEIVED", "PARTIAL", "ORDERED"] } },
@@ -66,7 +66,7 @@ async function MobileReportsContent() {
   ]);
 
   const inventoryValue = stockItems.reduce((s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost), 0);
-  const salesRevenue = sales.reduce((s, sale) => s + sale.payments.reduce((ps, p) => ps + toNum(p.amount), 0), 0);
+  const salesRevenue = sales.reduce((s, sale) => s + sale.payments.reduce((ps, p) => ps + toNum(p.amount) - toNum(p.interestAmount), 0), 0);
   const salesBooked = sales.reduce((s, sale) => s + toNum(sale.salePrice), 0);
   const purchaseSpend = purchaseOrders.reduce((s, p) => s + toNum(p.total), 0);
   const totalReceived = pendingPayments.reduce((s, p) => s + toNum(p.amount), 0);

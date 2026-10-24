@@ -18,7 +18,7 @@ import {
   DetailKeyValueCard,
 } from "@/components/mobile/v2/detail-primitives";
 
-type AssetPaymentSummary = { id: string; paymentDate: Date; mode: string; reference: string | null; amount: unknown; status: string; chequeStatus: string | null };
+type AssetPaymentSummary = { id: string; paymentDate: Date; mode: string; reference: string | null; amount: unknown; interestAmount?: unknown; status: string; chequeStatus: string | null };
 type MaterialPaymentSummary = { id: string; paymentDate: Date; paymentMode: string; referenceNo: string | null; amount: unknown; status: string; direction: string; chequeStatus: string | null };
 
 /**
@@ -129,7 +129,7 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
   const gstRate = toNum(sale.gstRate);
   const gstAmount = toNum(sale.gstAmount);
   const total = salePrice + gstAmount;
-  const totalPaid = (sale.payments ?? []).reduce((s, p: AssetPaymentSummary) => s + (p.status !== "VOID" && (p.chequeStatus == null || p.chequeStatus === "CLEARED") ? toNum(p.amount) : 0), 0);
+  const totalPaid = (sale.payments ?? []).reduce((s, p: AssetPaymentSummary) => s + (p.status !== "VOID" && (p.chequeStatus == null || p.chequeStatus === "CLEARED") ? toNum(p.amount) - toNum(p.interestAmount) : 0), 0);
   const balanceDue = total - totalPaid;
   const pctPaid = total > 0 ? Math.min(100, (totalPaid / total) * 100) : 0;
 

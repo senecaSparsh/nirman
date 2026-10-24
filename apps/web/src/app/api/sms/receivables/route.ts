@@ -27,7 +27,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
         salePrice: true,
         gstAmount: true,
         customer: { select: { name: true } },
-        payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } },
+        payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true, interestAmount: true } },
       },
     }),
     prisma.materialSale.findMany({
@@ -62,7 +62,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
 
   for (const s of assetSales) {
     const total = toNum(s.salePrice) + toNum(s.gstAmount);
-    const paid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+    const paid = s.payments.reduce((sum, p) => sum + toNum(p.amount) - toNum(p.interestAmount), 0);
     const due = Math.max(0, total - paid);
     if (due <= 0) continue;
     items.push({

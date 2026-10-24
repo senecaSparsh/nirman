@@ -291,7 +291,7 @@ async function RealEstateCustomersTab() {
         assetSales: {
           where: { companyId: company.id, status: "ACTIVE" },
           select: { salePrice: true, gstAmount: true, paymentStatus: true,
-            payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } } }},
+            payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true, interestAmount: true } } }},
         materialSales: {
           where: { companyId: company.id, status: "ACTIVE" },
           select: { totalAmount: true, paymentStatus: true,
@@ -322,7 +322,7 @@ async function RealEstateCustomersTab() {
       for (const s of c.assetSales) {
         if (s.paymentStatus === "PENDING" || s.paymentStatus === "PARTIAL") {
           const total = toNum(s.salePrice) + toNum(s.gstAmount);
-          const received = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+          const received = s.payments.reduce((sum, p) => sum + toNum(p.amount) - toNum(p.interestAmount), 0);
           customerOutstanding += Math.max(0, total - received);
         }
       }
@@ -358,7 +358,7 @@ async function RealEstateCustomersTab() {
         assetSales.reduce((s, a) => s + toNum(a.salePrice) + toNum(a.gstAmount), 0) +
         materialSales.reduce((s, m) => s + toNum(m.totalAmount), 0);
       const totalPaid =
-        assetSales.reduce((s, a) => s + a.payments.reduce((ps, p) => ps + toNum(p.amount), 0), 0) +
+        assetSales.reduce((s, a) => s + a.payments.reduce((ps, p) => ps + toNum(p.amount) - toNum(p.interestAmount), 0), 0) +
         materialSales.reduce((s, m) => s + m.payments.reduce((ps, p) => ps + toNum(p.amount), 0), 0);
       const outstanding = totalValue - totalPaid;
       const dueCount = allSales.filter((x) => x.paymentStatus !== "PAID").length;

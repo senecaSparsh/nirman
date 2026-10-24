@@ -45,7 +45,7 @@ async function SalesRevenueContent() {
         customer: { select: { name: true } },
         project: { select: { id: true, name: true } },
         builtUnit: { select: { unitType: true } },
-        payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true, paymentDate: true } },
+        payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true, interestAmount: true, paymentDate: true } },
       },
       orderBy: { saleDate: "asc" },
     }),
@@ -59,7 +59,7 @@ async function SalesRevenueContent() {
 
   // Build sale records for client-side filtering
   const saleRecords: SaleRecord[] = sales.map((s) => {
-    const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+    const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount) - toNum(p.interestAmount), 0);
     return {
       id: s.id,
       saleNumber: s.saleNumber,

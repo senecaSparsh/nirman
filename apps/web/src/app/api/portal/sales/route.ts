@@ -28,7 +28,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
 
     return NextResponse.json({
       sales: sales.map((s) => {
-        const totalPaid = s.payments.reduce((sum, p) => sum + (p.status === "VOID" || p.chequeStatus === "PENDING" || p.chequeStatus === "BOUNCED" ? 0 : toNum(p.amount)), 0);
+        const totalPaid = s.payments.reduce((sum, p) => sum + (p.status === "VOID" || p.chequeStatus === "PENDING" || p.chequeStatus === "BOUNCED" ? 0 : toNum(p.amount) - toNum(p.interestAmount)), 0);
         const totalAmount = toNum(s.salePrice) + toNum(s.gstAmount);
         return {
           id: s.id,
