@@ -2808,3 +2808,24 @@ Round 111 — DPR IA migration: /hr/dprs → /dprs under Build > Construct
 - Search: desktop DPR results now carry ?id=<dpr> (was dropped).
 - ?project=<id> wired into the DPR list (project-hub links were ignored).
 - Verified live: /hr/dprs 308→/dprs, /hr/dprs/x 308→/dprs?id=x, page 200.
+
+Round 112 — 26AS bulk import (TDS receivable reconciliation)
+
+- Finance > Statutory payments > 194-IA section > "Import 26AS": paste
+  the Part-A TDS table from the income-tax portal / AIS / an Excel
+  copy. lib/form26as parses tolerant tabular text — section code +
+  positional trailing amounts (deposited/deducted/paid), dd-mm-yyyy /
+  dd-MMM-yyyy / dd/mm/yyyy dates, "Name/TAN of deductor" block headers
+  inherited per row.
+- POST /api/tds-reconciliation/preview matches each credit row against
+  unreconciled AssetSale.tdsAmount (194-IA) and MaterialSalePayment.
+  tdsAmount (buyer-side 194C/194Q) by deposited value ±₹1. Unique hit
+  → auto-match; same-amount collision → ambiguous list for radio pick;
+  no hit → reported as "no book match".
+- POST /api/tds-reconciliation/apply stamps tdsReconciledAt in one tx;
+  updateMany guard on tdsReconciledAt:null makes re-apply idempotent.
+- Schema: MaterialSalePayment.tdsReconciledAt (migration applied to
+  dev + test DBs). Flag-only like AssetSale's — the receivable stays a
+  tax asset until the ITR adjustment entry; no GL leg on reconcile.
+- Verified live: ₹32k unique auto-match, ₹50k 4-way ambiguous,
+  ₹24k unmatched, apply set both flags (applied:2), re-apply applied:0.
