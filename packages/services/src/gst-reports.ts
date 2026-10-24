@@ -501,7 +501,11 @@ export async function generateGstr3b(
   const outReturnGstinById = new Map(outReturns.map((r) => [r.id, r.customer?.gstin ?? null]));
 
   for (const gl of outputGstLines) {
-    const gstAmount = new Decimal(gl.credit).minus(gl.debit); // CNs net against output tax
+    // CNs net against output tax — but a STATUTORY_PAYMENT debit is the
+    // challan remittance draining the payable, not a reduced supply. It
+    // must not net against the period's output liability.
+    if (gl.journalEntry.sourceType === "STATUTORY_PAYMENT") continue;
+    const gstAmount = new Decimal(gl.credit).minus(gl.debit);
     if (gstAmount.isZero()) continue;
     outwardOutputGst = outwardOutputGst.plus(gstAmount);
 
@@ -619,7 +623,10 @@ export async function generateGstr3b(
   });
   const inwardTaxableValue = new Decimal(purchaseInventoryLines._sum?.debit ?? 0);
 
-  // ITC reversed (credited back) — from supplier returns, cancellations
+  // ITC reversed (credited back) — from supplier returns, cancellations.
+  // A STATUTORY_PAYMENT credit is the ITC-utilisation leg of the monthly
+  // challan (Dr 2100 / Cr 1400 / Cr Bank) — that's ITC *used*, not
+  // reversed, and must not deflate net ITC.
   const itcReversedLines = await prisma.journalLine.aggregate({
     where: {
       accountId: inputGstId3b!,
@@ -627,6 +634,7 @@ export async function generateGstr3b(
       journalEntry: {
         companyId,
         entryDate: { gte: fromDate, lte: toDate },
+        sourceType: { not: "STATUTORY_PAYMENT" },
       },
     },
     _sum: { credit: true },
