@@ -137,7 +137,7 @@ export default async function EmployeeIdCardPage({
                         {employeeName.charAt(0).toUpperCase()}
                       </span>
                     </div>
-                    <p className="text-[5px] text-gray-500">PHOTO</p>
+                    <p className="text-[5px] text-gray-600">PHOTO</p>
                   </div>
                 )}
               </div>
@@ -324,7 +324,7 @@ export default async function EmployeeIdCardPage({
             {/* ── Footer ── */}
             <div
               className="absolute bottom-0 left-0 right-0 px-2 py-0.5 text-center"
-              style={{ backgroundColor: "#0f172a", color: "#64748b" }}
+              style={{ backgroundColor: "#0f172a", color: "#a8b6c6" }}
             >
               <p className="text-[5px]">
                 If found, please return to: {companyDetails?.name ?? company.name}
@@ -336,12 +336,12 @@ export default async function EmployeeIdCardPage({
       </div>
 
       {/* ── Screen-only instructions ── */}
-      <div className="mx-auto mt-4 max-w-2xl text-center text-sm text-gray-600 print:hidden">
+      <aside className="mx-auto mt-4 max-w-2xl text-center text-sm text-gray-600 print:hidden">
         <p>
           Print on 85mm × 54mm card stock (standard ID card size). Use the print button above,
           then cut along the card borders and laminate.
         </p>
-      </div>
+      </aside>
     </>
   );
 }

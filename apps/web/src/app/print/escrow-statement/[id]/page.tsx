@@ -72,9 +72,9 @@ export default async function EscrowStatementPage({
     ? `${formatDate(fromDate)} → ${formatDate(toDate)}`
     : "All recorded periods";
 
-  return (
-    <div className="mx-auto max-w-3xl bg-white p-8 text-black print:p-0">
-      <PrintToolbar />
+  return (<>
+      <PrintToolbar title="RERA Escrow Statement" />
+    <main><div className="print-page mx-auto max-w-3xl bg-white p-8 text-black print:p-0">
       <PrintHeader company={company} title="RERA Escrow Statement" docNumber={`ESC-${project.name} — ${periodLabel}`} date={new Date()} />
 
       <div className="mt-4 text-sm">
@@ -86,7 +86,7 @@ export default async function EscrowStatementPage({
         </div>
       </div>
 
-      <h3 className="mt-5 border-b border-black pb-1 text-xs font-bold uppercase">Collections received in the period</h3>
+      <h2 className="mt-5 border-b border-black pb-1 text-xs font-bold uppercase">Collections received in the period</h2>
       <table className="mt-2 w-full text-sm">
         <thead>
           <tr className="border-b border-gray-300 text-left text-xs uppercase text-gray-500">
@@ -113,7 +113,7 @@ export default async function EscrowStatementPage({
         </tfoot>
       </table>
 
-      <h3 className="mt-5 border-b border-black pb-1 text-xs font-bold uppercase">Certified withdrawals</h3>
+      <h2 className="mt-5 border-b border-black pb-1 text-xs font-bold uppercase">Certified withdrawals</h2>
       <table className="mt-2 w-full text-sm">
         <thead>
           <tr className="border-b border-gray-300 text-left text-xs uppercase text-gray-500">
@@ -153,6 +153,6 @@ export default async function EscrowStatementPage({
         RERA Escrow against this project&apos;s designated account. The 70% hold is computed on
         cleared allottee collections; interest legs are excluded as income, not consideration.
       </p>
-    </div>
-  );
+    </div></main>
+  </>);
 }
