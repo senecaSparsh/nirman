@@ -2399,3 +2399,39 @@ extraction + collect-then-apply-back-to-front is the correct pattern.
 re-running on a fresh :3100 (earlier run died on the known dev-only
 Turbopack mass-compile wedge — ~350-file diff invalidated every
 mobile chunk). Desktop smoke: 100+ routes + role-scoping all green.
+
+---
+
+## Round 99 — Artifact-verified sweeps + deploy-pipeline fixes
+
+**Verification method upgrade:** e2e on dev is untenable after a
+~500-file diff (each route needs ~2.2m Turbopack compiles vs the 120s
+test timeout). Sweeps now run against the **local production build**
+(`next build --webpack` + `next start` on :3400, real creds sign-in) —
+~3s/route vs 40s+, and it validates the exact bytes that ship. The
+e2e mobile spec stays as a future CI target once the cache is warm.
+
+**Results on the built artifact (bc9f5406):**
+
+- 135 mobile routes: 0 console errors, 0 page-errors, 0 5xx; 5
+  signal-as-text contrast sites (fixed)
+- 74 desktop routes: clean except profit-center h3→h2 (fixed)
+- 10 print routes: escrow + 8 pages missed in the earlier landmark
+  pass — all wrapped `<main>` + toolbar-outside + h2 sections;
+  ID-card dark-band text #64748b→#a8b6c6, PHOTO gray-500→600,
+  instructions `<aside>` (fixed)
+- Custom rules `require-accessible-input` + `require-accessible-select`:
+  0 violations repo-wide
+
+**Deploy pipeline failure found + fixed:** the 18:10 deploy failed
+with `no space left on device` — the VPS disk hit 95% after months of
+accumulated images (17.8GB) + build cache (13.3GB). `deploy-prod.sh`
+now checks `df -m /` and prunes when <4GB free before triggering.
+Also discovered: Coolify auto-deploy-on-push is **not firing** —
+deploys need manual triggers via the script.
+
+**Bad evidence caught (scanner discipline):** `s.find('>')` truncates
+JSX tags at `=>` inside `onClick={(e) =>` — produced 184 phantom
+"untyped button" hits (real: 0) and a runaway offset-stale write
+(+62k lines, reverted). Depth-aware extraction + collect-then-apply-
+back-to-front is now the pattern for every codemod.
