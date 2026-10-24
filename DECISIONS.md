@@ -2545,3 +2545,12 @@ pending-payments + sales-revenue reports, printed invoice, receipts
 detail. ~20 sites. Verified on the demand-notice flow live: a ₹37.5L
 installment 2 days overdue demanded ₹2,188.36 MCLR+2% interest — that leg
 no longer inflates "collected". Shipped in `3d580b59`.
+
+Round 102 addendum 2 — 26AS recon flag shipped: `AssetSale.tdsReconciledAt`
+(migration `20261024000000`), editable via `updateSale`, surfaced as a
+26AS column in the finance 194-IA tracker ("Mark matched" → matched-date
+badge; finance-manage gated). Verified live: PATCH persists + tracker
+shows the matched badge alongside the re-derived ₹65K TDS on
+`SAL-20261024-0001`. Remaining Collect gap: bulk 26AS/AIS statement
+import + auto-match (the flag is the data hook it would write).
+Shipped in `839af1ea`.
