@@ -100,13 +100,17 @@ export const GET = apiHandler(async (req: NextRequest) => {
     });
     if (!wo) return json({ error: "Work order not found" }, { status: 404 });
 
-    // Fetch unbilled approved MB entries for all BOQ items in this WO
+    // Fetch unbilled approved MB entries for all BOQ items in this WO.
+    // Entries attributed to a different work order are another
+    // subcontractor's measured work — the create path rejects them, so the
+    // preview must not offer them either.
     const boqItemIds = wo.lines.map((l) => l.boqItem.id);
     const unbilledEntries = await prisma.measurementBookEntry.findMany({
       where: {
         boqItemId: { in: boqItemIds },
         status: "APPROVED",
         raBillLineId: null,
+        OR: [{ workOrderId: null }, { workOrderId }],
         ...await scopeWhere("MeasurementBookEntry"),
       },
       orderBy: { measureDate: "asc" },

@@ -1032,9 +1032,56 @@ function RaBillDialog({
     open && workOrderId ? `/api/ra-bills?preview=unbilled&workOrderId=${workOrderId}` : null,
   );
 
+  // Per-entry picker — default everything selected (same sweep behaviour as
+  // before), let the PM deliberately exclude entries (e.g. disputed
+  // measurements) for a later bill.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!preview) return;
+    setSelectedIds(new Set(preview.lines.flatMap((l) => l.unbilledEntries.map((e) => e.id))));
+  }, [preview]);
+
   const totalUnbilledEntries = preview?.lines.reduce((s, l) => s + l.unbilledEntries.length, 0) ?? 0;
   const hasUnbilled = totalUnbilledEntries > 0;
-  const estNet = preview ? preview.summary.estimatedGross - preview.summary.estimatedRetention - preview.summary.estimatedTds - preview.summary.estimatedAdvanceRecovery : 0;
+
+  // Selected-subset math mirrors createRaBill: deductions are percentages of
+  // the selected gross; advance recovery is capped at the preview's estimate
+  // (outstanding advance doesn't grow when you bill less).
+  const selectedGross = preview
+    ? preview.lines.reduce(
+        (s, l) =>
+          s + l.unbilledEntries.filter((e) => selectedIds.has(e.id)).reduce((t, e) => t + e.measuredQty * l.agreedRate, 0),
+        0,
+      )
+    : 0;
+  const fullGross = preview?.summary.estimatedGross ?? 0;
+  const scale = fullGross > 0 ? selectedGross / fullGross : 0;
+  const estRetention = (preview?.summary.estimatedRetention ?? 0) * scale;
+  const estTds = (preview?.summary.estimatedTds ?? 0) * scale;
+  const estAdvanceRecovery = Math.min(
+    (preview?.summary.estimatedAdvanceRecovery ?? 0),
+    selectedGross * ((preview?.advanceRecoveryPct ?? 0) / 100),
+  );
+  const estNet = selectedGross - estRetention - estTds - estAdvanceRecovery;
+  const noneSelected = selectedIds.size === 0;
+
+  function toggleEntry(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (!preview) return;
+    setSelectedIds((prev) =>
+      prev.size === totalUnbilledEntries
+        ? new Set()
+        : new Set(preview.lines.flatMap((l) => l.unbilledEntries.map((e) => e.id))),
+    );
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1044,6 +1091,10 @@ function RaBillDialog({
     }
     if (new Date(periodFrom) > new Date(periodTo)) {
       toast.error("Period 'From' date cannot be after 'To' date");
+      return;
+    }
+    if (selectedIds.size === 0) {
+      toast.error("Select at least one MB entry to bill");
       return;
     }
     setSaving(true);
@@ -1056,6 +1107,7 @@ function RaBillDialog({
           periodFrom: new Date(periodFrom).toISOString(),
           periodTo: new Date(periodTo).toISOString(),
           notes: notes || undefined,
+          mbEntryIds: [...selectedIds],
           autoSubmit: true,
         }),
       });
@@ -1109,12 +1161,21 @@ function RaBillDialog({
           hasUnbilled ? (
             <div className="space-y-2">
               <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                Available Unbilled MB Entries ({totalUnbilledEntries})
+                Unbilled MB Entries — {selectedIds.size} of {totalUnbilledEntries} selected
               </div>
               <div className="rounded-md border border-border overflow-hidden">
                 <table className="w-full text-xs">
                   <thead className="bg-muted/40 text-[10px] uppercase text-muted-foreground">
                     <tr>
+                      <th className="px-2 py-1.5 w-6">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all entries"
+                          checked={selectedIds.size === totalUnbilledEntries && totalUnbilledEntries > 0}
+                          onChange={toggleAll}
+                          className="accent-primary"
+                        />
+                      </th>
                       <th className="px-2 py-1.5 text-left">BOQ Item</th>
                       <th className="px-2 py-1.5 text-left">MB No.</th>
                       <th className="px-2 py-1.5 text-right">Qty</th>
@@ -1125,7 +1186,16 @@ function RaBillDialog({
                   <tbody>
                     {preview.lines.filter((l) => l.unbilledEntries.length > 0).map((l) =>
                       l.unbilledEntries.map((e, i) => (
-                        <tr key={`${l.boqItemId}-${e.id}`} className="border-t border-border/30">
+                        <tr key={`${l.boqItemId}-${e.id}`} className={`border-t border-border/30 ${selectedIds.has(e.id) ? "" : "opacity-45"}`}>
+                          <td className="px-2 py-1.5">
+                            <input
+                              type="checkbox"
+                              aria-label={`Include ${e.mbNumber}`}
+                              checked={selectedIds.has(e.id)}
+                              onChange={() => toggleEntry(e.id)}
+                              className="accent-primary"
+                            />
+                          </td>
                           {i === 0 ? (
                             <td className="px-2 py-1.5" rowSpan={l.unbilledEntries.length}>
                               <div className="font-mono text-[10px] text-muted-foreground">{l.serialNo}</div>
@@ -1142,8 +1212,8 @@ function RaBillDialog({
                   </tbody>
                   <tfoot className="border-t border-border bg-muted/20">
                     <tr>
-                      <td className="px-2 py-1.5 font-medium" colSpan={4}>Estimated Gross</td>
-                      <td className="px-2 py-1.5 text-right tabular-nums font-bold">{formatCurrency(preview.summary.estimatedGross)}</td>
+                      <td className="px-2 py-1.5 font-medium" colSpan={5}>Estimated Gross (selected)</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums font-bold">{formatCurrency(selectedGross)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1153,16 +1223,16 @@ function RaBillDialog({
               <div className="rounded-md bg-muted/30 p-3 text-xs space-y-1">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Retention ({preview.retentionPct}%)</span>
-                  <span className="tabular-nums text-warning">−{formatCurrency(preview.summary.estimatedRetention)}</span>
+                  <span className="tabular-nums text-warning">−{formatCurrency(estRetention)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">TDS ({preview.tdsPct}%)</span>
-                  <span className="tabular-nums text-red-600">−{formatCurrency(preview.summary.estimatedTds)}</span>
+                  <span className="tabular-nums text-red-600">−{formatCurrency(estTds)}</span>
                 </div>
-                {preview.summary.estimatedAdvanceRecovery > 0 && (
+                {estAdvanceRecovery > 0 && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Advance recovery ({preview.advanceRecoveryPct}%)</span>
-                    <span className="tabular-nums text-red-600">−{formatCurrency(preview.summary.estimatedAdvanceRecovery)}</span>
+                    <span className="tabular-nums text-red-600">−{formatCurrency(estAdvanceRecovery)}</span>
                   </div>
                 )}
                 <div className="flex justify-between border-t border-border/50 pt-1">
@@ -1187,8 +1257,8 @@ function RaBillDialog({
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="submit" disabled={saving || !hasUnbilled}>
-            {saving ? "Creating…" : hasUnbilled ? "Create & Submit" : "No entries to bill"}
+          <Button type="submit" disabled={saving || !hasUnbilled || noneSelected}>
+            {saving ? "Creating…" : !hasUnbilled ? "No entries to bill" : noneSelected ? "Select entries" : `Create & Submit (${selectedIds.size})`}
           </Button>
         </div>
       </form>
