@@ -245,6 +245,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       bbaDate: parsed.data.bbaDate ?? undefined,
       // TDS tracking
       tdsAmount: parsed.data.tdsAmount ?? undefined,
+      stampDutyValue: parsed.data.stampDutyValue ?? undefined,
       tdsCertificateNo: parsed.data.tdsCertificateNo ?? undefined,
       // Home loan tracking
       homeLoanBank: parsed.data.homeLoanBank ?? undefined,

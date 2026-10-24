@@ -87,8 +87,9 @@ export async function recordStatutoryPayment(input: {
   return withSerializableTransaction(async (tx) => {
     // A statutory challan is real money to the government — a double-submit
     // posts a second JE with no natural duplicate key. Same kind + amount +
-    // actor within 15s is a retry, not a second payment.
-    const recentDupe = await tx.statutoryPayment.findFirst({
+    // actor within 15s is a retry, not a second payment. Challans carrying
+    // a reference number skip the window — each challan is unique.
+    const recentDupe = input.referenceNo ? null : await tx.statutoryPayment.findFirst({
       where: {
         companyId: input.companyId,
         kind: input.kind,

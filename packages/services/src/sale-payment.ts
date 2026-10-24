@@ -124,8 +124,9 @@ export async function createMaterialSalePayment(input: {
 
     // Double-submit guard — same sale + amount + mode + actor within 15s
     // is a retried submit, not a genuinely separate collection (the UTR
-    // dedup above only fires when a reference was provided).
-    const recentDupe = await tx.materialSalePayment.findFirst({
+    // dedup above only fires when a reference was provided — identified
+    // payments skip this blind window).
+    const recentDupe = input.referenceNo || input.chequeNo ? null : await tx.materialSalePayment.findFirst({
       where: {
         saleId: input.saleId,
         amount: new Decimal(input.amount),

@@ -937,8 +937,10 @@ export async function recordDeposit(input: RecordDepositInput) {
     // Double-submit guard — a cash/NEFT payment carries no unique
     // reference, so the same UI double-click would post a duplicate JE.
     // Same sale + amount + mode + actor within 15s is almost always a
-    // retry, not a genuinely separate collection.
-    const recentDupe = await tx.assetSalePayment.findFirst({
+    // retry, not a genuinely separate collection. Payments carrying a
+    // reference/chequeNo are already covered by the dedup guards above —
+    // two distinct same-amount cheques must not false-positive here.
+    const recentDupe = input.reference || input.chequeNo ? null : await tx.assetSalePayment.findFirst({
       where: {
         assetSaleId: sale.id,
         amount: new Decimal(input.depositAmount),
@@ -1893,6 +1895,24 @@ export async function updateSale(input: UpdateSaleInput) {
     if (input.bbaDate !== undefined) data.bbaDate = input.bbaDate ? new Date(input.bbaDate) : null;
     if (input.tdsAmount !== undefined) data.tdsAmount = input.tdsAmount != null ? new Decimal(input.tdsAmount) : null;
     if (input.stampDutyValue !== undefined) data.stampDutyValue = input.stampDutyValue != null ? new Decimal(input.stampDutyValue) : null;
+    // 194-IA re-derivation: when the circle-rate base changes without an
+    // explicit tdsAmount, recompute — but only if the stored figure was
+    // itself auto-derived (equals the prior auto value, or unset). A
+    // manually-entered tdsAmount reflects what the buyer actually deducted
+    // and must not be silently overwritten.
+    if (input.stampDutyValue !== undefined && input.tdsAmount === undefined) {
+      const priorAuto = computePropertyTds(sale.salePrice, null, sale.stampDutyValue);
+      const priorAutoNoSdv = computePropertyTds(sale.salePrice, null, null);
+      const wasAuto =
+        sale.tdsAmount == null ||
+        (priorAuto != null && new Decimal(sale.tdsAmount).eq(priorAuto)) ||
+        (priorAutoNoSdv != null && new Decimal(sale.tdsAmount).eq(priorAutoNoSdv));
+      if (wasAuto) {
+        const effPrice = input.salePrice != null ? new Decimal(input.salePrice) : sale.salePrice;
+        const newSdv = input.stampDutyValue != null ? new Decimal(input.stampDutyValue) : null;
+        data.tdsAmount = computePropertyTds(effPrice, null, newSdv);
+      }
+    }
     if (input.tdsCertificateNo !== undefined) data.tdsCertificateNo = input.tdsCertificateNo ?? null;
     if (input.homeLoanBank !== undefined) data.homeLoanBank = input.homeLoanBank ?? null;
     if (input.homeLoanAmount !== undefined) data.homeLoanAmount = input.homeLoanAmount != null ? new Decimal(input.homeLoanAmount) : null;

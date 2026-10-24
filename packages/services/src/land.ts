@@ -905,7 +905,9 @@ export async function recordLandPurchasePayment(input: RecordLandPurchasePayment
     // Double-submit guard — a cash/NEFT payment carries no reference, so a
     // UI double-click would post a duplicate JE. Same purchase + amount +
     // mode + actor within 15s is a retry, not a second collection.
-    const recentDupe = await tx.landPurchasePayment.findFirst({
+    // Identified payments (referenceNo/chequeNo) skip the window — the
+    // dedup guards below already cover them.
+    const recentDupe = input.referenceNo || input.chequeNo ? null : await tx.landPurchasePayment.findFirst({
       where: {
         landPurchaseId: lp.id,
         amount: new Decimal(input.amount),

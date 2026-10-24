@@ -287,10 +287,60 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
       recordDeposit({ saleId: sale.id, depositAmount: new Decimal(1), userId: user.id }),
     ).rejects.toThrow(/RERA Section 13/);
 
-    // Document the agreement → cap lifts.
+    // Document the agreement → cap lifts. (Distinct amount — an identical
+    // repeat within 15s is correctly refused by the double-submit guard.)
     await prisma.assetSale.update({ where: { id: sale.id }, data: { atsDate: new Date("2026-10-01") } });
-    const result = await recordDeposit({ saleId: sale.id, depositAmount: new Decimal(500000), userId: user.id });
+    const result = await recordDeposit({ saleId: sale.id, depositAmount: new Decimal(400000), userId: user.id });
     expect(result.saleStage).toBe("DEPOSIT_RECEIVED");
+  });
+
+  it("updateSale re-derives 194-IA TDS when the stamp-duty value changes — unless it was manually set", async () => {
+    const { company } = await setup();
+    const customer = await createCustomer(company.id);
+    const unit = await createBuiltUnit("test-project");
+
+    const { sellAsset, updateSale } = await import("../sale");
+    const sale = await sellAsset({
+      assetType: "BUILT_UNIT",
+      builtUnitId: unit.id,
+      companyId: company.id,
+      customerId: customer.id,
+      salePrice: new Decimal(6000000),
+    });
+    // Auto-derived at create: 1% of ₹60L.
+    let row = await prisma.assetSale.findUniqueOrThrow({ where: { id: sale.id } });
+    expect(row.tdsAmount?.toNumber()).toBe(60000);
+
+    // Circle rate above consideration → TDS moves to 1% of ₹65L.
+    await updateSale({ saleId: sale.id, stampDutyValue: new Decimal(6500000) });
+    row = await prisma.assetSale.findUniqueOrThrow({ where: { id: sale.id } });
+    expect(row.tdsAmount?.toNumber()).toBe(65000);
+
+    // Buyer actually deducted a different figure → manual override sticks.
+    await updateSale({ saleId: sale.id, tdsAmount: new Decimal(50000) });
+    await updateSale({ saleId: sale.id, stampDutyValue: new Decimal(7000000) });
+    row = await prisma.assetSale.findUniqueOrThrow({ where: { id: sale.id } });
+    expect(row.tdsAmount?.toNumber()).toBe(50000);
+
+    // Legacy row shape: SDV persisted but tdsAmount still reflects the
+    // price-only auto value (pre-fix creates dropped stampDutyValue).
+    // A later SDV edit must still recompute.
+    await prisma.builtUnit.update({ where: { id: unit.id }, data: { unitNumber: "A-101X" } });
+    const unit2 = await createBuiltUnit("test-project");
+    const sale2 = await sellAsset({
+      assetType: "BUILT_UNIT",
+      builtUnitId: unit2.id,
+      companyId: company.id,
+      customerId: customer.id,
+      salePrice: new Decimal(6000000),
+    });
+    await prisma.assetSale.update({
+      where: { id: sale2.id },
+      data: { stampDutyValue: new Decimal(6500000), tdsAmount: new Decimal(60000) },
+    });
+    await updateSale({ saleId: sale2.id, stampDutyValue: new Decimal(6600000) });
+    row = await prisma.assetSale.findUniqueOrThrow({ where: { id: sale2.id } });
+    expect(row.tdsAmount?.toNumber()).toBe(66000);
   });
 
   it("sellAsset rejects a booking advance over 10% without an agreement date", async () => {

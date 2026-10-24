@@ -54,14 +54,19 @@ export function PaymentDialog({
     if (isCheque && !cheque.chequeNo.trim()) { toast.error("Cheque number is required for cheque payments"); return; }
     setSaving(true);
     try {
+      // Pre-completion receipts are deposits (unearned-revenue liability) —
+      // recordPayment only accepts post-completion sales. Same money fields,
+      // different action + field names on the server schema.
+      const isPreCompletion = sale!.saleStage !== "COMPLETED";
       const res = await fetch(`/api/sales/${sale!.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: amountNum,
-          mode: form.mode,
+          ...(isPreCompletion
+            ? { action: "deposit", depositAmount: amountNum, paymentMode: form.mode }
+            : { amount: amountNum, mode: form.mode }),
           reference: form.reference.trim() || null,
-          ...(interestNum > 0 ? { interestAmount: interestNum } : {}),
+          ...(!isPreCompletion && interestNum > 0 ? { interestAmount: interestNum } : {}),
           ...(isCheque ? {
             chequeNo: cheque.chequeNo.trim() || null,
             chequeDate: cheque.chequeDate || null,

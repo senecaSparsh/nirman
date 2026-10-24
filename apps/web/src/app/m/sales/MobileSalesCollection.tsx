@@ -260,12 +260,16 @@ function OutstandingCard({
 
     setSubmitting(true);
     try {
+      // Pre-completion receipts are deposits (unearned-revenue liability);
+      // the generic payment action rejects non-completed sales.
+      const isPreCompletion = sale.saleStage !== "COMPLETED";
       const res = await fetch(`/api/sales/${sale.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: amt,
-          mode,
+          ...(isPreCompletion
+            ? { action: "deposit", depositAmount: amt, paymentMode: mode }
+            : { amount: amt, mode }),
           reference: reference || undefined,
           ...(mode === "CHEQUE" ? {
             chequeNo: cheque.chequeNo.trim() || undefined,

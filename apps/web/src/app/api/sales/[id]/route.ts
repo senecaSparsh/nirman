@@ -318,7 +318,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       revalidatePath(`/sales/${id}`);
       revalidatePath(`/m/sales/${id}`);
       revalidatePath("/finance");
-      return json({ ok: true, saleStage: result.saleStage, paymentStatus: result.paymentStatus }, { status: 201 });
+      return json({ ok: true, saleStage: result.saleStage, paymentStatus: result.paymentStatus, paymentId: result.payment?.id }, { status: 201 });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Deposit failed") }, { status: 400 });
     }
@@ -346,6 +346,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         bbaNo: parsed.data.bbaNo ?? undefined,
         bbaDate: parsed.data.bbaDate ?? undefined,
         tdsAmount: parsed.data.tdsAmount ?? undefined,
+        stampDutyValue: parsed.data.stampDutyValue ?? undefined,
         tdsCertificateNo: parsed.data.tdsCertificateNo ?? undefined,
         // Home loan details — often finalized at completion
         homeLoanBank: parsed.data.homeLoanBank ?? undefined,

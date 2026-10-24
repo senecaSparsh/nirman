@@ -370,7 +370,22 @@ export function MobileSaleDetailClient({
         : await fetch(`/api/sales/${saleId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify(
+          saleStage !== "COMPLETED"
+          ? {
+            // pre-completion receipt → deposit liability, not revenue
+            action: "deposit",
+            depositAmount: amount,
+            paymentMode: payMode,
+            reference: payRef || undefined,
+            ...(payMode === "CHEQUE" ? {
+              chequeNo: payCheque.chequeNo.trim() || undefined,
+              chequeDate: payCheque.chequeDate || undefined,
+              chequeBank: payCheque.chequeBank.trim() || undefined,
+              chequePhotoUrl: payCheque.chequePhotoUrl || undefined,
+            } : {}),
+          }
+          : {
           action: "payment",
           amount,
           mode: payMode,
