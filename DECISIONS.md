@@ -2848,3 +2848,22 @@ Round 113 — Comply pillar audit: GSTR-3B remittance-netting bug
   for immovable property is the property's state (IGST Act §12(3)(a)),
   not the buyer's GSTIN. Needs a Project.state field before B2C flat
   sales can split CGST+SGST; conservative IGST until then.
+
+Round 114 — GST place of supply: immovable-property sales by project state
+
+- Closes the open item from Round 113. IGST Act s12(3): the place of supply
+  for immovable property is the property's location — not the buyer's GSTIN
+  (often absent: individual homebuyers are unregistered). Before this, every
+  B2C unit sale classified as IGST even when the property sat in the
+  company's own state — over-declaring IGST and mis-filing CGST/SGST.
+- `Project.state` (2-digit GST code): schema + migration `20261024180000`,
+  Zod (`^\d{2}$`), project form select fed by shared `INDIAN_STATES`,
+  edit-initial wiring so re-opens keep the value.
+- `splitGst` gains a `partyStateCode` override — both GSTR-1 and GSTR-3B
+  resolve `assetSale.project.state` for ASSET_SALE sources only. Material
+  sales, returns, and purchase-side ITC keep GSTIN classification.
+  Missing/invalid state falls back to the existing GSTIN rule (conservative
+  IGST); missing company GSTIN also stays IGST.
+- Verified against real journal data: SRG REALCON's ₹275,000 output GST on
+  a Maharashtra project with a no-GSTIN buyer now splits CGST ₹137,500 +
+  SGST ₹137,500 (was IGST ₹275,000). +4 unit tests in gst-split.test.ts.
