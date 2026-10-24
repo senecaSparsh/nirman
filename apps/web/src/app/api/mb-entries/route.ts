@@ -11,6 +11,7 @@ const schema = z.object({
   phaseId: z.string().optional().nullable(),
   boqItemId: z.string().min(1),
   wbsNodeId: z.string().optional().nullable(),
+  workOrderId: z.string().optional().nullable(),
   measuredQty: z.coerce.number().min(0.001),
   description: z.string().min(1),
   locationRef: z.string().optional().nullable(),
@@ -35,6 +36,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       phaseId: d.phaseId ?? undefined,
       boqItemId: d.boqItemId,
       wbsNodeId: d.wbsNodeId ?? undefined,
+      workOrderId: d.workOrderId ?? undefined,
       measuredQty: d.measuredQty,
       description: d.description,
       locationRef: d.locationRef ?? undefined,
@@ -75,6 +77,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     include: {
       boqItem: { select: { id: true, serialNo: true, description: true, unit: true, rate: true } },
       wbsNode: { select: { id: true, code: true, name: true } },
+      workOrder: { select: { id: true, workOrderNumber: true, workTitle: true } },
       measuredBy: { select: { id: true, name: true } },
       verifiedBy: { select: { id: true, name: true } },
       approvedBy: { select: { id: true, name: true } },

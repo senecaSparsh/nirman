@@ -2582,9 +2582,10 @@ finance personas on apex center:
 
 Gaps logged (not shipped): MB entries carry no `workOrderId` — two
 subcontractors on the same BOQ item would cross-bill each other's
-approved measurements (single-sub-per-item is fine today); RA dialog
+approved measurements (**closed in round 106**); RA dialog
 sweeps all unbilled entries with no per-entry picker (partial-period
-billing control); desktop WO detail is a drawer only — no deep-linkable
+billing control — backend `mbEntryIds` shipped round 106, picker UI
+still open); desktop WO detail is a drawer only — no deep-linkable
 `/work-orders/[id]` (mobile has one).
 
 Round 104 addendum — full WO lifecycle: advance → recovery → write-off → DLP → retention release
@@ -2632,3 +2633,52 @@ lines) on apex center:
 
 Small cleanups noted: duplicated `revalidatePath("/m/dprs")` calls in
 `dprs/[id]/route.ts` (harmless).
+
+Round 106 — MB→WO attribution shipped: cross-contractor billing now structurally impossible
+
+Closed the round-104 attribution gap end-to-end (schema → service → API →
+desktop + mobile UI → tests → live verification):
+
+- **Schema** — `MeasurementBookEntry.workOrderId` (optional, indexed) +
+  relation to `SubcontractorWorkOrder` (reverse `measurementBookEntries`).
+  Optional so historical/project-level (self-executed) measurements stay
+  valid — attribution is added when work is measured FOR a subcontractor.
+- **Service** — `createMbEntry` accepts `workOrderId` and validates: WO
+  exists, same company, same project, and has a line covering the selected
+  BOQ item ("work order does not cover this BOQ item"). `createRaBill` now
+  scopes the approved-unbilled sweep to `workOrderId: null OR = wo.id`;
+  explicit `mbEntryIds` must resolve inside that set — foreign/decoy/
+  already-billed ids hard-reject instead of silently dropping. WO
+  completion's unbilled-entry guard ignores entries attributed to sibling
+  WOs.
+- **prevQty fix (found in live verification)** — the RA bill's "previous
+  billed" figure aggregated billed entries across ALL WOs on the BOQ item;
+  Sharma's first bill showed 14,090 cft "already billed" that belonged to
+  the closed WO-1. Now scoped to this WO's own billing history via
+  `raBillLine.raBill.workOrderId`. Verified live: WO-2's second bill shows
+  prevQty 500 (its own), not 14,590 project-wide.
+- **API** — `POST /api/mb-entries` accepts + forwards `workOrderId`; GET
+  returns `workOrder` info; `GET /api/work-orders` includes
+  `lines.boqItemId` so pickers can filter eligible WOs.
+- **Desktop UI** — MB entry dialog: "Work Order" select filtered to WOs
+  covering the chosen BOQ item; re-picking the BOQ clears a now-ineligible
+  WO; sent on POST, reset after create.
+- **Mobile UI** — `/m/measurement-book` dialog: same picker, self-fetches
+  the project's WOs, same eligibility filter + hint
+  ("Only this work order's RA bills can claim this measurement").
+- **Tests** — `mb-wo-attribution.test.ts` (5): cross-WO billing refused
+  (sweep + explicit ids), unattributed entries still billable, sibling-WO
+  completion unblocked, misattribution rejected, prevQty scoped to own
+  billing history. guard-regressions + write-off + subcontractor suites
+  stay green (36).
+- **Verified live (dev artifact)** — two real WOs on shared BOQ 1.1:
+  Verma's WO-3 could not sweep or explicitly claim Sharma's attributed
+  MB-261024-0003 (400/404); Sharma's WO-2 billed it (RA-261024-0003,
+  ₹50,000 gross — retention ₹2,500, TDS ₹1,000, net ₹46,500 exact);
+  second bill RA-261024-0004 shows correctly-scoped prevQty.
+
+Remaining open items from the round-104 ledger: per-entry picker in the
+RA creation UI (backend `mbEntryIds` is in place — picker is pure UI);
+desktop `/work-orders/[id]` deep link. Historical MB entries remain
+unattributed and billable by any covering WO — acceptable migration
+posture since pre-attribution data cannot be re-attributed reliably.

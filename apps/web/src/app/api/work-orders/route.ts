@@ -86,6 +86,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     include: {
       subcontractor: { select: { id: true, name: true, trade: true } },
       project: { select: { id: true, name: true } },
+      lines: { select: { boqItemId: true } },
       _count: { select: { raBills: true, lines: true } },
     },
   });

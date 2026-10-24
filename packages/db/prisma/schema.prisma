@@ -6011,6 +6011,10 @@ model MeasurementBookEntry {
   rejectReason String?
   // Link to RA bill (set when this entry is included in a bill)
   raBillLineId String?
+  // Optional attribution to the subcontractor work order this measurement
+  // was taken for. NULL = project-measured work not tied to a specific
+  // subcontractor — billable by any WO covering the BOQ item.
+  workOrderId  String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -6022,12 +6026,14 @@ model MeasurementBookEntry {
   verifiedBy   User?         @relation("MbVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
   approvedBy   User?         @relation("MbApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
   raBillLine   RaBillLine?   @relation(fields: [raBillLineId], references: [id], onDelete: SetNull)
+  workOrder    SubcontractorWorkOrder? @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([boqItemId])
   @@index([wbsNodeId])
   @@index([status])
   @@index([phaseId])
+  @@index([workOrderId])
 }
 
 // ───────────────────────────────────────────────────────────
@@ -6097,6 +6103,7 @@ model SubcontractorWorkOrder {
   company          Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   lines            SubcontractorWorkOrderLine[]
   raBills          RaBill[]
+  mbEntries        MeasurementBookEntry[]
 
   @@index([projectId])
   @@index([subcontractorId])

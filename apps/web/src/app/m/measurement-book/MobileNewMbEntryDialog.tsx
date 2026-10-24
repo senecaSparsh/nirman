@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -24,9 +24,18 @@ interface WbsNodeOption {
   boqItemId: string | null;
 }
 
+interface WorkOrderOption {
+  id: string;
+  workOrderNumber: string;
+  workTitle: string;
+  subcontractor?: { name: string } | null;
+  lines?: { boqItemId: string }[];
+}
+
 interface FormState {
   boqItemId: string;
   wbsNodeId: string;
+  workOrderId: string;
   measuredQty: string;
   description: string;
   locationRef: string;
@@ -54,23 +63,42 @@ export function MobileNewMbEntryDialog({
   const [form, setForm] = useState<FormState>({
     boqItemId: "",
     wbsNodeId: "",
+    workOrderId: "",
     measuredQty: "",
     description: "",
     locationRef: "",
   });
+  const [workOrders, setWorkOrders] = useState<WorkOrderOption[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    fetch(`/api/work-orders?projectId=${projectId}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => setWorkOrders(Array.isArray(rows) ? rows : []))
+      .catch(() => setWorkOrders([]));
+  }, [open, projectId]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  // Auto-suggest WBS node when BOQ item is selected
+  // Auto-suggest WBS node when BOQ item is selected; drop a work-order
+  // selection that no longer covers the newly-chosen BOQ item.
   function onBoqItemChange(boqItemId: string) {
     const linkedNode = wbsNodes.find((w) => w.boqItemId === boqItemId);
-    setForm((f) => ({ ...f, boqItemId, wbsNodeId: linkedNode?.id ?? f.wbsNodeId }));
+    setForm((f) => {
+      const stillEligible = workOrders.some(
+        (w) => w.id === f.workOrderId && (w.lines ?? []).some((l) => l.boqItemId === boqItemId),
+      );
+      return { ...f, boqItemId, wbsNodeId: linkedNode?.id ?? f.wbsNodeId, workOrderId: stillEligible ? f.workOrderId : "" };
+    });
   }
 
   const selectedBoq = boqItems.find((b) => b.id === form.boqItemId);
   const suggestedWbsNode = wbsNodes.find((w) => w.boqItemId === form.boqItemId);
+  const eligibleWorkOrders = form.boqItemId
+    ? workOrders.filter((w) => (w.lines ?? []).some((l) => l.boqItemId === form.boqItemId))
+    : [];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -97,6 +125,7 @@ export function MobileNewMbEntryDialog({
           projectId,
           boqItemId: form.boqItemId,
           wbsNodeId: form.wbsNodeId || undefined,
+          workOrderId: form.workOrderId || undefined,
           measuredQty: Number(form.measuredQty),
           description: form.description.trim(),
           locationRef: form.locationRef.trim() || undefined,
@@ -164,6 +193,33 @@ export function MobileNewMbEntryDialog({
                 </p>
               )}
             </div>
+
+            {/* Work Order attribution — measured work billed under a
+                subcontractor WO must be tagged so another contractor's RA
+                bill cannot sweep it. Optional: leave blank for general /
+                self-executed measurements. */}
+            {form.boqItemId && eligibleWorkOrders.length > 0 && (
+              <div>
+                <MobileSelectWithCreate
+                  label="Work Order (if for a subcontractor)"
+                  value={form.workOrderId}
+                  onChange={(v) => set("workOrderId", v)}
+                  placeholder="— None / self-executed —"
+                  options={eligibleWorkOrders.map((w) => ({
+                    value: w.id,
+                    label: `${w.workOrderNumber} — ${w.subcontractor?.name ?? w.workTitle}`,
+                  }))}
+                />
+                {form.workOrderId && (
+                  <p
+                    className="text-m-caption mt-1"
+                    style={{ color: "var(--color-signal-dark)" }}
+                  >
+                    Only this work order&apos;s RA bills can claim this measurement.
+                  </p>
+                )}
+              </div>
+            )}
           </SectionCard>
 
           {/* Measurement */}

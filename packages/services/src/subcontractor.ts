@@ -346,7 +346,12 @@ export async function completeWorkOrder(
       select: { boqItemId: true },
     })).map((l) => l.boqItemId);
     const unbilledMb = await tx.measurementBookEntry.count({
-      where: { boqItemId: { in: woBoqItems }, status: "APPROVED", raBillLineId: null },
+      where: {
+        boqItemId: { in: woBoqItems },
+        status: "APPROVED",
+        raBillLineId: null,
+        OR: [{ workOrderId: null }, { workOrderId: id }],
+      },
     });
     if (unbilledMb > 0) {
       throw new ServiceError(
@@ -426,13 +431,16 @@ export async function createRaBill(input: CreateRaBillInput) {
 
     const raBillNumber = await generateRaBillNumber(tx, wo.companyId);
 
-    // Get approved MB entries for this work order's BOQ items that haven't been billed yet
+    // Get approved MB entries for this work order's BOQ items that haven't
+    // been billed yet. Entries attributed to a different work order are
+    // another subcontractor's measured work — never billable here.
     const boqItemIds = wo.lines.map((l) => l.boqItemId);
     const mbEntries = await tx.measurementBookEntry.findMany({
       where: {
         boqItemId: { in: boqItemIds },
         status: "APPROVED",
         raBillLineId: null,
+        OR: [{ workOrderId: null }, { workOrderId: wo.id }],
         ...(input.mbEntryIds ? { id: { in: input.mbEntryIds } } : {}),
       },
       orderBy: { measureDate: "asc" },
@@ -480,9 +488,16 @@ export async function createRaBill(input: CreateRaBillInput) {
       const entries = entriesByBoq.get(woLine.boqItemId);
       if (!entries || entries.length === 0) continue;
 
-      // Previous cumulative qty = sum of all MB entries already billed for this BOQ item
+      // Previous cumulative qty = entries already billed BY THIS WORK ORDER for
+      // this BOQ item (via their bill line's parent RA bill). Entries billed
+      // under a different work order must not appear as this contractor's
+      // billing history — sharing a BOQ item does not share progressive totals.
       const prevBilled = await tx.measurementBookEntry.aggregate({
-        where: { boqItemId: woLine.boqItemId, status: "APPROVED", raBillLineId: { not: null } },
+        where: {
+          boqItemId: woLine.boqItemId,
+          status: "APPROVED",
+          raBillLine: { raBill: { workOrderId: wo.id } },
+        },
         _sum: { measuredQty: true },
       });
       const prevQty = new Decimal(prevBilled._sum.measuredQty ?? 0);

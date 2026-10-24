@@ -608,6 +608,10 @@ export interface CreateMbEntryInput {
   phaseId?: string;
   boqItemId: string;
   wbsNodeId?: string;
+  /** Which subcontractor's WO this measurement was taken for. When set,
+   *  only that WO may bill it; NULL = project-measured, any covering WO
+   *  may bill it. The WO must have a scope line on this BOQ item. */
+  workOrderId?: string;
   measuredQty: Decimal | number | string;
   description: string;
   locationRef?: string;
@@ -650,6 +654,15 @@ export async function createMbEntry(input: CreateMbEntryInput) {
       if (!wbs) throw new ServiceError("WBS node not found in this project", 404);
     }
 
+    if (input.workOrderId) {
+      const woLine = await tx.subcontractorWorkOrderLine.findFirst({
+        where: { workOrderId: input.workOrderId, boqItemId: input.boqItemId },
+      });
+      if (!woLine) {
+        throw new ServiceError("Work order does not cover this BOQ item — cannot attribute the measurement to it", 400);
+      }
+    }
+
     const qty = new Decimal(input.measuredQty);
     if (!qty.gt(0)) throw new ServiceError("Measured quantity must be > 0", 400);
 
@@ -688,6 +701,7 @@ export async function createMbEntry(input: CreateMbEntryInput) {
         phaseId: input.phaseId ?? null,
         boqItemId: input.boqItemId,
         wbsNodeId: input.wbsNodeId ?? null,
+        workOrderId: input.workOrderId ?? null,
         mbNumber,
         measuredQty: qty.toString(),
         cumulativeQty: cumulativeQty.toString(),

@@ -175,6 +175,12 @@ export function MeasurementBookView({
   const { data: wbsData } = useFetch<unknown[]>(
     projectId ? `/api/wbs/tree?projectId=${projectId}` : null,
   );
+  // Work orders for WO attribution on measurements — a measurement taken
+  // against a subcontractor's scope bills to that WO only.
+  const { data: woData } = useFetch<Array<{ id: string; workOrderNumber: string; workTitle: string; subcontractor?: { name: string } | null; lines?: Array<{ boqItemId: string }> }>>(
+    projectId ? `/api/work-orders?projectId=${projectId}` : null,
+  );
+  const workOrders = woData ?? [];
 
   const boqItems = useMemo(() => {
     const items: BoqItem[] = [];
@@ -322,6 +328,7 @@ export function MeasurementBookView({
         projectId={projectId}
         boqItems={boqItems}
         wbsNodes={wbsNodes}
+        workOrders={workOrders}
         onCreated={refetchEntries}
       />
 
@@ -359,6 +366,7 @@ function MbEntryDialog({
   projectId,
   boqItems,
   wbsNodes,
+  workOrders = [],
   onCreated,
 }: {
   open: boolean;
@@ -366,11 +374,13 @@ function MbEntryDialog({
   projectId: string;
   boqItems: BoqItem[];
   wbsNodes: WbsNode[];
+  workOrders?: Array<{ id: string; workOrderNumber: string; workTitle: string; subcontractor?: { name: string } | null; lines?: Array<{ boqItemId: string }> }>;
   onCreated?: () => void;
 }) {
   const [form, setForm] = useState({
     boqItemId: "",
     wbsNodeId: "",
+    workOrderId: "",
     measuredQty: "",
     description: "",
     locationRef: "",
@@ -381,15 +391,24 @@ function MbEntryDialog({
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  // Auto-suggest WBS node when BOQ item is selected
+  // Auto-suggest WBS node when BOQ item is selected; drop WO attribution
+  // if the newly-picked item isn't covered by that WO's scope.
   function onBoqItemChange(boqItemId: string) {
     const linkedNode = wbsNodes.find((w) => w.boqItemId === boqItemId);
-    setForm((f) => ({ ...f, boqItemId, wbsNodeId: linkedNode?.id ?? f.wbsNodeId }));
+    setForm((f) => {
+      const woStillValid = !f.workOrderId || workOrders.some((w) => w.id === f.workOrderId && (w.lines ?? []).some((l) => l.boqItemId === boqItemId));
+      return { ...f, boqItemId, wbsNodeId: linkedNode?.id ?? f.wbsNodeId, workOrderId: woStillValid ? f.workOrderId : "" };
+    });
   }
 
   // Filter WBS nodes to show: the auto-suggested one first, then all activities
   const selectedBoq = boqItems.find((b) => b.id === form.boqItemId);
   const suggestedWbsNode = wbsNodes.find((w) => w.boqItemId === form.boqItemId);
+  // Only WOs whose scope covers the selected BOQ item can take this
+  // measurement — prevents attributing one contractor's work to another.
+  const coveringWorkOrders = form.boqItemId
+    ? workOrders.filter((w) => (w.lines ?? []).some((l) => l.boqItemId === form.boqItemId))
+    : [];
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -406,6 +425,7 @@ function MbEntryDialog({
           projectId,
           boqItemId: form.boqItemId,
           wbsNodeId: form.wbsNodeId || null,
+          workOrderId: form.workOrderId || null,
           measuredQty: parseFloat(form.measuredQty),
           description: form.description.trim(),
           locationRef: form.locationRef || null,
@@ -415,7 +435,7 @@ function MbEntryDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed");
       toast.success("MB entry created");
       onOpenChange(false);
-      setForm({ boqItemId: "", wbsNodeId: "", measuredQty: "", description: "", locationRef: "" });
+      setForm({ boqItemId: "", wbsNodeId: "", workOrderId: "", measuredQty: "", description: "", locationRef: "" });
       onCreated?.();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
@@ -472,6 +492,19 @@ function MbEntryDialog({
             )}
           </Field>
         </div>
+        <Field label="Work Order (for subcontractor billing)">
+          <Select value={form.workOrderId} onChange={(e) => set("workOrderId", e.target.value)} disabled={!form.boqItemId}>
+            <option value="">— Project measurement (billable by any covering WO) —</option>
+            {coveringWorkOrders.map((w) => (
+              <option key={w.id} value={w.id}>{w.workOrderNumber} — {w.workTitle}{w.subcontractor ? ` · ${w.subcontractor.name}` : ""}</option>
+            ))}
+          </Select>
+          {form.boqItemId && coveringWorkOrders.length === 0 && (
+            <p className="text-[11px] text-muted-foreground mt-1">
+              No work order covers this BOQ item — the measurement stays project-level.
+            </p>
+          )}
+        </Field>
         <Field label="Description of Work" required>
           <Textarea aria-label="Description" value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="e.g. Excavation for foundation, Unit 101" required />
         </Field>
