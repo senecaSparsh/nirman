@@ -388,7 +388,7 @@ export function CommandPalette({ userRole = "PROJECT_MANAGER", permissions }: { 
         onClick={() => setOpen(false)}
       />
 
-      <div className="relative w-full max-w-lg overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+      <div className="relative flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
         <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
           <input aria-label="Search or jump to"
@@ -406,7 +406,7 @@ export function CommandPalette({ userRole = "PROJECT_MANAGER", permissions }: { 
           </kbd>
         </div>
 
-        <div ref={resultsRef} className="max-h-[50vh] overflow-y-auto p-1.5">
+        <div ref={resultsRef} className="max-h-[50vh] min-h-0 flex-1 overflow-y-auto p-1.5">
           {results.length === 0 && !entityLoading && (
             <EmptyState
               icon={<Search />}
