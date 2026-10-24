@@ -29,7 +29,7 @@ async function TdsContent() {
     <>
       <PageHeader
         title="TDS Certificates"
-        description="Generate and manage Form 16C TDS certificates for subcontractor payments, as required under Section 194C of the Income Tax Act."
+        description="Generate and manage Form 16A TDS certificates for subcontractor payments, as required under Section 194C of the Income Tax Act."
       />
       <TdsCertificatesView />
     </>

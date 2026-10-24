@@ -230,7 +230,7 @@ function TdsCertificateDialog({ cert, onClose }: { cert: TdsCertificate; onClose
       open={true}
       onOpenChange={(open) => { if (!open) onClose(); }}
       title="TDS Certificate"
-      description={`Form 16C — Section ${cert.tdsSection} — FY ${cert.financialYear}`}
+      description={`Form 16A — Section ${cert.tdsSection} — FY ${cert.financialYear}`}
       size="xl"
       action={
         <Button size="sm" variant="outline" onClick={() => printTdsCertificate(cert)}>
@@ -374,7 +374,7 @@ function printTdsCertificate(cert: TdsCertificate) {
   .footer { margin-top: 20px; font-size: 9px; color: #999; text-align: center; }
 </style></head><body>
   <div class="header">
-    <h1>Form 16C — TDS Certificate</h1>
+    <h1>Form 16A — TDS Certificate</h1>
     <div class="sub">Section ${cert.tdsSection} of the Income Tax Act, 1961 — Financial Year ${cert.financialYear}</div>
   </div>
 

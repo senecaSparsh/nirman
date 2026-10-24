@@ -1109,7 +1109,9 @@ export async function getTdsCertificate(
 
   const totalGross = bills.reduce((s, b) => s + b.grossAmount, 0);
   const totalTds = bills.reduce((s, b) => s + b.tdsAmount, 0);
-  const tdsRate = raBills.length > 0 ? new Decimal(raBills[0]!.workOrder.tdsPct).toNumber() : 0;
+  // Effective rate across all bills — work orders can carry different tdsPct,
+  // so quoting the first bill's rate misleads on a statutory document.
+  const tdsRate = totalGross > 0 ? Math.round((totalTds / totalGross) * 10000) / 100 : 0;
 
   return {
     subcontractor: {
