@@ -208,6 +208,10 @@ export async function createSupplierPayment(input: {
   chequePhotoUrl?: string | null;
   notes?: string;
   userId?: string;
+  /** Internal: payment-run items are deliberate batch entries, not UI
+   *  double-clicks — skip the 15s blind double-submit window (dedicated
+   *  reference dedupe still applies). */
+  skipDoubleSubmitGuard?: boolean;
 }) {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Payment amount must be greater than 0");
@@ -241,20 +245,26 @@ export async function createSupplierPayment(input: {
     // mode and user) within the last 15 seconds is almost always a UI
     // double-click or a retried submit. Without this, cash payments (which
     // carry no referenceNo) post a duplicate JE and drain the balance twice.
-    const recentDupe = await tx.supplierPayment.findFirst({
-      where: {
-        companyId: input.companyId,
-        supplierId: input.supplierId,
-        amount,
-        paymentMode: input.paymentMode,
-        status: { not: "VOID" },
-        createdById: input.userId ?? null,
-        // createdAt (not paymentDate) — a backdated payment resubmitted by a
-        // double-click shares its paymentDate but still hits the window.
-        createdAt: { gte: new Date(Date.now() - 15_000) },
-      },
-      select: { paymentNumber: true },
-    });
+    // Identifier-carrying payments skip this blind window: their UTR/cheque
+    // no already gets a dedicated dedupe above, and two genuine same-amount
+    // NEFTs (e.g. paying two invoices back-to-back) must both be allowed.
+    const hasIdentifier = Boolean(input.referenceNo?.trim()) || input.skipDoubleSubmitGuard;
+    const recentDupe = hasIdentifier
+      ? null
+      : await tx.supplierPayment.findFirst({
+          where: {
+            companyId: input.companyId,
+            supplierId: input.supplierId,
+            amount,
+            paymentMode: input.paymentMode,
+            status: { not: "VOID" },
+            createdById: input.userId ?? null,
+            // createdAt (not paymentDate) — a backdated payment resubmitted by a
+            // double-click shares its paymentDate but still hits the window.
+            createdAt: { gte: new Date(Date.now() - 15_000) },
+          },
+          select: { paymentNumber: true },
+        });
     if (recentDupe) {
       throw new ServiceError(
         `An identical ${input.paymentMode.toLowerCase()} payment of ${amount} to this supplier was recorded moments ago (${recentDupe.paymentNumber}). If this is a genuinely separate payment, wait a few seconds and retry.`,
@@ -586,6 +596,9 @@ export async function createPaymentRun(input: {
         userId: input.userId,
         paymentMode: input.paymentMode,
         paymentDate: input.paymentDate,
+        // Run items are deliberate batch entries — two POs for the same
+        // supplier at the same amount are legitimate, not a double-click.
+        skipDoubleSubmitGuard: true,
       });
       results.push({ index: i, supplierId: item.supplierId, paymentNumber: payment.paymentNumber, amount: payment.amount.toString(), netPaid: payment.netPaidAmount.toString(), ok: true });
     } catch (err) {

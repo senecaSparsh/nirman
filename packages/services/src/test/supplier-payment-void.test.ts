@@ -116,3 +116,72 @@ describe("voidSupplierPayment", () => {
     expect((await prisma.supplierInvoice.findUnique({ where: { id: inv.id } }))!.status).toBe("PAID");
   });
 });
+
+describe("double-submit guard scoping", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("two same-amount payments with distinct UTRs both land; unidentified repeats refuse", async () => {
+    const fixture = await createTestFixture();
+    await seedTestAccounts(fixture.company.id);
+    const supplier = await prisma.supplier.create({
+      data: { companyId: fixture.company.id, name: "Dupe Probe Supplier", balanceOwed: new Decimal(100000) },
+    });
+    const { createSupplierPayment } = await import("../supplier-payment");
+
+    // Two genuinely different NEFT payments — same amount, different UTR,
+    // back-to-back. The dedicated reference dedupe covers replays; the blind
+    // 15s window must not false-positive here.
+    const p1 = await createSupplierPayment({
+      supplierId: supplier.id, companyId: fixture.company.id,
+      amount: "10000", paymentMode: "BANK_TRANSFER", referenceNo: "UTR-A-001", userId: fixture.user.id,
+    });
+    const p2 = await createSupplierPayment({
+      supplierId: supplier.id, companyId: fixture.company.id,
+      amount: "10000", paymentMode: "BANK_TRANSFER", referenceNo: "UTR-B-002", userId: fixture.user.id,
+    });
+    expect(p2.id).not.toBe(p1.id);
+
+    // Same UTR again → the real dedupe fires (not the blind window).
+    await expect(
+      createSupplierPayment({
+        supplierId: supplier.id, companyId: fixture.company.id,
+        amount: "10000", paymentMode: "BANK_TRANSFER", referenceNo: "UTR-A-001", userId: fixture.user.id,
+      }),
+    ).rejects.toThrow(/already recorded/);
+
+    // Cash, no identifier — the blind window still protects double-clicks.
+    await createSupplierPayment({
+      supplierId: supplier.id, companyId: fixture.company.id,
+      amount: "5000", paymentMode: "CASH", userId: fixture.user.id,
+    });
+    await expect(
+      createSupplierPayment({
+        supplierId: supplier.id, companyId: fixture.company.id,
+        amount: "5000", paymentMode: "CASH", userId: fixture.user.id,
+      }),
+    ).rejects.toThrow(/recorded moments ago/);
+  });
+
+  it("a payment run can post two same-amount items for one supplier", async () => {
+    const fixture = await createTestFixture();
+    await seedTestAccounts(fixture.company.id);
+    const supplier = await prisma.supplier.create({
+      data: { companyId: fixture.company.id, name: "Run Supplier", balanceOwed: new Decimal(50000) },
+    });
+    const { createPaymentRun } = await import("../supplier-payment");
+    // Two POs for the same supplier at the same amount in one run are
+    // legitimate batch entries — not a UI double-click.
+    const run = await createPaymentRun({
+      companyId: fixture.company.id, userId: fixture.user.id, paymentMode: "NEFT",
+      items: [
+        { supplierId: supplier.id, amount: "8000" },
+        { supplierId: supplier.id, amount: "8000" },
+      ],
+    });
+    expect(run.succeeded).toBe(2);
+    expect(run.failed).toBe(0);
+    expect((await prisma.supplier.findUnique({ where: { id: supplier.id } }))!.balanceOwed.toString()).toBe("34000");
+  });
+});
