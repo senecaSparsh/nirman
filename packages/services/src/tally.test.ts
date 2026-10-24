@@ -4,7 +4,8 @@
  *   parseTallyResponse — parse Tally XML response into success/error + voucher number
  */
 import { describe, it, expect } from "vitest";
-import { parseTallyResponse } from "./tally";
+import { parseTallyResponse, generateTallyVoucherXml } from "./tally";
+import Decimal from "decimal.js";
 
 describe("parseTallyResponse", () => {
   it("parses successful response with voucher number", () => {
@@ -79,5 +80,43 @@ describe("parseTallyResponse", () => {
     const xml = `<RESPONSE><ERRORS>Yes</ERRORS></RESPONSE>`;
     const result = parseTallyResponse(xml);
     expect(result.success).toBe(false);
+  });
+});
+
+describe("generateTallyVoucherXml", () => {
+  const entry = {
+    entryNumber: "JE-0001",
+    entryDate: new Date("2026-10-24"),
+    sourceType: "SUPPLIER_PAYMENT",
+    memo: "NEFT to supplier",
+    companyId: "c1",
+    totalDebit: new Decimal(1000),
+    totalCredit: new Decimal(1000),
+    lines: [
+      { accountCode: "5010", accountName: "Subcontractor Expense", debit: new Decimal(1000), credit: new Decimal(0), memo: null },
+      { accountCode: "1001", accountName: "HDFC Bank", debit: new Decimal(0), credit: new Decimal(1000), memo: null },
+    ],
+  };
+
+  it("emits credits as negative AMOUNT with ISDEEMEDPOSITIVE=No", () => {
+    const xml = generateTallyVoucherXml(entry, "Nirman Builders");
+    const creditBlock = xml.split("<ALLLEDGERENTRIES.LIST>")[2];
+    expect(creditBlock).toContain("<LEDGERNAME>HDFC Bank</LEDGERNAME>");
+    expect(creditBlock).toContain("<ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>");
+    expect(creditBlock).toContain("<AMOUNT>-1000.00</AMOUNT>");
+  });
+
+  it("emits debits as positive AMOUNT with ISDEEMEDPOSITIVE=Yes", () => {
+    const xml = generateTallyVoucherXml(entry, "Nirman Builders");
+    const debitBlock = xml.split("<ALLLEDGERENTRIES.LIST>")[1];
+    expect(debitBlock).toContain("<ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>");
+    expect(debitBlock).toContain("<AMOUNT>1000.00</AMOUNT>");
+  });
+
+  it("maps sourceType to a Tally voucher type and escapes XML", () => {
+    const xml = generateTallyVoucherXml({ ...entry, memo: "A & B <works>" }, "Co & Sons");
+    expect(xml).toContain('VCHTYPE="Payment"');
+    expect(xml).toContain("A &amp; B &lt;works&gt;");
+    expect(xml).toContain("<SVCURRENTCOMPANY>Co &amp; Sons</SVCURRENTCOMPANY>");
   });
 });

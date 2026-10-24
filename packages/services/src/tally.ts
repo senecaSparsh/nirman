@@ -270,7 +270,11 @@ export function generateTallyVoucherXml(
 
   const ledgerEntries = entry.lines
     .map((line) => {
-      const amount = line.debit.gt(0) ? line.debit : line.credit;
+      // Tally takes direction from the AMOUNT sign, not the flag: a credit
+      // sent as +5000 with ISDEEMEDPOSITIVE=No still books a debit, and the
+      // voucher double-books / fails balancing. Credits must serialize
+      // negative.
+      const amount = line.debit.gt(0) ? line.debit : line.credit.negated();
       const isDeemedPositive = line.debit.gt(0); // debit = positive in Tally
       const ledgerName = escapeXml(line.accountName);
       const lineMemo = line.memo ? escapeXml(line.memo) : "";
