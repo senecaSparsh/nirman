@@ -44,6 +44,8 @@ type PaymentItem = {
   paymentMode: string;
   referenceNo: string | null;
   status?: string;
+  direction?: string;
+  chequeStatus?: string | null;
   chequeNo: string | null;
   chequeBank: string | null;
   chequePhotoUrl: string | null;
@@ -211,7 +213,7 @@ export function MobileMaterialSaleDetailClient({
       : "var(--color-go-active)";
 
   const statusLabel = isCancelled ? "Cancelled" : isPartial ? "Partial" : isPending ? "Unpaid" : "Paid";
-  const totalPaid = payments.reduce((s, p) => s + toNum((p.status === "VOID" ? 0 : p.amount)), 0);
+  const totalPaid = payments.reduce((s, p) => s + (p.status !== "VOID" && p.direction === "IN" && (p.chequeStatus == null || p.chequeStatus === "CLEARED") ? toNum(p.amount) : 0), 0);
   // Completed returns reduce what the customer owes — the gross total
   // overstates the collectible on partially-returned sales.
   const balanceDue = Math.max(0, totalAmount - (returnedAmount ?? 0) - totalPaid);

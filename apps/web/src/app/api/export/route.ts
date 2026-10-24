@@ -234,7 +234,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const from12 = new Date(now.getFullYear(), now.getMonth() - 11, 1);
       const sales = await prisma.assetSale.findMany({
         where: { companyId: company.id, status: "ACTIVE", saleDate: { gte: from12 }, ...asScope },
-        include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { where: { status: { not: "VOID" } }, select: { amount: true, paymentDate: true } } },
+        include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true, paymentDate: true } } },
         orderBy: { saleDate: "asc" }});
       const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       const monthlyMap = new Map<string, { label: string; sales: number; collected: number; count: number }>();
@@ -348,7 +348,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       });
       const sales = await prisma.assetSale.findMany({
         where: { companyId: company.id, status: "ACTIVE", paymentStatus: { in: ["PENDING", "PARTIAL"] }, ...asScope },
-        include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { where: { status: { not: "VOID" } }, select: { amount: true } } },
+        include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } } },
         orderBy: { saleDate: "asc" }});
       const receivableRows = sales.map((s) => {
         const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);

@@ -76,7 +76,7 @@ export async function RentalsContent() {
   ]);
 
   const tenancyRows = tenancies.map((t) => {
-    const totalReceived = t.payments.reduce((s, p) => s + toNum(p.amount), 0);
+    const totalReceived = t.payments.reduce((s, p) => s + (p.status === "RECEIVED" ? toNum(p.amount) : 0), 0);
     return {
       id: t.id,
       assetType: t.assetType,

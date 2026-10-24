@@ -74,6 +74,7 @@ export default function MobilePoDetailPage({
                 id: true, paymentNumber: true, amount: true,
                 tdsAmount: true, tdsSection: true, netPaidAmount: true,
                 paymentDate: true, paymentMode: true, referenceNo: true,
+                status: true,
               },
             },
           },
@@ -144,8 +145,9 @@ export default function MobilePoDetailPage({
           paymentDate: p.paymentDate.toISOString(),
           paymentMode: p.paymentMode,
           referenceNo: p.referenceNo,
+          status: p.status,
         }));
-        const totalPaid = payments.reduce((s, p) => s + toNum(p.amount), 0);
+        const totalPaid = payments.reduce((s, p) => s + (p.status !== "VOID" ? toNum(p.amount) : 0), 0);
 
         const poPayload = {
           id: po.id,

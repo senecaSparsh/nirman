@@ -42,14 +42,14 @@ async function MobileReportsContent() {
     }),
     prisma.assetSale.findMany({
       where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
-      select: { salePrice: true, payments: { where: { status: "RECEIVED" }, select: { amount: true } } },
+      select: { salePrice: true, payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } } },
     }),
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id, status: { in: ["RECEIVED", "PARTIAL", "ORDERED"] } },
       select: { total: true },
     }),
     prisma.assetSalePayment.findMany({
-      where: { assetSale: { companyId: company.id }, status: "RECEIVED" },
+      where: { assetSale: { companyId: company.id }, status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] },
       select: { amount: true },
     }),
     // Project.totalProjectCost is the aggregate cache (material issues +

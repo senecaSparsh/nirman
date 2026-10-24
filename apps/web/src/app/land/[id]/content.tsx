@@ -211,8 +211,8 @@ export async function LandDetailContent({ params }: { params: Promise<{ id: stri
       // Partial registry
       partialRegistryAllowed: purchase.partialRegistryAllowed,
       // Payments — voided + bounced payments don't count as money paid
-      totalPaid: purchase.payments.reduce((s, p) => (p.status === "VOID" || p.chequeStatus === "BOUNCED") ? s : s + toNum(p.amount), 0),
-      balanceDue: toNum(purchase.totalCost) - purchase.payments.reduce((s, p) => (p.status === "VOID" || p.chequeStatus === "BOUNCED") ? s : s + toNum(p.amount), 0),
+      totalPaid: purchase.payments.reduce((s, p) => (p.status === "VOID" || p.chequeStatus === "BOUNCED" || p.chequeStatus === "PENDING") ? s : s + toNum(p.amount), 0),
+      balanceDue: toNum(purchase.totalCost) - purchase.payments.reduce((s, p) => (p.status === "VOID" || p.chequeStatus === "BOUNCED" || p.chequeStatus === "PENDING") ? s : s + toNum(p.amount), 0),
       // Payment schedule
       paymentSchedule: purchase.paymentSchedule
         ? {

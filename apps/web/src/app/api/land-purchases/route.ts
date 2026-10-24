@@ -40,7 +40,7 @@ export const GET = apiHandler(async () => {
     include: {
       project: { select: { name: true } },
       parcels: { where: { deletedAt: null }, select: { id: true, area: true, status: true, purpose: true } },
-      payments: { select: { id: true, amount: true, paymentMode: true, chequeStatus: true } },
+      payments: { select: { id: true, amount: true, paymentMode: true, chequeStatus: true, status: true } },
     },
   });
   return json(
@@ -67,7 +67,7 @@ export const GET = apiHandler(async () => {
       atsDocumentUrl: lp.atsDocumentUrl,
       registryDocumentUrl: lp.registryDocumentUrl,
       // Payments
-      totalPaid: lp.payments.reduce((s, p) => s + toNum(p.amount), 0),
+      totalPaid: lp.payments.reduce((s, p) => s + (p.status !== "VOID" && (p.chequeStatus == null || p.chequeStatus === "CLEARED") ? toNum(p.amount) : 0), 0),
       paymentCount: lp.payments.length,
       parcelCount: lp.parcels.length,
       availableArea: lp.parcels.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + toNum(p.area), 0),

@@ -39,7 +39,7 @@ export default function MobileSalesPage() {
               customer: { select: { id: true, name: true, phone: true } },
               builtUnit: { select: { unitNumber: true, unitType: true, project: { select: { name: true } } } },
               project: { select: { name: true } },
-              payments: { where: { status: "RECEIVED" }, select: { amount: true, interestAmount: true } }}}),
+              payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true, interestAmount: true } }}}),
           prisma.lead.findMany({
             where: {...await scopeWhere("Lead"),  companyId: company.id, deletedAt: null },
             orderBy: [{ nextFollowUpAt: "asc" }, { createdAt: "desc" }],

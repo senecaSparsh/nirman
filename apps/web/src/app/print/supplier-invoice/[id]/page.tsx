@@ -35,7 +35,7 @@ export default async function SupplierInvoicePrintPage({
       purchaseOrder: { select: { poNumber: true } },
       receivedBy: { select: { name: true } },
       approvedBy: { select: { name: true } },
-      payments: { select: { id: true, amount: true, paymentDate: true, paymentNumber: true } },
+      payments: { select: { id: true, amount: true, paymentDate: true, paymentNumber: true, status: true } },
     },
   });
 
@@ -45,7 +45,7 @@ export default async function SupplierInvoicePrintPage({
   const gstAmount = toNum(invoice.gstAmount);
   const totalAmount = toNum(invoice.totalAmount);
   const words = amountInWords(totalAmount);
-  const totalPaid = invoice.payments.reduce((s, p) => s + toNum(p.amount), 0);
+  const totalPaid = invoice.payments.reduce((s, p) => s + (p.status !== "VOID" ? toNum(p.amount) : 0), 0);
   const balanceDue = totalAmount - totalPaid;
 
   return (<>

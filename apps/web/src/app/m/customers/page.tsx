@@ -33,7 +33,7 @@ export default function MobileCustomersPage() {
                   salePrice: true,
                   gstAmount: true,
                   paymentStatus: true,
-                  payments: { where: { status: "RECEIVED" }, select: { amount: true } },
+                  payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } },
                 },
               },
               materialSales: {
@@ -41,7 +41,7 @@ export default function MobileCustomersPage() {
                 select: {
                   totalAmount: true,
                   paymentStatus: true,
-                  payments: { select: { amount: true } },
+                  payments: { where: { status: { not: "VOID" }, direction: "IN", OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } },
                 },
               },
             },

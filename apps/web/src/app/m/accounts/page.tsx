@@ -756,7 +756,7 @@ async function AccountsReceiptsTab() {
       take: 50,
       include: { assetSale: { select: { customer: { select: { name: true } }, saleNumber: true } } }}).catch(() => []),
     prisma.materialSalePayment.findMany({
-      where: { ...await scopeWhere("MaterialSalePayment"), sale: { companyId: company.id } },
+      where: { ...await scopeWhere("MaterialSalePayment"), sale: { companyId: company.id }, status: { not: "VOID" }, direction: "IN" },
       orderBy: { paymentDate: "desc" },
       take: 50,
       include: { sale: { select: { customer: { select: { name: true } }, saleNumber: true, partyName: true } } }}).catch(() => []),

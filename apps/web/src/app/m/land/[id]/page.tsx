@@ -196,7 +196,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
           // Partial registry
           partialRegistryAllowed: purchase.partialRegistryAllowed,
           // Payments
-          totalPaid: purchase.payments.reduce((s, p) => s + toNum(p.amount), 0),
+          totalPaid: purchase.payments.reduce((s, p) => s + (p.status !== "VOID" && (p.chequeStatus == null || p.chequeStatus === "CLEARED") ? toNum(p.amount) : 0), 0),
           // Payment schedule (if any)
           paymentSchedule: purchase.paymentSchedule
             ? {

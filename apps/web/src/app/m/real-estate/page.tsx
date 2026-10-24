@@ -291,11 +291,11 @@ async function RealEstateCustomersTab() {
         assetSales: {
           where: { companyId: company.id, status: "ACTIVE" },
           select: { salePrice: true, gstAmount: true, paymentStatus: true,
-            payments: { where: { status: "RECEIVED" }, select: { amount: true } } }},
+            payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } } }},
         materialSales: {
           where: { companyId: company.id, status: "ACTIVE" },
           select: { totalAmount: true, paymentStatus: true,
-            payments: { select: { amount: true } } }}}}),
+            payments: { where: { status: { not: "VOID" }, direction: "IN", OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } } }}}}),
     prisma.lead.findMany({
       where: {...await scopeWhere("Lead"),  companyId: company.id, deletedAt: null, stage: { not: "LOST" } },
       orderBy: { createdAt: "desc" },

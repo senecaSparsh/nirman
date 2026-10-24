@@ -847,12 +847,12 @@ async function salesListResponse(companyId: string): Promise<AssistantResponse> 
   const [materialSales, assetSales] = await Promise.all([
     prisma.materialSale.findMany({
       where: { companyId, ...await scopeWhere("MaterialSale") },
-      include: { customer: true, payments: { select: { amount: true, status: true } } },
+      include: { customer: true, payments: { select: { amount: true, status: true, chequeStatus: true, direction: true } } },
       orderBy: { createdAt: "desc" },
       take: 10}),
     prisma.assetSale.findMany({
       where: { companyId, saleStage: { notIn: ["CANCELLED"] }, ...await scopeWhere("AssetSale") },
-      include: { customer: { select: { name: true } }, builtUnit: { select: { unitNumber: true } }, payments: { select: { amount: true, status: true } } },
+      include: { customer: { select: { name: true } }, builtUnit: { select: { unitNumber: true } }, payments: { select: { amount: true, status: true, chequeStatus: true } } },
       orderBy: { createdAt: "desc" },
       take: 10}),
   ]);
@@ -860,11 +860,11 @@ async function salesListResponse(companyId: string): Promise<AssistantResponse> 
   type Row = { label: string; total: number; paid: number; status: string; at: Date };
   const rows: Row[] = [];
   for (const s of materialSales) {
-    const paid = s.payments.filter((p) => p.status !== "VOID").reduce((ps, p) => ps + toNum(p.amount), 0);
+    const paid = s.payments.filter((p) => p.status !== "VOID" && p.direction !== "OUT" && (p.chequeStatus == null || p.chequeStatus === "CLEARED")).reduce((ps, p) => ps + toNum(p.amount), 0);
     rows.push({ label: `${s.saleNumber} — ${s.customer?.name ?? "Walk-in"}`, total: toNum(s.totalAmount), paid, status: s.paymentStatus, at: s.createdAt });
   }
   for (const s of assetSales) {
-    const paid = s.payments.filter((p) => p.status !== "VOID").reduce((ps, p) => ps + toNum(p.amount), 0);
+    const paid = s.payments.filter((p) => p.status !== "VOID" && (p.chequeStatus == null || p.chequeStatus === "CLEARED")).reduce((ps, p) => ps + toNum(p.amount), 0);
     const unit = s.builtUnit?.unitNumber ? ` (${s.builtUnit.unitNumber})` : "";
     rows.push({ label: `${s.customer?.name ?? "Buyer"}${unit}`, total: toNum(s.salePrice) + toNum(s.gstAmount), paid, status: s.paymentStatus, at: s.createdAt });
   }
@@ -911,7 +911,7 @@ async function paymentStatusResponse(companyId: string): Promise<AssistantRespon
   const [sales, installments] = await Promise.all([
     prisma.materialSale.findMany({
       where: { companyId, paymentStatus: { in: ["PENDING", "PARTIAL"] }, ...await scopeWhere("MaterialSale") },
-      include: { customer: true, payments: { select: { amount: true, status: true } } },
+      include: { customer: true, payments: { select: { amount: true, status: true, chequeStatus: true, direction: true } } },
       orderBy: { createdAt: "desc" },
       take: 10}),
     prisma.paymentScheduleItem.findMany({
@@ -928,7 +928,7 @@ async function paymentStatusResponse(companyId: string): Promise<AssistantRespon
 
   const rows: { label: string; due: number }[] = [];
   for (const s of sales) {
-    const due = toNum(s.totalAmount) - s.payments.filter((p) => p.status !== "VOID").reduce((ps, p) => ps + toNum(p.amount), 0);
+    const due = toNum(s.totalAmount) - s.payments.filter((p) => p.status !== "VOID" && p.direction !== "OUT" && (p.chequeStatus == null || p.chequeStatus === "CLEARED")).reduce((ps, p) => ps + toNum(p.amount), 0);
     if (due > 0) rows.push({ label: `${s.saleNumber} — ${s.customer?.name ?? "Walk-in"}`, due });
   }
   for (const i of installments) {
@@ -1019,10 +1019,10 @@ async function cashPositionResponse(companyId: string): Promise<AssistantRespons
   const [pendingMaterialSales, pendingAssetSales] = await Promise.all([
     prisma.materialSale.findMany({
       where: { companyId, paymentStatus: { in: ["PENDING", "PARTIAL"] }, ...await scopeWhere("MaterialSale") },
-      include: { payments: { select: { amount: true } } }}),
+      include: { payments: { where: { status: { not: "VOID" }, direction: "IN", OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } } }}),
     prisma.assetSale.findMany({
       where: { companyId, saleStage: { notIn: ["CANCELLED"] }, paymentStatus: { in: ["PENDING", "PARTIAL"] }, ...await scopeWhere("AssetSale") },
-      include: { payments: { select: { amount: true, status: true } } }}),
+      include: { payments: { select: { amount: true, status: true, chequeStatus: true } } }}),
   ]);
   let totalReceivable = 0;
   for (const s of pendingMaterialSales) {
@@ -1030,7 +1030,7 @@ async function cashPositionResponse(companyId: string): Promise<AssistantRespons
   }
   for (const s of pendingAssetSales) {
     const gross = toNum(s.salePrice) + toNum(s.gstAmount);
-    const received = s.payments.filter((p) => p.status !== "VOID").reduce((ps, p) => ps + toNum(p.amount), 0);
+    const received = s.payments.filter((p) => p.status !== "VOID" && (p.chequeStatus == null || p.chequeStatus === "CLEARED")).reduce((ps, p) => ps + toNum(p.amount), 0);
     totalReceivable += Math.max(0, gross - received);
   }
 
@@ -1667,10 +1667,10 @@ async function monthlySummaryResponse(companyId: string): Promise<AssistantRespo
   const [sales, assetSales, expenses, poCount, poTotal, newReqs, attendanceDays] = await Promise.all([
     prisma.materialSale.findMany({
       where: { companyId, createdAt: { gte: monthStart } },
-      include: { payments: { select: { amount: true, status: true } } }}),
+      include: { payments: { select: { amount: true, status: true, chequeStatus: true, direction: true } } }}),
     prisma.assetSale.findMany({
       where: { companyId, createdAt: { gte: monthStart }, saleStage: { notIn: ["CANCELLED"] } },
-      include: { payments: { select: { amount: true, status: true } } }}),
+      include: { payments: { select: { amount: true, status: true, chequeStatus: true } } }}),
     prisma.expense.findMany({
       where: { companyId, createdAt: { gte: monthStart } }}),
     prisma.purchaseOrder.count({
@@ -1687,8 +1687,8 @@ async function monthlySummaryResponse(companyId: string): Promise<AssistantRespo
   const totalSales = sales.reduce((s, sale) => s + toNum(sale.totalAmount), 0)
     + assetSales.reduce((s, a) => s + toNum(a.salePrice) + toNum(a.gstAmount), 0);
   const totalCollected = sales.reduce(
-    (s, sale) => s + sale.payments.filter((p) => p.status !== "VOID").reduce((ps, p) => ps + toNum(p.amount), 0), 0)
-    + assetSales.reduce((s, a) => s + a.payments.filter((p) => p.status !== "VOID").reduce((ps, p) => ps + toNum(p.amount), 0), 0);
+    (s, sale) => s + sale.payments.filter((p) => p.status !== "VOID" && p.direction !== "OUT" && (p.chequeStatus == null || p.chequeStatus === "CLEARED")).reduce((ps, p) => ps + toNum(p.amount), 0), 0)
+    + assetSales.reduce((s, a) => s + a.payments.filter((p) => p.status !== "VOID" && (p.chequeStatus == null || p.chequeStatus === "CLEARED")).reduce((ps, p) => ps + toNum(p.amount), 0), 0);
   const totalExpenses = expenses.reduce((s, e) => s + toNum(e.amount), 0);
   const poSum = toNum(poTotal._sum.total ?? 0);
   const monthName = now.toLocaleString("en-IN", { month: "long" });

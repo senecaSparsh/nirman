@@ -56,7 +56,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const unitMap = new Map(builtUnits.map((u) => [u.id, u]));
 
   const mapped = sales.map((s) => {
-      const totalPaid = s.payments.reduce((sum, p) => sum + (p.status === "VOID" ? 0 : toNum(p.amount)), 0);
+      const totalPaid = s.payments.reduce((sum, p) => sum + (p.status === "VOID" || p.chequeStatus === "PENDING" || p.chequeStatus === "BOUNCED" ? 0 : toNum(p.amount)), 0);
       const parcel = s.landParcelId ? parcelMap.get(s.landParcelId) : null;
       const unit = s.builtUnitId ? unitMap.get(s.builtUnitId) : null;
       return {

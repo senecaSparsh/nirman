@@ -55,7 +55,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     notes: c.notes,
   }));
 
-  const totalPaid = lp.payments.reduce((s, p) => s + toNum(p.amount), 0);
+  const totalPaid = lp.payments.reduce((s, p) => s + (p.status !== "VOID" && (p.chequeStatus == null || p.chequeStatus === "CLEARED") ? toNum(p.amount) : 0), 0);
   return json({
     id: lp.id,
     projectId: lp.projectId,

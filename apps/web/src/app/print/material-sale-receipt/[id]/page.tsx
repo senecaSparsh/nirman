@@ -8,7 +8,7 @@ import { amountInWords } from "@nirman/services";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
-type MaterialPaymentSummary = { id: string; paymentDate: Date; paymentMode: string; referenceNo: string | null; amount: unknown };
+type MaterialPaymentSummary = { id: string; paymentDate: Date; paymentMode: string; referenceNo: string | null; amount: unknown; status: string; direction: string; chequeStatus: string | null };
 
 /**
  * Print-friendly Money Receipt — for a payment received against a material
@@ -65,7 +65,7 @@ export default async function MaterialSaleReceiptPage({
   const gstTotal = toNum(sale.gstTotal);
   const roundOff = toNum(sale.roundOff);
   const total = toNum(sale.totalAmount);
-  const totalPaid = sale.payments.reduce((s, p: MaterialPaymentSummary) => s + toNum(p.amount), 0);
+  const totalPaid = sale.payments.reduce((s, p: MaterialPaymentSummary) => s + (p.status !== "VOID" && p.direction === "IN" && (p.chequeStatus == null || p.chequeStatus === "CLEARED") ? toNum(p.amount) : 0), 0);
   const balanceDue = total - totalPaid;
   const pctPaid = total > 0 ? Math.min(100, (totalPaid / total) * 100) : 0;
 

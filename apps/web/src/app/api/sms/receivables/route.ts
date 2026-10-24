@@ -27,7 +27,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
         salePrice: true,
         gstAmount: true,
         customer: { select: { name: true } },
-        payments: { where: { status: "RECEIVED" }, select: { amount: true } },
+        payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } },
       },
     }),
     prisma.materialSale.findMany({
@@ -39,7 +39,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
         saleNumber: true,
         totalAmount: true,
         customer: { select: { name: true } },
-        payments: { select: { amount: true } },
+        payments: { where: { status: { not: "VOID" }, direction: "IN", OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } },
       },
     }),
     prisma.rentalPayment.findMany({

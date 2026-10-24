@@ -52,7 +52,7 @@ export default function MobileCustomerDetailPage({
 
         // ── Asset sales (land + built units) ──
         const assetSales = customer.assetSales.map((s) => {
-          const paid = s.payments.reduce((ps, p) => ps + toNum(p.amount), 0);
+          const paid = s.payments.reduce((ps, p) => ps + (p.status !== "VOID" && (p.chequeStatus == null || p.chequeStatus === "CLEARED") ? toNum(p.amount) : 0), 0);
           const totalWithGst = toNum(s.salePrice) + toNum(s.gstAmount);
           return {
             id: s.id,
@@ -72,7 +72,7 @@ export default function MobileCustomerDetailPage({
 
         // ── Material sales (raw materials / scrap) ──
         const materialSales = customer.materialSales.map((s) => {
-          const paid = s.payments.reduce((ps, p) => ps + toNum(p.amount), 0);
+          const paid = s.payments.reduce((ps, p) => ps + (p.status !== "VOID" && p.direction === "IN" && (p.chequeStatus == null || p.chequeStatus === "CLEARED") ? toNum(p.amount) : 0), 0);
           const totalWithGst = toNum(s.totalAmount);
           return {
             id: s.id,

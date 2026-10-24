@@ -43,7 +43,7 @@ async function MobileSalesRevenueContent() {
       customer: { select: { name: true } },
       project: { select: { name: true } },
       builtUnit: { select: { unitType: true } },
-      payments: { where: { status: { not: "VOID" } }, select: { amount: true } },
+      payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } },
     },
     orderBy: { saleDate: "desc" },
   });

@@ -66,7 +66,7 @@ async function MobilePendingPaymentsContent() {
         customer: { select: { name: true } },
         project: { select: { name: true } },
         payments: {
-          where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: { not: "BOUNCED" } }] },
+          where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] },
           select: { amount: true },
         },
       },

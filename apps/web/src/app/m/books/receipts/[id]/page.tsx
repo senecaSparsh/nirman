@@ -18,8 +18,8 @@ import {
   DetailKeyValueCard,
 } from "@/components/mobile/v2/detail-primitives";
 
-type AssetPaymentSummary = { id: string; paymentDate: Date; mode: string; reference: string | null; amount: unknown };
-type MaterialPaymentSummary = { id: string; paymentDate: Date; paymentMode: string; referenceNo: string | null; amount: unknown };
+type AssetPaymentSummary = { id: string; paymentDate: Date; mode: string; reference: string | null; amount: unknown; status: string; chequeStatus: string | null };
+type MaterialPaymentSummary = { id: string; paymentDate: Date; paymentMode: string; referenceNo: string | null; amount: unknown; status: string; direction: string; chequeStatus: string | null };
 
 /**
  * /m/books/receipts/[id]?kind=ASSET|MATERIAL — mobile receipt detail.
@@ -129,7 +129,7 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
   const gstRate = toNum(sale.gstRate);
   const gstAmount = toNum(sale.gstAmount);
   const total = salePrice + gstAmount;
-  const totalPaid = (sale.payments ?? []).reduce((s, p: AssetPaymentSummary) => s + toNum(p.amount), 0);
+  const totalPaid = (sale.payments ?? []).reduce((s, p: AssetPaymentSummary) => s + (p.status !== "VOID" && (p.chequeStatus == null || p.chequeStatus === "CLEARED") ? toNum(p.amount) : 0), 0);
   const balanceDue = total - totalPaid;
   const pctPaid = total > 0 ? Math.min(100, (totalPaid / total) * 100) : 0;
 
@@ -272,7 +272,7 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
   const subtotal = toNum(sale.subtotal);
   const gstTotal = toNum(sale.gstTotal);
   const total = toNum(sale.totalAmount);
-  const totalPaid = sale.payments.reduce((s, p: MaterialPaymentSummary) => s + toNum(p.amount), 0);
+  const totalPaid = sale.payments.reduce((s, p: MaterialPaymentSummary) => s + (p.status !== "VOID" && p.direction === "IN" && (p.chequeStatus == null || p.chequeStatus === "CLEARED") ? toNum(p.amount) : 0), 0);
   const balanceDue = total - totalPaid;
   const pctPaid = total > 0 ? Math.min(100, (totalPaid / total) * 100) : 0;
   const partyName = sale.partyName ?? sale.customer.name;

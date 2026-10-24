@@ -240,7 +240,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
           customer: { select: { name: true } },
           project: { select: { name: true } },
           lines: { select: { id: true } },
-          payments: { select: { amount: true } },
+          payments: { where: { status: { not: "VOID" }, direction: "IN", OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } },
         },
       });
       const hasMore = sales.length > BATCH_SIZE;
@@ -435,8 +435,8 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
           email: true,
           gstin: true,
           createdAt: true,
-          assetSales: { where: { status: "ACTIVE" }, select: { salePrice: true, gstAmount: true, paymentStatus: true, payments: { where: { status: "RECEIVED" }, select: { amount: true } } } },
-          materialSales: { where: { status: "ACTIVE" }, select: { totalAmount: true, paymentStatus: true, payments: { select: { amount: true } } } },
+          assetSales: { where: { status: "ACTIVE" }, select: { salePrice: true, gstAmount: true, paymentStatus: true, payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } } } },
+          materialSales: { where: { status: "ACTIVE" }, select: { totalAmount: true, paymentStatus: true, payments: { where: { status: { not: "VOID" }, direction: "IN", OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true } } } },
         },
       });
       const hasMore = customers.length > BATCH_SIZE;

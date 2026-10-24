@@ -45,7 +45,7 @@ async function SalesRevenueContent() {
         customer: { select: { name: true } },
         project: { select: { id: true, name: true } },
         builtUnit: { select: { unitType: true } },
-        payments: { where: { status: { not: "VOID" } }, select: { amount: true, paymentDate: true } },
+        payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true, paymentDate: true } },
       },
       orderBy: { saleDate: "asc" },
     }),
