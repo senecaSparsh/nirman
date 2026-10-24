@@ -122,9 +122,9 @@ export default async function DemandNoticePage({
   // eslint-disable-next-line react-hooks/purity -- server component, Date.now() is fine
   const dueDate = item.dueDate ?? new Date(Date.now() + 15 * 24 * 60 * 60 * 1000); // 15-day default
 
-  return (
-    <div className="mx-auto max-w-[800px] bg-white p-8 text-black print:p-0">
-      <PrintToolbar />
+  return (<>
+    <PrintToolbar />
+    <main><div className="mx-auto max-w-[800px] bg-white p-8 text-black print:p-0">
 
       <PrintHeader
         company={{
@@ -343,6 +343,7 @@ export default async function DemandNoticePage({
       <footer className="mt-8 border-t border-gray-200 pt-2 text-center text-xs text-gray-500">
         This is a computer-generated demand notice · {company.name} · {formatDate(new Date())}
       </footer>
-    </div>
+    </div></main>
+  </>
   );
 }

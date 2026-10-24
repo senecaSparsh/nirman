@@ -78,9 +78,9 @@ export default async function TenancyDraftPage({
   const propertyArea = builtUnit?.area ?? landParcel?.area;
   const propertyAreaUnit = landParcel?.areaUnit ?? "sqft";
 
-  return (
-    <div className="mx-auto max-w-[800px] bg-white p-8 text-black print:p-0">
-      <PrintToolbar />
+  return (<>
+    <PrintToolbar />
+    <main><div className="mx-auto max-w-[800px] bg-white p-8 text-black print:p-0">
 
       {/* Letterhead */}
       <PrintHeader
@@ -248,6 +248,7 @@ export default async function TenancyDraftPage({
       <footer className="mt-8 border-t border-gray-200 pt-2 text-center text-xs text-gray-500">
         Draft generated on {formatDate(new Date())} · {company.name}
       </footer>
-    </div>
+    </div></main>
+  </>
   );
 }

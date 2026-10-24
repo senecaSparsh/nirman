@@ -144,6 +144,7 @@ export default async function PaymentReceiptPage({
 
   return (<>
           <PrintToolbar title="Payment Receipt" />
+    <main>
     <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
       <PrintHeader
         company={company}
@@ -288,7 +289,7 @@ export default async function PaymentReceiptPage({
         <div className="border-t border-black pt-1">For {company.name}</div>
       </div>
 
-    </div>
+    </div></main>
     </>
   );
 }

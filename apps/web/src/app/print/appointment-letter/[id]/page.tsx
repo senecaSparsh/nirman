@@ -102,7 +102,7 @@ export default async function AppointmentLetterPage({
   return (
     <>
       <PrintToolbar title="Appointment Letter" />
-      <div
+      <main><div
         className="print-page mx-auto my-8 max-w-3xl bg-white p-10 shadow-lg print:my-0 print:shadow-none print:p-8"
         style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}
       >
@@ -267,7 +267,7 @@ export default async function AppointmentLetterPage({
             and policies as in force from time to time.
           </p>
         </div>
-      </div>
+      </div></main>
     </>
   );
 }

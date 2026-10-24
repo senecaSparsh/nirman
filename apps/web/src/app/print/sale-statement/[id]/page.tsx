@@ -76,9 +76,9 @@ export default async function SaleStatementPage({
   const balanceDue = Math.max(0, scheduleTotal > 0 ? scheduleTotal - totalPaid : toNum(sale.salePrice) + toNum(sale.gstAmount) - toNum(sale.tdsAmount) - totalPaid);
   const unit = sale.builtUnit?.unitNumber ?? sale.landParcel?.number ?? "—";
 
-  return (
-    <div className="mx-auto max-w-[21cm] bg-white p-8 font-serif text-[13px] leading-relaxed text-slate-900 print:p-0">
-      <PrintToolbar title="Allottee Statement" />
+  return (<>
+    <PrintToolbar title="Allottee Statement" />
+    <main><div className="mx-auto max-w-[21cm] bg-white p-8 font-serif text-[13px] leading-relaxed text-slate-900 print:p-0">
       <PrintHeader company={company} title="Statement of Account" docNumber={`STMT-${sale.saleNumber}`} date={new Date()} />
 
       <div className="mt-4 rounded border border-slate-200 p-3 text-[12px]">
@@ -171,6 +171,7 @@ export default async function SaleStatementPage({
         *Late interest accrues at SBI MCLR + 2% p.a. on overdue installments per the agreement terms.
         This statement is system-generated and true to the seller&apos;s books as of {formatDate(new Date())}.
       </p>
-    </div>
+    </div></main>
+  </>
   );
 }
