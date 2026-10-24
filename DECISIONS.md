@@ -2503,3 +2503,36 @@ receipt registers exclude VOID material payments.
 Verified against the production DB for SAL-20261019-0001: 142% → 109%
 paid (residual = 15 genuinely-cleared ₹1k cheques — real money, honest
 overpayment). Typecheck + lint clean. Shipped in `79590200`.
+
+## Round 102 — Collect-side: 194-IA stamp-duty base + dead Collect path fixed, verified live
+
+Real-user pass on the Collect backbone (sale → deposit → receipt → escrow):
+
+- **Dead Collect path**: the generic "Collect" button on a pre-completion
+  sale posted to the post-completion payment endpoint → always 400. Now
+  routes `action: "deposit"` when `saleStage != COMPLETED` (desktop
+  PaymentDialog + both mobile payment sheets). Deposit response returns
+  `paymentId` so the print-receipt toast works for deposits too.
+- **stampDutyValue dropped**: the dialog sent it but the POST/PATCH sale
+  routes never forwarded it — TDS computed on price alone. Forwarded.
+- **TDS re-derivation**: `updateSale` now re-computes auto-derived 194-IA
+  TDS when stampDutyValue or price changes (uses the effective price on
+  combined edits). Manual buyer-deducted overrides are preserved; legacy
+  rows whose stored TDS matches the price-only auto value still recompute.
+- **Dupe-guard scoping**: the 15s double-submit window skipped no
+  identifier check — two distinct same-amount cheques false-positived.
+  Payments carrying referenceNo/chequeNo now skip the blind window (the
+  dedicated dedupe guards already cover them) across sale deposits,
+  material-sale, land, and statutory payments.
+
+Verified live on the built artifact: `SAL-20261024-0001` (₹60L sale, SDV
+₹65L persisted before the fix) — PATCH → `tdsAmount` 60,000 → **65,000**.
+Deposit POST returns `{ok, paymentId}` and allocates FIFO into the
+schedule. Earlier this session: escrow leg proven end-to-end — ₹5L
+receipt on the RERA project routed Dr 1060 Escrow / Cr Customer Deposits;
+over-withdrawal proactively refused (disabled over ledgered balance);
+₹3.5L certified withdrawal with all three signatories posted Dr Cash /
+Cr Escrow. Pending cheque correctly excluded from paid% until cleared.
+
+sale-lifecycle suite: 19/19 incl. new TDS re-derive regression test.
+Shipped in `59e36373`.
