@@ -4267,6 +4267,7 @@ model AssetSale {
   // ── TDS tracking (sales > ₹50L, buyer deducts 1% TDS) ──
   tdsAmount          Decimal?   @db.Decimal(14, 2)  // TDS amount deducted by buyer
   tdsCertificateNo   String?    // TDS certificate number (Form 16B)
+  tdsReconciledAt    DateTime?  // set when the withheld amount appears in Form 26AS — clears TDS_RECEIVABLE
   // ── Home loan tracking ──
   homeLoanBank       String?    // bank/financial institution name
   homeLoanAmount     Decimal?   @db.Decimal(14, 2)  // sanctioned loan amount

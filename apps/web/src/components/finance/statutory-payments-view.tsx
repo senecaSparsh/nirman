@@ -44,6 +44,7 @@ export type TdsSaleRow = {
   stampDutyValue: number | null;
   tdsAmount: number;
   tdsCertificateNo: string | null;
+  tdsReconciledAt: string | null;
   status: string;
 };
 
@@ -56,7 +57,7 @@ const KIND_LABEL: Record<string, string> = {
   TDS_REFUND: "TDS Receivable",
 };
 
-const tdsSaleColumns: Column<TdsSaleRow>[] = [
+const tdsSaleColumns = (onReconcile: (r: TdsSaleRow) => void, canManage: boolean): Column<TdsSaleRow>[] => [
   {
     key: "saleNumber",
     label: "Sale",
@@ -93,6 +94,16 @@ const tdsSaleColumns: Column<TdsSaleRow>[] = [
       r.tdsCertificateNo
         ? <Badge variant="success">{r.tdsCertificateNo}</Badge>
         : <Badge variant="muted">awaiting</Badge>,
+  },
+  {
+    key: "tdsReconciledAt",
+    label: "26AS",
+    render: (r) =>
+      r.tdsReconciledAt
+        ? <Badge variant="success">matched {formatDate(r.tdsReconciledAt)}</Badge>
+        : canManage
+          ? <Button size="xs" variant="outline" onClick={() => onReconcile(r)}>Mark matched</Button>
+          : <Badge variant="muted">pending</Badge>,
   },
 ];
 
@@ -181,6 +192,23 @@ export function StatutoryPaymentsView({
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Void failed");
+    }
+  }
+
+  async function onTdsReconcile(r: TdsSaleRow) {
+    if (!window.confirm(`Mark ${r.saleNumber}'s ${formatCurrency(r.tdsAmount)} TDS as appearing in Form 26AS? Do this only after matching the buyer's 26QB credit against the AIS/26AS statement.`)) return;
+    try {
+      const res = await fetch(`/api/sales/${r.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update", tdsReconciledAt: new Date().toISOString() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Update failed");
+      toast.success(`${r.saleNumber} marked 26AS-matched`);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Update failed");
     }
   }
 
@@ -289,7 +317,7 @@ export function StatutoryPaymentsView({
             <Badge variant="outline" className="tnum">{formatCurrency(tdsSales.reduce((s, r) => s + r.tdsAmount, 0))}</Badge>
           </div>
           <DataTable
-            columns={tdsSaleColumns}
+            columns={tdsSaleColumns(onTdsReconcile, canManage)}
             data={tdsSales}
             emptyState={<EmptyState icon={<Landmark className="h-5 w-5" />} title="No TDS sales" description="Sales above ₹50L appear here when a buyer withholds 194-IA TDS." />}
           />

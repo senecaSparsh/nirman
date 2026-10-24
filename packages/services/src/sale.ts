@@ -1799,6 +1799,7 @@ export interface UpdateSaleInput {
   tdsAmount?: Decimal | number | string | null;
   stampDutyValue?: Decimal | number | string | null;
   tdsCertificateNo?: string | null;
+  tdsReconciledAt?: string | null;
   // Home loan
   homeLoanBank?: string | null;
   homeLoanAmount?: Decimal | number | string | null;
@@ -1894,6 +1895,7 @@ export async function updateSale(input: UpdateSaleInput) {
     if (input.bbaNo !== undefined) data.bbaNo = input.bbaNo ?? null;
     if (input.bbaDate !== undefined) data.bbaDate = input.bbaDate ? new Date(input.bbaDate) : null;
     if (input.tdsAmount !== undefined) data.tdsAmount = input.tdsAmount != null ? new Decimal(input.tdsAmount) : null;
+    if (input.tdsReconciledAt !== undefined) data.tdsReconciledAt = input.tdsReconciledAt ? new Date(input.tdsReconciledAt) : null;
     if (input.stampDutyValue !== undefined) data.stampDutyValue = input.stampDutyValue != null ? new Decimal(input.stampDutyValue) : null;
     // 194-IA re-derivation: when the circle-rate base changes without an
     // explicit tdsAmount, recompute — but only if the stored figure was

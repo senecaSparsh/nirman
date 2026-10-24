@@ -327,7 +327,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
     where: { ...await scopeWhere("AssetSale"), companyId: company.id, status: { not: "CANCELLED" }, tdsAmount: { gt: 0 } },
     select: {
       id: true, saleNumber: true, salePrice: true, stampDutyValue: true,
-      tdsAmount: true, tdsCertificateNo: true, status: true,
+      tdsAmount: true, tdsCertificateNo: true, tdsReconciledAt: true, status: true,
       customer: { select: { name: true } },
     },
     orderBy: { saleDate: "desc" },
@@ -465,7 +465,8 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
             tdsSales={tdsSalesData.map((s) => ({
               id: s.id, saleNumber: s.saleNumber, customerName: s.customer.name,
               salePrice: toNum(s.salePrice), stampDutyValue: s.stampDutyValue ? toNum(s.stampDutyValue) : null,
-              tdsAmount: toNum(s.tdsAmount), tdsCertificateNo: s.tdsCertificateNo, status: s.status,
+              tdsAmount: toNum(s.tdsAmount), tdsCertificateNo: s.tdsCertificateNo,
+              tdsReconciledAt: s.tdsReconciledAt?.toISOString() ?? null, status: s.status,
             }))}
             canManage={__effPerms.includes(PERM.FINANCE_MANAGE)}
           />
