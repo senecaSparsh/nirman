@@ -2792,3 +2792,19 @@ Round 110 — WO deep links + command-palette bounds
   unified `/api/search`; the real gap was clipping — card anchored at
   15vh with unbounded height could push the footer off short viewports.
   Card is now `max-h-[80vh]` flex-col with flexing results region.
+
+Round 111 — DPR IA migration: /hr/dprs → /dprs under Build > Construct
+
+- Daily progress reports are site-ops artifacts filed against BOQ/WBS,
+  not HR records — but they lived under People > HR, and the world-
+  contextual sidebar meant a PM landing there from Build got the whole
+  panel swapped to HR. Mobile already homed them under /m/site.
+- Page moved app/hr/dprs → app/dprs; nav item moved People → Build >
+  Construct (next to Measurement Book); all 17 referencing files updated.
+- Redirects: /hr/dprs → /dprs, /hr/dprs/:id → /dprs?id=:id — detail
+  auto-opens, so org-hierarchy's previously-404ing /hr/dprs/<id> path
+  links now land on the record. /dprs/:id also redirects to ?id=.
+- SUPERVISOR/SITE_ENGINEER home worlds hr → build; nav test updated.
+- Search: desktop DPR results now carry ?id=<dpr> (was dropped).
+- ?project=<id> wired into the DPR list (project-hub links were ignored).
+- Verified live: /hr/dprs 308→/dprs, /hr/dprs/x 308→/dprs?id=x, page 200.
