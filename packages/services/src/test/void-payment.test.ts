@@ -228,6 +228,101 @@ describe("capitalization catch-up on sale", () => {
   });
 });
 
+describe("cheque lifecycle — paymentStatus recompute", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("clearing the final-payment cheque lifts paymentStatus to PAID", async () => {
+    const fixture = await createTestFixture();
+    await seedTestAccounts(fixture.company.id);
+    const customer = await prisma.customer.create({
+      data: { companyId: fixture.company.id, name: "Cheque Buyer", phone: "9999999998" },
+    });
+    const unit = await prisma.builtUnit.create({
+      data: {
+        projectId: "test-project",
+        unitType: "BHK_2",
+        unitNumber: "E-501",
+        area: new Decimal(1000),
+        areaUnit: "SQFT",
+        status: "AVAILABLE",
+        productionCost: new Decimal(2000000),
+      },
+    });
+    const { sellAsset, recordDeposit, completeSale, clearCheque } = await import("../sale");
+
+    const sale = await sellAsset({
+      assetType: "BUILT_UNIT",
+      builtUnitId: unit.id,
+      companyId: fixture.company.id,
+      customerId: customer.id,
+      salePrice: new Decimal(5000000),
+      atsDate: "2026-10-01",
+    });
+    await recordDeposit({ saleId: sale.id, depositAmount: new Decimal(500000), paymentMode: "BANK", userId: fixture.user.id });
+    await completeSale({
+      saleId: sale.id,
+      userId: fixture.user.id,
+      registryDocumentUrl: "https://x/registry.pdf",
+      atsDocumentUrl: "https://x/ats.pdf",
+      finalPaymentAmount: new Decimal(4450000), // ₹50L − ₹5L deposit − ₹50K 194-IA TDS
+      paymentMode: "CHEQUE",
+    });
+
+    const saleAfter = await prisma.assetSale.findUnique({ where: { id: sale.id } });
+    expect(saleAfter!.paymentStatus).toBe("PARTIAL"); // pending cheque adds 0 to cleared
+
+    const cheque = await prisma.assetSalePayment.findFirst({
+      where: { assetSaleId: sale.id, chequeStatus: "PENDING" },
+    });
+    await clearCheque(cheque!.id, fixture.user.id);
+
+    const cleared = await prisma.assetSale.findUnique({ where: { id: sale.id } });
+    expect(cleared!.paymentStatus).toBe("PAID"); // was stuck at PARTIAL before the recompute
+  });
+
+  it("bouncing the only payment recomputes paymentStatus to PENDING", async () => {
+    const fixture = await createTestFixture();
+    await seedTestAccounts(fixture.company.id);
+    const customer = await prisma.customer.create({
+      data: { companyId: fixture.company.id, name: "Bounce Buyer", phone: "9999999997" },
+    });
+    const unit = await prisma.builtUnit.create({
+      data: {
+        projectId: "test-project",
+        unitType: "BHK_2",
+        unitNumber: "F-601",
+        area: new Decimal(1000),
+        areaUnit: "SQFT",
+        status: "AVAILABLE",
+        productionCost: new Decimal(2000000),
+      },
+    });
+    const { sellAsset, recordDeposit, bounceCheque } = await import("../sale");
+
+    const sale = await sellAsset({
+      assetType: "BUILT_UNIT",
+      builtUnitId: unit.id,
+      companyId: fixture.company.id,
+      customerId: customer.id,
+      salePrice: new Decimal(5000000),
+    });
+    const dep = await recordDeposit({
+      saleId: sale.id,
+      depositAmount: new Decimal(500000),
+      paymentMode: "CHEQUE",
+      userId: fixture.user.id,
+    });
+
+    await bounceCheque(dep.payment.id, fixture.user.id, "insufficient funds");
+
+    const after = await prisma.assetSale.findUnique({ where: { id: sale.id } });
+    expect(after!.paymentStatus).toBe("PENDING"); // money never arrived — not PARTIAL
+    expect(after!.saleStage).toBe("PENDING");
+  });
+});
+
 describe("refundCompletedSale", () => {
   beforeEach(async () => {
     await resetDb();

@@ -2733,3 +2733,22 @@ Fixed the audit's two highest-value dashboard disagreements:
 Remaining audit items: sales due/overdue surfaces still disagree on
 computed-vs-stored due state; POs can show ₹0 totals with nonzero lines;
 empty gate passes approvable; notification deep-links land on /m/*.
+
+Round 108b — Trust audit F3: stale paymentStatus + repair
+
+Two service paths wrote stale `paymentStatus`, the audit's
+"due/overdue surfaces disagree" finding:
+
+- `clearCheque` never recomputed — a completed sale whose final payment
+  was a pending cheque stayed PARTIAL forever even after the cheque
+  cleared (pending cheques correctly add 0 to the cleared sum at record
+  time). Now recomputes `computePaymentStatus(cleared, salePrice+gst-tds)`
+  and the completion-branch check reads the fresh value.
+- `bounceCheque` hardcoded PARTIAL/PENDING — overrode e.g. a PAID sale
+  whose extra pending cheque bounced. Now recomputes from remaining
+  cleared payments.
+- Repair sweep applied to dev (SAL-20261019-0001: PARTIAL → PAID —
+  ₹1.16L received + ~₹17K cleared cheques ≥ ₹1.2L price); same SQL
+  needed on prod post-deploy.
+- Tests: void-payment.test.ts +2 (final-cheque clear → PAID; only-cheque
+  bounce → PENDING). 8/8 green.

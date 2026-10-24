@@ -2722,7 +2722,24 @@ export async function clearCheque(paymentId: string, userId?: string) {
     await syncPaymentScheduleFromPayments(tx, payment.assetSaleId);
 
     const sale = payment.assetSale;
-    if (sale.saleStage === "DEPOSIT_RECEIVED" && sale.paymentStatus === "PAID") {
+    // The stored paymentStatus predates this clearance (pending cheques add
+    // 0 to the cleared sum at record time). Recompute now — a full-payment
+    // cheque only turns PAID when it clears, and the completion branch
+    // below must read the fresh value.
+    const clearedNow = sumClearedAssetSalePayments(
+      await tx.assetSalePayment.findMany({
+        where: { assetSaleId: sale.id },
+        select: { amount: true, interestAmount: true, status: true, chequeStatus: true },
+      }),
+    );
+    const paymentStatus = computePaymentStatus(
+      clearedNow,
+      new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount)).minus(new Decimal(sale.tdsAmount ?? 0)),
+    );
+    if (paymentStatus !== sale.paymentStatus) {
+      await tx.assetSale.update({ where: { id: sale.id }, data: { paymentStatus } });
+    }
+    if (sale.saleStage === "DEPOSIT_RECEIVED" && paymentStatus === "PAID") {
       // This was an immediate full payment by cheque — now complete the sale
       // BUT only if the registry document has been uploaded (gated completion)
       if (!sale.registryDocumentUrl) {
@@ -2887,13 +2904,20 @@ export async function bounceCheque(paymentId: string, userId?: string, bounceRea
       new Decimal(0),
     );
 
+    const bounceCollectible = new Decimal(sale.salePrice)
+      .plus(new Decimal(sale.gstAmount))
+      .minus(new Decimal(sale.tdsAmount ?? 0));
+    const bouncePaymentStatus = computePaymentStatus(
+      sumClearedAssetSalePayments(validPayments),
+      bounceCollectible,
+    );
     if (totalRemaining.gt(0)) {
       // Still has some valid payments — keep as DEPOSIT_RECEIVED
       await tx.assetSale.update({
         where: { id: sale.id },
         data: {
           depositAmount: totalRemaining,
-          paymentStatus: "PARTIAL",
+          paymentStatus: bouncePaymentStatus,
         },
       });
     } else {
@@ -2904,7 +2928,7 @@ export async function bounceCheque(paymentId: string, userId?: string, bounceRea
           saleStage: "PENDING",
           depositAmount: null,
           depositDate: null,
-          paymentStatus: "PENDING",
+          paymentStatus: bouncePaymentStatus,
         },
       });
       // Release the asset from RESERVED back to AVAILABLE
