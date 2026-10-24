@@ -2435,3 +2435,42 @@ JSX tags at `=>` inside `onClick={(e) =>` — produced 184 phantom
 "untyped button" hits (real: 0) and a runaway offset-stale write
 (+62k lines, reverted). Depth-aware extraction + collect-then-apply-
 back-to-front is now the pattern for every codemod.
+
+## Round 100 — Real-user procurement lifecycle, verified end-to-end on the production artifact
+
+Drove the complete Spend chain through the built UI with a real
+Better Auth session (no AUTH_BYPASS): **indent → auto-approve → 3-quote
+comparative → award → PO → gate-entry GRN → stock-in → issue →
+gate-pass approval → stock-out → WIP**. Every transition verified
+against Postgres side-effects, not just UI state.
+
+- Indent REQ-20261024-0001 created via dialog → auto-approved under
+  owner role; approval attributed (Approved by + timestamp).
+- Quote collection enforces evidence per channel: Document/Email need
+  an uploaded file; Verbal/WhatsApp need a source note instead. Toast
+  copy is precise ("Add a source note for non-document quotes").
+- Comparative statement normalizes landed cost per unit across mixed
+  delivery bases — ex-works quotes demand buyer transport/unit before
+  they can compare against delivered quotes. Cheapest auto-flagged.
+- Award → PO-20261024-0001 auto-created (₹1,89,000 + ₹52,920 GST =
+  ₹2,41,920 exact), loser quotes → REJECTED, indent → Converted.
+- GRN on `/field`: gate entry + challan + per-line qty + review gate →
+  confirm. Single transaction wrote GoodsReceipt + StockMovement
+  (+500 → 540 @ MAC ₹370.35) + PO qtyReceived + balanced GL
+  (Dr INVENTORY 1,89,000 / Dr INPUT_GST 52,920 / Cr AP 2,41,920).
+  GST correctly goes to ITC, not inventory cost.
+- Issue SA-261024-0001 → creates gate pass GP-261024-0001 PENDING;
+  "Execute Issue" correctly 403s with a clear toast until the pass is
+  approved (segregation: requester ≠ gate approver). After approval,
+  execution moved -50 bags → balance 490, issue COMPLETED, ₹18,517.50
+  (50 × MAC) accumulated to project WIP, GL Dr WIP / Cr INVENTORY.
+
+**Negative paths verified:** over-delivery blocked client-side
+("Coarse River Sand: 9991 exceeds remaining 9990 cft"); fully-received
+POs drop out of the receive picker; empty line submission blocked with
+field-level error.
+
+**Minor UX notes (not filed as bugs):** indent/quote badge counts on
+the table row are stale until refetch after dialog actions;
+transient toasts vanish fast (screen readers may miss them — polite
+live-region audit worth a later pass).
