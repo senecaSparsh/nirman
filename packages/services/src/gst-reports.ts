@@ -47,8 +47,15 @@ export function splitGst(
   gstAmount: Decimal,
   companyGstin: string | null | undefined,
   partyGstin: string | null | undefined,
+  // Place-of-supply override (2-digit state code). For immovable-property
+  // sales the supply location is the property's state, not the buyer's GSTIN
+  // — buyers are often unregistered individuals with no GSTIN at all.
+  partyStateCode?: string | null,
 ): { cgst: Decimal; sgst: Decimal; igst: Decimal } {
-  if (isIntraState(companyGstin, partyGstin)) {
+  const intra = partyStateCode && /^\d{2}$/.test(partyStateCode)
+    ? partyStateCode === getStateCodeFromGstin(companyGstin)
+    : isIntraState(companyGstin, partyGstin);
+  if (intra) {
     const half = gstAmount.div(2);
     return { cgst: half, sgst: half, igst: new Decimal(0) };
   }
@@ -239,10 +246,15 @@ export async function generateGstr1(
   const assetSales = assetSaleIds.length > 0
     ? await prisma.assetSale.findMany({
         where: { id: { in: assetSaleIds } },
-        select: { id: true, customer: { select: { gstin: true } } },
+        select: {
+          id: true,
+          customer: { select: { gstin: true } },
+          project: { select: { state: true } },
+        },
       })
     : [];
   const assetSaleGstinById = new Map(assetSales.map((s) => [s.id, s.customer?.gstin ?? null]));
+  const assetSaleStateById = new Map(assetSales.map((s) => [s.id, s.project?.state ?? null]));
 
   const materialSales = materialSaleIds.length > 0
     ? await prisma.materialSale.findMany({
@@ -271,18 +283,21 @@ export async function generateGstr1(
       ? gstAmount.div(taxableValue).times(100)
       : new Decimal(0);
 
-    // Determine the counterparty's GSTIN for CGST/SGST/IGST split
+    // Determine the counterparty's GSTIN for CGST/SGST/IGST split. Asset sales
+    // of immovable property supply at the property's location (IGST Act
+    // s12(3)) — use the project state, not the buyer GSTIN.
     let partyGstin: string | null = null;
+    let partyState: string | null = null;
     if (je.sourceId) {
-      // Trace back to the sale → customer → GSTIN
       if (je.sourceType === "ASSET_SALE") {
         partyGstin = assetSaleGstinById.get(je.sourceId) ?? null;
+        partyState = assetSaleStateById.get(je.sourceId) ?? null;
       } else if (je.sourceType === "MATERIAL_SALE") {
         partyGstin = materialSaleGstinById.get(je.sourceId) ?? null;
       }
     }
 
-    const split = splitGst(gstAmount, companyGstin, partyGstin);
+    const split = splitGst(gstAmount, companyGstin, partyGstin, partyState);
     totalCgst = totalCgst.plus(split.cgst);
     totalSgst = totalSgst.plus(split.sgst);
     totalIgst = totalIgst.plus(split.igst);
@@ -479,10 +494,15 @@ export async function generateGstr3b(
   const outAssetSales = outAssetSaleIds.length > 0
     ? await prisma.assetSale.findMany({
         where: { id: { in: outAssetSaleIds } },
-        select: { id: true, customer: { select: { gstin: true } } },
+        select: {
+          id: true,
+          customer: { select: { gstin: true } },
+          project: { select: { state: true } },
+        },
       })
     : [];
   const outAssetSaleGstinById = new Map(outAssetSales.map((s) => [s.id, s.customer?.gstin ?? null]));
+  const outAssetSaleStateById = new Map(outAssetSales.map((s) => [s.id, s.project?.state ?? null]));
 
   const outMaterialSales = outMaterialSaleIds.length > 0
     ? await prisma.materialSale.findMany({
@@ -510,9 +530,11 @@ export async function generateGstr3b(
     outwardOutputGst = outwardOutputGst.plus(gstAmount);
 
     let partyGstin: string | null = null;
+    let partyState: string | null = null;
     if (gl.journalEntry.sourceId) {
       if (gl.journalEntry.sourceType === "ASSET_SALE") {
         partyGstin = outAssetSaleGstinById.get(gl.journalEntry.sourceId) ?? null;
+        partyState = outAssetSaleStateById.get(gl.journalEntry.sourceId) ?? null;
       } else if (gl.journalEntry.sourceType === "MATERIAL_SALE") {
         partyGstin = outMaterialSaleGstinById.get(gl.journalEntry.sourceId) ?? null;
       } else if (gl.journalEntry.sourceType === "MATERIAL_SALE_RETURN") {
@@ -520,7 +542,7 @@ export async function generateGstr3b(
       }
     }
 
-    const split = splitGst(gstAmount, companyGstin, partyGstin);
+    const split = splitGst(gstAmount, companyGstin, partyGstin, partyState);
     outwardCgst = outwardCgst.plus(split.cgst);
     outwardSgst = outwardSgst.plus(split.sgst);
     outwardIgst = outwardIgst.plus(split.igst);

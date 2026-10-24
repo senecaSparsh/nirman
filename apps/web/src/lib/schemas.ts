@@ -79,6 +79,8 @@ export const projectSchema = z.object({
   type: projectTypeSchema.default("RESIDENTIAL"),
   status: projectStatusSchema.default("PLANNED"),
   address: z.string().max(300).optional().nullable(),
+  // 2-digit GST state code — drives place-of-supply for unit sales
+  state: z.string().regex(/^\d{2}$/, "State must be the 2-digit GST code").optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
   totalBudget: z.coerce.number().min(0).optional().nullable(),

@@ -1305,6 +1305,11 @@ model Project {
   type        ProjectType   @default(RESIDENTIAL)
   status      ProjectStatus @default(PLANNED)
   address     String?
+  // 2-digit GST state code of the site ("27" = Maharashtra). Drives the
+  // place of supply for immovable-property sales (IGST Act §12(3)(a)) —
+  // a flat sale is intra-state iff the project sits in the company's
+  // home state, regardless of the buyer's GSTIN.
+  state       String?
   startDate   DateTime?
   endDate     DateTime?
   totalBudget Decimal?      @db.Decimal(14, 2)

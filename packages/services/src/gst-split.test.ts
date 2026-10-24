@@ -66,5 +66,35 @@ describe("GST CGST/SGST/IGST split", () => {
       expect(result.sgst.toNumber()).toBe(0);
       expect(result.igst.toNumber()).toBe(0);
     });
+
+    // Place-of-supply override: immovable property supplies at the property's
+    // state (IGST Act s12(3)) — the buyer is often unregistered / out of state.
+    it("splits CGST/SGST when project state matches company state", () => {
+      const result = splitGst(new Decimal(1000), "27AAACJ5678K1Z2", null, "27");
+      expect(result.cgst.toNumber()).toBe(500);
+      expect(result.sgst.toNumber()).toBe(500);
+      expect(result.igst.toNumber()).toBe(0);
+    });
+
+    it("keeps IGST when project state differs from company state", () => {
+      const result = splitGst(new Decimal(1000), "27AAACJ5678K1Z2", null, "33");
+      expect(result.cgst.toNumber()).toBe(0);
+      expect(result.sgst.toNumber()).toBe(0);
+      expect(result.igst.toNumber()).toBe(1000);
+    });
+
+    it("project state overrides an out-of-state buyer GSTIN", () => {
+      const result = splitGst(new Decimal(1000), "27AAACJ5678K1Z2", "33AAACP3344C1Z7", "27");
+      expect(result.cgst.toNumber()).toBe(500);
+      expect(result.sgst.toNumber()).toBe(500);
+      expect(result.igst.toNumber()).toBe(0);
+    });
+
+    it("falls back to GSTIN logic when project state is missing or invalid", () => {
+      const noState = splitGst(new Decimal(1000), "27AAACJ5678K1Z2", "27AAACP3344C1Z7", null);
+      expect(noState.cgst.toNumber()).toBe(500);
+      const badState = splitGst(new Decimal(1000), "27AAACJ5678K1Z2", "27AAACP3344C1Z7", "MH");
+      expect(badState.cgst.toNumber()).toBe(500);
+    });
   });
 });

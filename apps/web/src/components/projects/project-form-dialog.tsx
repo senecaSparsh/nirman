@@ -12,12 +12,14 @@ import { Field } from "@/components/field";
 import { required, nonNegativeNumber, numberInRange } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import { cn } from "@/lib/utils";
+import { INDIAN_STATES } from "@/lib/indian-states";
 
 export type ProjectFormValues = {
   name: string;
   type: "RESIDENTIAL" | "COMMERCIAL" | "WAREHOUSE" | "MALL" | "LAND" | "OTHER";
   status: "PLANNED" | "ACTIVE" | "COMPLETED" | "ON_HOLD";
   address?: string | null;
+  state?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   totalBudget?: number | null;
@@ -78,6 +80,7 @@ export function ProjectFormDialog({
     type: initial?.type ?? "RESIDENTIAL",
     status: initial?.status ?? "PLANNED",
     address: initial?.address ?? "",
+    state: initial?.state ?? "",
     startDate: initial?.startDate ?? "",
     endDate: initial?.endDate ?? "",
     totalBudget: initial?.totalBudget ?? undefined,
@@ -206,6 +209,15 @@ export function ProjectFormDialog({
 
         <Field label="Address">
           <Input id="p-address" value={form.address ?? ""} onChange={(e) => set("address", e.target.value)} placeholder="Site address — plot no, area, city, PIN" />
+        </Field>
+
+        <Field label="State (place of supply)">
+          <Select id="p-state" value={form.state ?? ""} onChange={(e) => set("state", e.target.value || null)}>
+            <option value="">— pick state —</option>
+            {INDIAN_STATES.map((s) => (
+              <option key={s.code} value={s.code}>{s.name}</option>
+            ))}
+          </Select>
         </Field>
 
         <div className="grid grid-cols-2 gap-3">

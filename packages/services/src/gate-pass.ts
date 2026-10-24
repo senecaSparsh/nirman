@@ -238,7 +238,7 @@ export async function approveGatePass(id: string, approverId: string, notes?: st
     // except it still opens the gate for whatever the guard can't see.
     // MANUAL passes (person/vehicle movements) are valid without material
     // lines but must say why; every linked pass must carry its items.
-    if (gp.lines.length === 0 && !(gp.category === "MANUAL" && gp.purpose?.trim())) {
+    if ((gp.lines?.length ?? 0) === 0 && !(gp.category === "MANUAL" && gp.purpose?.trim())) {
       throw new ServiceError(
         "Cannot approve an empty gate pass — it needs material lines, or a purpose if it's a manual (non-material) pass",
         409,

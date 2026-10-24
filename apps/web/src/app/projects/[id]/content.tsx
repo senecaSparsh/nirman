@@ -744,6 +744,7 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
     type: project.type,
     status: project.status,
     address: project.address ?? "",
+    state: project.state ?? "",
     startDate: project.startDate?.toISOString().slice(0, 10) ?? "",
     endDate: project.endDate?.toISOString().slice(0, 10) ?? "",
     totalBudget: project.totalBudget ? toNum(project.totalBudget) : undefined,

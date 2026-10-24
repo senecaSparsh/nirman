@@ -578,6 +578,7 @@ describe("approveGatePass — self-approval guard", () => {
           companyId: "c1",
           refType: null,
           refId: null,
+          lines: [{ id: "gl-1" }],
         }),
       },
     });
@@ -597,6 +598,7 @@ describe("approveGatePass — self-approval guard", () => {
           companyId: "c1",
           refType: null,
           refId: null,
+          lines: [{ id: "gl-1" }],
         }),
       },
     });
