@@ -2536,3 +2536,12 @@ Cr Escrow. Pending cheque correctly excluded from paid% until cleared.
 
 sale-lifecycle suite: 19/19 incl. new TDS re-derive regression test.
 Shipped in `59e36373`.
+
+Addendum to round 102 — the flagged interest-leg delta is closed. Every
+asset-sale collection figure now counts `amount − interestAmount` (the
+late-interest leg is 4450 income, not principal) across assistant, portal,
+export, SMS receivables, mobile lists, customer/real-estate/books reports,
+pending-payments + sales-revenue reports, printed invoice, receipts
+detail. ~20 sites. Verified on the demand-notice flow live: a ₹37.5L
+installment 2 days overdue demanded ₹2,188.36 MCLR+2% interest — that leg
+no longer inflates "collected". Shipped in `3d580b59`.
