@@ -2829,3 +2829,22 @@ Round 112 — 26AS bulk import (TDS receivable reconciliation)
   tax asset until the ITR adjustment entry; no GL leg on reconcile.
 - Verified live: ₹32k unique auto-match, ₹50k 4-way ambiguous,
   ₹24k unmatched, apply set both flags (applied:2), re-apply applied:0.
+
+Round 113 — Comply pillar audit: GSTR-3B remittance-netting bug
+
+- GSTR-1 (credits on 2100) reported October output GST ₹300,458.20 =
+  exact GL truth. GSTR-3B reported ₹5,605.20 — it netted every 2100
+  _debit_ line, including the STATUTORY_PAYMENT challan (Dr 2100 /
+  Cr Bank ₹2,81,164) that settles the liability rather than reducing
+  supply. A filing from it would underreport output tax ~98%.
+- Symmetric ITC bug: `itcReversed` summed all 1400 credits — the
+  remittance's ITC-utilisation leg (Dr 2100 / Cr 1400) got counted as
+  a reversal, deflating net ITC.
+- Fix: skip STATUTORY_PAYMENT legs in both computations — only real
+  returns/reversals net. Verified live: outward 286,769.20
+  (=300,458.20−13,689 return/reversal debits), net ITC 130,441.20,
+  netGstPayable 156,328 (was 0 with phantom carryforward).
+- Open item logged: ASSET_SALE IGST classification — place of supply
+  for immovable property is the property's state (IGST Act §12(3)(a)),
+  not the buyer's GSTIN. Needs a Project.state field before B2C flat
+  sales can split CGST+SGST; conservative IGST until then.
