@@ -73,7 +73,7 @@ export function ProfitCenterView({ projects }: { projects: Project[] }) {
 
           {/* Cost breakdown */}
           <div className="space-y-3">
-            <h3 className="text-label text-muted-foreground">Cost Breakdown</h3>
+            <h2 className="text-label text-muted-foreground">Cost Breakdown</h2>
             <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
               <table className="w-full text-body">
                 <thead className="border-b border-border bg-subtle">
