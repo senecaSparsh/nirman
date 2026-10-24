@@ -88,7 +88,9 @@ export interface CreateGatePassInput {
  * the snapshot fields are missing.
  */
 export async function createGatePass(input: CreateGatePassInput) {
-  if (input.lines.length === 0) throw new ServiceError("Gate pass must have at least one line");
+  if (input.lines.length === 0 && !(input.category === "MANUAL" && input.purpose?.trim())) {
+    throw new ServiceError("Gate pass must have at least one line — or a purpose if it's a manual (non-material) pass");
+  }
   // Every line must describe a real outbound quantity — a zero/negative line
   // is meaningless on the gate guard's manifest.
   for (const line of input.lines) {
@@ -229,9 +231,19 @@ export async function submitGatePass(id: string, userId: string) {
 /** Approve a PENDING gate pass → APPROVED */
 export async function approveGatePass(id: string, approverId: string, notes?: string, actorRole?: string) {
   const result = await withSerializableTransaction(async (tx) => {
-    const gp = await tx.gatePass.findUnique({ where: { id } });
+    const gp = await tx.gatePass.findUnique({ where: { id }, include: { lines: { select: { id: true } } } });
     if (!gp) throw new ServiceError("Gate pass not found", 404);
     if (gp.status !== "PENDING") throw new ServiceError(`Cannot approve gate pass in status ${gp.status}`);
+    // An approver signing off a pass with nothing on it authorizes nothing —
+    // except it still opens the gate for whatever the guard can't see.
+    // MANUAL passes (person/vehicle movements) are valid without material
+    // lines but must say why; every linked pass must carry its items.
+    if (gp.lines.length === 0 && !(gp.category === "MANUAL" && gp.purpose?.trim())) {
+      throw new ServiceError(
+        "Cannot approve an empty gate pass — it needs material lines, or a purpose if it's a manual (non-material) pass",
+        409,
+      );
+    }
     // Prevent self-approval — unless a tier-1 role (OWNER/ADMIN), where no
     // higher approver exists above the creator. The SUBMITTER is covered too:
     // the pass was pushed to PENDING by them, so letting them approve it is
@@ -652,6 +664,14 @@ export async function autoCreateGatePassFromRef(
     createdById?: string;
   },
 ) {
+  // Linked-ref passes exist to move the source document's items — an empty
+  // one is meaningless and was approvable (see approveGatePass's own guard).
+  if (params.lines.length === 0) {
+    throw new ServiceError(
+      `Cannot create a gate pass for ${params.refType} with no material lines`,
+      400,
+    );
+  }
   const gatePassNumber = await generateGatePassNumber(tx, params.companyId);
   for (const line of params.lines) {
     if (!new Decimal(line.qty).gt(0)) throw new ServiceError("Gate pass line qty must be > 0", 400);
