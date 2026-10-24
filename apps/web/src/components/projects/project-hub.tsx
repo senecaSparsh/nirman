@@ -2103,10 +2103,10 @@ function ConstructionTab({ data }: { data: ProjectHubData }) {
               hideable
               exportFileName="project-dprs"
               initialSort={{ key: "reportDate", direction: "desc" }}
-              onRowClick={(dpr) => window.open(`/hr/dprs?id=${dpr.id}`, "_self")}
+              onRowClick={(dpr) => window.open(`/dprs?id=${dpr.id}`, "_self")}
               toolbarLeading={toggle}
               toolbarTrailing={
-                <Link href={`/hr/dprs?project=${data.project.id}`}>
+                <Link href={`/dprs?project=${data.project.id}`}>
                   <Button size="sm" className="h-7 gap-1.5">
                     <Plus className="size-3.5" /> New DPR
                   </Button>

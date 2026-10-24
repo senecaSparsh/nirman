@@ -1014,7 +1014,7 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
         setRejected(true);
       } else {
         toast.success("DPR approved", {
-          action: { label: "View DPRs", onClick: () => router.push("/hr/dprs") },
+          action: { label: "View DPRs", onClick: () => router.push("/dprs") },
         });
         setDone(true);
       }
@@ -1045,7 +1045,7 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
           )}
         </div>
         {done && (
-          <Link href={`/hr/dprs`} className="text-caption text-brand-strong hover:underline inline-flex items-center gap-1">
+          <Link href={`/dprs`} className="text-caption text-brand-strong hover:underline inline-flex items-center gap-1">
             View DPRs <ArrowRight className="h-3 w-3" />
           </Link>
         )}

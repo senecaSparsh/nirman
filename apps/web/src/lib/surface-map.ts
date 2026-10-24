@@ -12,8 +12,8 @@ import { DESKTOP_ROUTES } from "@/lib/desktop-routes";
  *
  * Both layers MUST resolve through the same manifest-aware mapping or a
  * mobile user lands on a path that does not exist (e.g. the sign-in
- * redirect sent SITE_ENGINEER to `/hr/dprs`; a blind `/m` prefix produces
- * `/m/hr/dprs` → 404, while the manifest maps it to `/m/dprs`).
+ * redirect sent SITE_ENGINEER to `/dprs`; a blind `/m` prefix produces
+ * `/m/dprs` → 404, while the manifest maps it to `/m/dprs`).
  *
  * ROUTE MAPPING:
  *   Mobile → Desktop: uses the route manifest's `desktopPath` field.

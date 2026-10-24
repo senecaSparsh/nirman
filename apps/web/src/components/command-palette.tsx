@@ -57,7 +57,7 @@ const ACTIONS: ActionItem[] = [
   { label: "View approvals queue", hint: "Pending approvals", icon: ClipboardCheck, href: "/approvals", keywords: ["approve", "approval", "pending", "queue"] },
   { label: "View my tasks", hint: "Task manager", icon: CheckSquare, href: "/my-tasks", keywords: ["task", "my tasks", "todo", "assigned"] },
   { label: "Mark attendance", hint: "Daily haziri", icon: CalendarCheck, href: "/hr/attendance", keywords: ["attendance", "haziri", "present", "absent", "check in", "muster"] },
-  { label: "Submit DPR", hint: "Daily progress report", icon: ClipboardList, href: "/hr/dprs", keywords: ["dpr", "daily progress", "daily report", "site report", "work done", "progress"] },
+  { label: "Submit DPR", hint: "Daily progress report", icon: ClipboardList, href: "/dprs", keywords: ["dpr", "daily progress", "daily report", "site report", "work done", "progress"] },
   { label: "Sell scrap or surplus", hint: "Material sale with cost recovery", icon: Recycle, href: "/material-sales", keywords: ["scrap", "surplus", "material sale", "cost recovery", "by-product", "resale"] },
   { label: "List unit on portal", hint: "99acres / MagicBricks sync", icon: Globe, href: "/portal-listings", keywords: ["portal", "listing", "99acres", "magicbricks", "housing", "marketplace", "property portal"] },
   { label: "Generate auto-indent", hint: "Reorder low-stock materials", icon: Zap, href: "/requisitions?auto=1", keywords: ["auto requisition", "auto indent", "reorder", "low stock", "eoq", "automatic", "generate requisition", "generate indent"] },

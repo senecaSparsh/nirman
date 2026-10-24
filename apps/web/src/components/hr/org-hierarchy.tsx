@@ -766,7 +766,7 @@ function PersonDetailD({ person, depth, ancestorLast, hasChildrenBelow }: { pers
           {person.recentDprs.slice(0, 3).map((d) => (
             <Link
               key={d.id}
-              href={`/hr/dprs/${d.id}`}
+              href={`/dprs/${d.id}`}
               className="flex items-center gap-2 text-body hover:text-foreground"
             >
               <FileText className="size-3.5 shrink-0 text-muted-foreground" />

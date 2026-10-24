@@ -169,7 +169,7 @@ export const NAV_PERMISSION: Record<string, string | string[]> = {
   "/hr": PERM.HR_VIEW,
   "/hr/employees": PERM.HR_VIEW,
   "/hr/attendance": PERM.HR_VIEW,
-  "/hr/dprs": PERM.DPR_VIEW,
+  "/dprs": PERM.DPR_VIEW,
   "/hr/pending": PERM.HR_VIEW,
   "/hr/payroll": PERM.PAYROLL_VIEW,
   "/reports/payroll-expense": PERM.PAYROLL_VIEW,
@@ -623,6 +623,14 @@ export const WORLDS: World[] = [
             keywords: ["mb", "measurement", "quantity", "site", "executed", "verified", "approved"],
           },
           {
+            label: "Daily Progress",
+            href: "/dprs",
+            icon: ClipboardList,
+            hint: "The DPR — what work got done on site today, and by whom",
+            roles: [...OPS, "HR_MANAGER", "FINANCE_HEAD"],
+            keywords: ["dpr", "daily progress report", "daily report", "progress", "site report", "work done", "work log", "labour report", "site diary"],
+          },
+          {
             label: "Work Orders",
             href: "/work-orders",
             icon: HardHat,
@@ -835,14 +843,6 @@ export const WORLDS: World[] = [
             hint: "Mark present, half-day or absent — and the hours worked (haziri). Leave tab inside.",
             roles: [...OPS, "ACCOUNTANT", "HR_MANAGER", "FINANCE_HEAD"],
             keywords: ["present", "absent", "haziri", "muster", "time", "hours", "attendance", "leave", "holiday", "off", "chutti", "absence"],
-          },
-          {
-            label: "Daily Progress",
-            href: "/hr/dprs",
-            icon: ClipboardList,
-            hint: "The DPR — what work got done on site today, and by whom",
-            roles: [...OPS, "HR_MANAGER", "FINANCE_HEAD"],
-            keywords: ["dpr", "daily progress report", "daily report", "progress", "site report", "work done", "work log", "labour report", "site diary"],
           },
           {
             label: "Pending List",
@@ -1284,9 +1284,9 @@ export function homeWorldFor(role: string): World {
   // world — e.g. a Store Keeper lands in Build but on /stock (not the
   // pipeline overview), a Sales Manager lands on /sales, etc.
   const map: Record<string, { world: WorldKey; homeHref?: string }> = {
-    SUPERVISOR: { world: "hr", homeHref: "/hr/dprs" },
+    SUPERVISOR: { world: "build", homeHref: "/dprs" },
     QAQC_ENGINEER: { world: "build", homeHref: "/quality-control" },
-    SITE_ENGINEER: { world: "hr", homeHref: "/hr/dprs" },
+    SITE_ENGINEER: { world: "build", homeHref: "/dprs" },
     STORE_KEEPER: { world: "build", homeHref: "/stock" },
     SALES_MANAGER: { world: "build", homeHref: "/sales" },
     ACCOUNTANT: { world: "finance" },

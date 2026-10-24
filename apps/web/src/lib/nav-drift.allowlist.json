@@ -75,7 +75,7 @@
     "PROCUREMENT_MANAGER": "listOnly",
     "STORE_KEEPER": "listOnly"
   },
-  "/hr/dprs": {
+  "/dprs": {
     "ACCOUNTANT": "permOnly",
     "PROCUREMENT_MANAGER": "listOnly",
     "STORE_KEEPER": "listOnly"

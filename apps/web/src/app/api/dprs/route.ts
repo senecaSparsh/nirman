@@ -153,7 +153,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         console.warn("DPR auto-approve failed:", e);
       }
     }
-    revalidatePath("/hr/dprs");
+    revalidatePath("/dprs");
     revalidatePath("/m/dprs");
     return json({ ok: true, id: dpr.id }, { status: 201 });
   } catch (err: unknown) {

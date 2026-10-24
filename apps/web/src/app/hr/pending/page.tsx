@@ -221,7 +221,7 @@ async function PendingListContent() {
             title: d.project?.name ?? "Unknown project",
             subtitle: d.workSummary?.slice(0, 80) ?? "No summary",
             meta: `${formatDate(d.date)} · ${d.submittedBy?.name ?? "Unknown"}`,
-            href: `/hr/dprs?id=${d.id}`,
+            href: `/dprs?id=${d.id}`,
             tone: "warning" as const,
           }))}
         />

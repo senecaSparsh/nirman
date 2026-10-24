@@ -154,11 +154,14 @@ const nextConfig: NextConfig = {
     return [
       { source: "/dashboard", destination: "/", permanent: true },
       { source: "/home", destination: "/", permanent: true },
-      // People type "/dprs" — the page lives under HR today (daily site
-      // reports are a site-ops artifact; the HR grouping is filed under
-      // the IA ledger in DECISIONS). Catch the guess instead of a 404.
-      { source: "/dprs", destination: "/hr/dprs", permanent: true },
-      { source: "/dprs/:id", destination: "/hr/dprs", permanent: true },
+      // DPRs moved out of HR — daily site progress is a site-ops
+      // artifact and lives in the Build world's Construct section.
+      // Old /hr/dprs links (bookmarks, notification hrefs stored before
+      // the move) land on the canonical page; an id segment deep-links
+      // the same record via ?id= which the view auto-opens.
+      { source: "/hr/dprs", destination: "/dprs", permanent: true },
+      { source: "/hr/dprs/:id", destination: "/dprs?id=:id", permanent: true },
+      { source: "/dprs/:id", destination: "/dprs?id=:id", permanent: true },
     ];
   },
 };

@@ -219,8 +219,8 @@ describe("worldForPath", () => {
 // ─────────────────────────────────────────────────────────────────
 
 describe("homeWorldFor", () => {
-  it("SUPERVISOR lands in HR (DPRs are their primary daily work)", () => {
-    expect(homeWorldFor(SUPERVISOR).key).toBe("hr");
+  it("SUPERVISOR lands in Build (DPRs live under Construct)", () => {
+    expect(homeWorldFor(SUPERVISOR).key).toBe("build");
   });
 
   it("SALES_MANAGER lands in Build", () => {

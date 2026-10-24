@@ -51,7 +51,7 @@ export const DESKTOP_ROUTES = new Set<string>([
   "/hr/attendance",
   "/hr/crews",
   "/hr/daily-reports",
-  "/hr/dprs",
+  "/dprs",
   "/hr/employees",
   "/hr/employees/[id]",
   "/hr/leaves",

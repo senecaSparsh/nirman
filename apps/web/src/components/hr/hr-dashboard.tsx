@@ -232,7 +232,7 @@ export function HrDashboard({
   }, [recentDprs, query]);
 
   const pendingActions: PendingAction[] = [
-    ...(pendingDprApprovals > 0 ? [{ label: "DPRs pending approval", count: pendingDprApprovals, href: "/hr/dprs", tone: "warning" as const }] : []),
+    ...(pendingDprApprovals > 0 ? [{ label: "DPRs pending approval", count: pendingDprApprovals, href: "/dprs", tone: "warning" as const }] : []),
     ...(pendingLeaves > 0 ? [{ label: "Leave requests pending", count: pendingLeaves, href: "/hr/attendance?tab=leave", tone: "info" as const }] : []),
     ...(pendingAsks > 0 ? [{ label: "Worker requests pending", count: pendingAsks, href: "/approvals", tone: "info" as const }] : []),
     ...(pendingPayrolls > 0 ? [{ label: "Draft payrolls to process", count: pendingPayrolls, href: "/hr/payroll", tone: "danger" as const }] : []),
@@ -266,7 +266,7 @@ export function HrDashboard({
           value={pendingDprApprovals + pendingLeaves + pendingAsks + pendingPayrolls}
           sub={`${pendingDprApprovals} DPRs · ${pendingLeaves} leaves · ${pendingAsks} asks · ${pendingPayrolls} payrolls`}
           tone={pendingActions.length > 0 ? "warning" : "default"}
-          href="/hr/dprs"
+          href="/dprs"
         />
       </MetricGrid>
 
@@ -379,7 +379,7 @@ export function HrDashboard({
             {filteredDprs.length === 0 ? (
               <p className="py-8 text-center text-body text-muted-foreground">
                 {recentDprs.length === 0 ? (
-                  <>No DPRs this week. <Link href="/hr/dprs" className="text-brand-strong underline underline-offset-2">Create one →</Link></>
+                  <>No DPRs this week. <Link href="/dprs" className="text-brand-strong underline underline-offset-2">Create one →</Link></>
                 ) : (
                   "No DPRs match the search."
                 )}
@@ -389,7 +389,7 @@ export function HrDashboard({
                 {filteredDprs.map((dpr) => (
                   <Link
                     key={dpr.id}
-                    href={`/hr/dprs?id=${dpr.id}`}
+                    href={`/dprs?id=${dpr.id}`}
                     className="group flex items-center gap-3 px-2 py-2.5 transition-colors hover:bg-subtle rounded-md"
                   >
                     <div className="min-w-0 flex-1">

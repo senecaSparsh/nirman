@@ -173,8 +173,8 @@ export function middleware(req: NextRequest) {
   // The target is resolved through lib/surface-map's manifest-aware
   // mapping — the SAME logic the client adapter uses. A blind "/m" prefix
   // is NOT safe: several desktop homes live at different mobile paths
-  // ("/hr/dprs" → "/m/dprs", "/finance" → "/m/accounts"), and prefixing
-  // produced a "/m/hr/dprs" 404 as the very first screen a site engineer
+  // ("/dprs" → "/m/dprs", "/finance" → "/m/accounts"), and prefixing
+  // produced a "/m/dprs" 404 as the very first screen a site engineer
   // saw after sign-in. When no mobile equivalent exists we land on
   // "/m/home" instead of a nonexistent path — same as the client adapter.
   //

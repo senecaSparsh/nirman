@@ -47,7 +47,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   });
 
   // Revalidate pages affected by variance analysis + scrap generation
-  revalidatePath("/hr/dprs");
+  revalidatePath("/dprs");
   revalidatePath("/m/dprs");
   if (result.scrapGenerationId) {
     revalidatePath("/stock");

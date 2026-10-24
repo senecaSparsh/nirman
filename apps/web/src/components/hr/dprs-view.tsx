@@ -189,8 +189,12 @@ export function DprsView({
     if (match) setDetailTarget(match);
   }, [searchParams, dprs, detailTarget]);
 
+  // ?project=<id> — deep links from the project hub scope the list.
+  const projectParam = searchParams.get("project");
+
   const filteredDprs = useMemo(
     () => dprs.filter((d) => {
+      if (projectParam && d.projectId !== projectParam) return false;
       // d.date is an ISO string; compare only the date portion to avoid
       // the "T..." suffix making same-day records sort after the filter.
       const dDate = d.date.slice(0, 10);
@@ -198,7 +202,7 @@ export function DprsView({
       if (dateTo && dDate > dateTo) return false;
       return true;
     }),
-    [dprs, dateFrom, dateTo],
+    [dprs, dateFrom, dateTo, projectParam],
   );
 
   function openCreate() {

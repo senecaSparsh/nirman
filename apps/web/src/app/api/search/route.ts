@@ -83,7 +83,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     customer: (id: string) => (desktop ? `/customers` : `/m/customers/${id}`),
     unit: (id: string) => (desktop ? `/units` : `/m/units/${id}`),
     land: (id: string) => (desktop ? `/land/${id}` : `/m/land/${id}`),
-    dpr: (id: string) => (desktop ? `/hr/dprs` : `/m/dprs/${id}`),
+    dpr: (id: string) => (desktop ? `/dprs?id=${id}` : `/m/dprs/${id}`),
     employee: (id: string) => (desktop ? `/hr/employees/${id}` : `/m/hr/employees/${id}`),
     equipment: (id: string) => (desktop ? `/equipment` : `/m/equipment/${id}`),
     sale: (id: string) => (desktop ? `/material-sales` : `/m/material-sales/${id}`),
