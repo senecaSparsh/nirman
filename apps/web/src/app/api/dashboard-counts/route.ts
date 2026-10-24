@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma, type DprApprovalStatus } from "@nirman/db";
 import { apiHandler, json, getCompany, requireUser, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { notCreatedBy, notRequestedBy, notSubmittedByUser } from "@/lib/approval-queue";
 
 /**
  * GET /api/dashboard-counts — lightweight counts for dashboard polling.
@@ -74,6 +75,8 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     pendingExpenses,
     pendingClaims,
     pendingRaBills,
+    pendingCheques,
+    overdueInstallments,
   ] = await Promise.all([
     // Materials with a reorder point — the same definition of "low stock"
     // lowStockAlerts() uses (and /build, /api/briefing, auto-requisition
@@ -95,8 +98,8 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     // Excludes items the user created — the Today queue only shows what
     // needs *their* approval, so the polled count must exclude them too
     // (otherwise the total jumps up 30s after load for self-created work).
-    prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT", createdById: { not: user.id }, ...poScope } }),
-    prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: user.id }, ...reqScope } }),
+    prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT", ...notCreatedBy(user.id), ...poScope } }),
+    prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "SUBMITTED", ...notRequestedBy(user.id), ...reqScope } }),
     prisma.purchaseOrder.count({ where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() }, ...poScope } }),
     prisma.assetSale.findMany({
       take: 1000,
@@ -115,19 +118,34 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     }),
     // ── The other approval-queue categories (mirrors /approvals + page.tsx) ──
     canApproveGatePass
-      ? prisma.gatePass.count({ where: { companyId: company.id, status: "PENDING", createdById: { not: user.id }, ...gpScope } })
+      ? prisma.gatePass.count({ where: { companyId: company.id, status: "PENDING", ...notCreatedBy(user.id), ...gpScope } })
       : Promise.resolve(0),
     dprApprovalStatuses.length > 0
-      ? prisma.dailyProgressReport.count({ where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: { not: user.id }, ...dprScope } })
+      ? prisma.dailyProgressReport.count({ where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, ...notSubmittedByUser(user.id), ...dprScope } })
       : Promise.resolve(0),
     canApproveExpense
-      ? prisma.expense.count({ where: { companyId: company.id, status: "PENDING", submittedById: { not: user.id } } })
+      ? prisma.expense.count({ where: { companyId: company.id, status: "PENDING", ...notSubmittedByUser(user.id) } })
       : Promise.resolve(0),
     canApproveExpense
       ? prisma.expenseClaim.count({ where: { companyId: company.id, status: "SUBMITTED", claimantId: { not: user.id } } })
       : Promise.resolve(0),
     canApproveRaBill
-      ? prisma.raBill.count({ where: { companyId: company.id, status: "SUBMITTED", createdById: { not: user.id }, submittedById: { not: user.id } } })
+      ? prisma.raBill.count({ where: { companyId: company.id, status: "SUBMITTED", ...notCreatedBy(user.id), ...notSubmittedByUser(user.id) } })
+      : Promise.resolve(0),
+    // Mirrors the Today page exactly — without these the poll silently
+    // freezes "cheques awaiting clearance" and "overdue installments" at
+    // their first-paint take:5 lengths.
+    canSeeSales
+      ? prisma.assetSalePayment.count({ where: { chequeStatus: "PENDING", assetSale: { companyId: company.id, status: { not: "CANCELLED" } } } })
+      : Promise.resolve(0),
+    canSeeSales
+      ? prisma.paymentScheduleItem.count({
+          where: {
+            status: { in: ["DUE", "PARTIAL"] },
+            dueDate: { lt: now },
+            paymentSchedule: { assetSale: { companyId: company.id, status: { not: "CANCELLED" } } },
+          },
+        })
       : Promise.resolve(0),
   ]);
 
@@ -207,6 +225,14 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   if (canManageStock && pendingStockCounts > 0) {
     queues.push({ key: "stock-count", count: pendingStockCounts, urgency: "soon" });
     pendingActions.push({ label: "Stock inventories", value: pendingStockCounts });
+  }
+  if (canSeeSales && overdueInstallments > 0) {
+    queues.push({ key: "overdue-installments", count: overdueInstallments, urgency: "blocking" });
+    pendingActions.push({ label: "Overdue installments", value: overdueInstallments });
+  }
+  if (canSeeSales && pendingCheques > 0) {
+    queues.push({ key: "pending-cheques", count: pendingCheques, urgency: "blocking" });
+    pendingActions.push({ label: "Cheques to clear", value: pendingCheques });
   }
   if (canSeeSales && availableUnits > 0) {
     queues.push({ key: "units-sell", count: availableUnits, urgency: "soon" });

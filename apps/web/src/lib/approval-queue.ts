@@ -22,6 +22,18 @@ export function notCreatedBy(userId: string) {
   return { AND: [{ OR: [{ createdById: { not: userId } }, { createdById: null }] }] };
 }
 
+// Prisma `{ not: userId }` on a nullable column excludes NULL — so
+// imported/system-generated rows (createdById/requestedById/submittedById
+// all nullable) silently vanish from approvable queues. These helpers are
+// the only correct way to say "not mine": include rows with no actor.
+export function notRequestedBy(userId: string) {
+  return { OR: [{ requestedById: { not: userId } }, { requestedById: null }] };
+}
+
+export function notSubmittedByUser(userId: string) {
+  return { OR: [{ submittedById: { not: userId } }, { submittedById: null }] };
+}
+
 export function poValueThresholds(company: {
   poApprovalThresholdManager: Prisma.Decimal | null;
   poApprovalThresholdAdmin: Prisma.Decimal | null;

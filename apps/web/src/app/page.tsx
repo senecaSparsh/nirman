@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/page-header";
 import { CommandCenter } from "@/components/command-center";
 import { homeWorldFor } from "@/lib/nav";
 import { saleDues } from "@/lib/sale-dues";
+import { notCreatedBy, notRequestedBy, notSubmittedByUser } from "@/lib/approval-queue";
 import { OwnerFinancialDashboard, type CashPositionData, type ProjectProfitRow } from "@/components/owner-financial-dashboard";
 import {
   type QueueData,
@@ -106,6 +107,8 @@ async function CommandCenterContent() {
     pendingRaBills,
     pendingCheques,
     overdueInstallments,
+    pendingChequesCount,
+    overdueInstallmentsCount,
   ] = await Promise.all([
     isDevBypass ? null : prisma.user.findUnique({
       where: { id: userId },
@@ -129,11 +132,11 @@ async function CommandCenterContent() {
       select: { id: true, name: true, unit: true, reorderPoint: true,
         stockItems: { where: { AND: [{ location: { deletedAt: null, companyId: company.id } }, await scopeWhere("StockLocationItem")] }, select: { qty: true } } }}),
     prisma.purchaseOrder.findMany({
-      where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: "DRAFT", createdById: { not: userId } },
+      where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: "DRAFT", ...notCreatedBy(userId ?? "") },
       orderBy: { createdAt: "desc" }, take: 5,
       include: { supplier: { select: { name: true } } }}),
     prisma.materialRequisition.findMany({
-      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: userId } },
+      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", ...notRequestedBy(userId ?? "") },
       orderBy: { createdAt: "desc" }, take: 5,
       include: { project: { select: { name: true } }, lines: { select: { qtyRequested: true } } }}),
     prisma.purchaseOrder.findMany({
@@ -184,19 +187,19 @@ async function CommandCenterContent() {
     // excludes DPRs, gate passes, expenses, claims and RA bills.
     canApproveGatePass
       ? prisma.gatePass.findMany({
-          where: { ...await scopeWhere("GatePass"), companyId: company.id, status: "PENDING", createdById: { not: userId } },
+          where: { ...await scopeWhere("GatePass"), companyId: company.id, status: "PENDING", ...notCreatedBy(userId ?? "") },
           orderBy: { createdAt: "desc" }, take: 5,
           include: { location: { select: { name: true } } }})
       : [],
     dprApprovalStatuses.length > 0
       ? prisma.dailyProgressReport.findMany({
-          where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: { not: userId }, date: { lte: now } },
+          where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, ...notSubmittedByUser(userId ?? ""), date: { lte: now } },
           orderBy: { date: "desc" }, take: 5,
           include: { project: { select: { name: true } } }})
       : [],
     canApproveExpense
       ? prisma.expense.findMany({
-          where: { ...await scopeWhere("Expense"), companyId: company.id, status: "PENDING", submittedById: { not: userId } },
+          where: { ...await scopeWhere("Expense"), companyId: company.id, status: "PENDING", ...notSubmittedByUser(userId ?? "") },
           orderBy: { createdAt: "desc" }, take: 5,
           include: { project: { select: { name: true } } }})
       : [],
@@ -208,7 +211,7 @@ async function CommandCenterContent() {
       : [],
     canApproveRaBill
       ? prisma.raBill.findMany({
-          where: { ...await scopeWhere("RaBill"), companyId: company.id, status: "SUBMITTED", createdById: { not: userId }, submittedById: { not: userId } },
+          where: { ...await scopeWhere("RaBill"), companyId: company.id, status: "SUBMITTED", ...notCreatedBy(userId ?? ""), ...notSubmittedByUser(userId ?? "") },
           orderBy: { createdAt: "desc" }, take: 5,
           include: { project: { select: { name: true } }, workOrder: { select: { workOrderNumber: true } } }})
       : [],
@@ -237,6 +240,23 @@ async function CommandCenterContent() {
             },
           }})
       : [],
+    // Real totals — take:5 item lists cap at 5, so `count: list.length`
+    // freezes the card at 5 while the DB holds more. Poll updates come from
+    // /api/dashboard-counts which now counts the same predicates.
+    canSeeSales
+      ? prisma.assetSalePayment.count({
+          where: { chequeStatus: "PENDING", assetSale: { companyId: company.id, status: { not: "CANCELLED" } } },
+        })
+      : 0,
+    canSeeSales
+      ? prisma.paymentScheduleItem.count({
+          where: {
+            status: { in: ["DUE", "PARTIAL"] },
+            dueDate: { lt: new Date() },
+            paymentSchedule: { assetSale: { companyId: company.id, status: { not: "CANCELLED" } } },
+          },
+        })
+      : 0,
   ]);
 
   // ── Owner Financial Dashboard data (OWNER/ADMIN only) ───────────
@@ -449,7 +469,7 @@ async function CommandCenterContent() {
   if (overdueInstallments.length > 0) queues.push({
     key: "overdue-installments", title: "Overdue installments",
     consequence: "Demand payment — interest is accruing at 10.65% p.a.",
-    count: overdueInstallments.length, href: "/reports/pending-payments?tab=installments", cta: "Demand", urgency: "blocking", icon: "dollarSign",
+    count: overdueInstallmentsCount, href: "/reports/pending-payments?tab=installments", cta: "Demand", urgency: "blocking", icon: "dollarSign",
     items: overdueInstallments.map((i) => {
       const balance = Math.max(0, toNum(i.totalAmount) - toNum(i.paidAmount));
       const daysLate = Math.floor((now.getTime() - new Date(i.dueDate!).getTime()) / 86400000);
@@ -460,7 +480,7 @@ async function CommandCenterContent() {
   if (pendingCheques.length > 0) queues.push({
     key: "pending-cheques", title: "Cheques awaiting clearance",
     consequence: "Confirm clearance or mark bounced — the money isn't usable yet",
-    count: pendingCheques.length, href: "/sales", cta: "Clear", urgency: "blocking", icon: "dollarSign",
+    count: pendingChequesCount, href: "/sales", cta: "Clear", urgency: "blocking", icon: "dollarSign",
     items: pendingCheques.map((p) => ({ label: p.assetSale.customer.name, sub: `${formatCurrency(toNum(p.amount))} · ${p.chequeNo ? `chq ${p.chequeNo} · ` : ""}${formatDate(p.paymentDate)}`, href: `/sales/${p.assetSale.id}` }))});
   if (canManageStock && pendingStockCounts.length > 0) queues.push({
     key: "stock-count", title: "Stock inventories to process",

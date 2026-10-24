@@ -5,6 +5,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, getCurrentUser, toNum, scopeWhere, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatDate, formatCurrencyCompact } from "@/lib/utils";
+import { notCreatedBy, notRequestedBy, notSubmittedByUser } from "@/lib/approval-queue";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import {
   ClipboardList,
@@ -72,7 +73,7 @@ async function MobilePendingListContent() {
     pendingTasks,
   ] = await Promise.all([
     canApproveDpr ? prisma.dailyProgressReport.findMany({
-      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: approvableDprStatuses }, submittedById: { not: userId }, date: { lte: new Date() } },
+      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: approvableDprStatuses }, ...notSubmittedByUser(userId), date: { lte: new Date() } },
       orderBy: { date: "desc" },
       take: 15,
       include: {
@@ -83,7 +84,7 @@ async function MobilePendingListContent() {
     // Self-excluded — own pending leave isn't an approval task for you.
     canManageLeave ? prisma.leaveRequest.findMany({
       where: {...await scopeWhere("LeaveRequest"),  companyId: company.id, status: "PENDING",
-        employee: { userId: { not: userId } } },
+        employee: { OR: [{ userId: { not: userId } }, { userId: null }] } },
       orderBy: { createdAt: "desc" },
       take: 15,
       include: { employee: { select: { name: true } } },
@@ -95,7 +96,7 @@ async function MobilePendingListContent() {
       include: { _count: { select: { lines: true } } },
     }) : Promise.resolve([]),
     canApprovePo ? prisma.purchaseOrder.findMany({
-      where: {...await scopeWhere("PurchaseOrder"),  companyId: company.id, status: "DRAFT", createdById: { not: userId } },
+      where: {...await scopeWhere("PurchaseOrder"),  companyId: company.id, status: "DRAFT", ...notCreatedBy(userId) },
       orderBy: { createdAt: "desc" },
       take: 15,
       include: {
@@ -104,7 +105,7 @@ async function MobilePendingListContent() {
       },
     }) : Promise.resolve([]),
     canApproveReq ? prisma.materialRequisition.findMany({
-      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: userId } },
+      where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", ...notRequestedBy(userId) },
       orderBy: { createdAt: "desc" },
       take: 15,
       include: {

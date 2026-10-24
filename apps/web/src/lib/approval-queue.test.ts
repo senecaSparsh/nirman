@@ -6,7 +6,9 @@ import {
   canApprovePoRow,
   companyRequisitionFilter,
   notCreatedBy,
+  notRequestedBy,
   notSubmittedBy,
+  notSubmittedByUser,
   poValueThresholds,
 } from "./approval-queue";
 
@@ -90,5 +92,18 @@ describe("canApproveIndentRow", () => {
 
   it("is false when there is no gate for the row's project", () => {
     expect(canApproveIndentRow(undefined)).toBe(false);
+  });
+});
+
+describe("notRequestedBy / notSubmittedByUser", () => {
+  it("include NULL-actor rows — imported/system-generated records stay approvable", () => {
+    // F1 regression: `{ not: userId }` on a nullable column excludes NULL in
+    // Prisma, so creator-less rows silently vanished from every queue.
+    expect(notRequestedBy("u1")).toEqual({
+      OR: [{ requestedById: { not: "u1" } }, { requestedById: null }],
+    });
+    expect(notSubmittedByUser("u1")).toEqual({
+      OR: [{ submittedById: { not: "u1" } }, { submittedById: null }],
+    });
   });
 });

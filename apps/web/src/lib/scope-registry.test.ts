@@ -118,7 +118,7 @@ describe("scope registry coverage", () => {
 
   it("project-scopes operational queues on the desktop Today page", () => {
     expect(homePage).toContain(
-      'where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: "DRAFT", createdById: { not: userId } },',
+      'where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: "DRAFT", ...notCreatedBy(userId) },',
     );
     expect(homePage).toContain(
       'where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } },',

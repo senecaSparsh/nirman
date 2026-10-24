@@ -2682,3 +2682,54 @@ RA creation UI (backend `mbEntryIds` is in place — picker is pure UI);
 desktop `/work-orders/[id]` deep link. Historical MB entries remain
 unattributed and billable by any covering WO — acceptable migration
 posture since pre-attribution data cannot be re-attributed reliably.
+
+Round 107 — Spend regression: payment-run blind-window fix + batch disbursement verified
+
+Swept the payment dedupe layer after the round-102 scoping — found the
+supplier-payment blind window unscoped, plus a batch-path false positive:
+
+- `createSupplierPayment`'s 15s blind window still fired when a unique
+  `referenceNo` was present (the identifier already has its own dedupe at
+  :226). Scoped to identifier-less payments, matching land/sale/statutory
+  paths.
+- `createPaymentRun` posts items within seconds — two legitimate
+  same-supplier/same-amount PO items in one run false-positived as a
+  "double-click". Run items now carry `skipDoubleSubmitGuard` (UTR dedupe
+  still applies).
+- Payment-run dialog `onDone` was `() => {}` — paid rows lingered until
+  manual refresh; now `router.refresh()`s the report.
+- Verified live: run of 2×₹100 same-supplier items → SP-0002/0003 posted,
+  2-row bank file; voided both → supplier balance restored to the paisa.
+- Deploy hardening: `PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false` in the
+  Dockerfile builder stage — pnpm's deps check re-ran `pnpm install` (with
+  scripts) inside Docker, re-triggering sharp@0.32.6's flaky libvips
+  GitHub download; killed 2 deploys. sharp 0.34 (Next's image optimizer)
+  ships prebuilt optional packages and is unaffected.
+- Tests: 4/4 supplier-payment-void incl. new scoping + run coverage.
+
+Prod: `4b340056` live (container …T134521), two consecutive clean builds.
+
+Round 108 — Trust audit F1+F2: null-creator approval rows + frozen poll queues
+
+Fixed the audit's two highest-value dashboard disagreements:
+
+- **F1 — invisible approvables**: every Today-queue / dashboard-counts /
+  mobile-HR-pending predicate used `createdById: { not: userId }`, which
+  excludes NULL creators (Prisma `not` drops NULLs). DB truth: 20 DRAFT
+  POs + 17 PENDING gate passes + 3 submitted DPRs were invisible to the
+  owner — records from imports/seed/cron. Replaced all ad-hoc predicates
+  with the null-safe helpers (`notCreatedBy` / `notRequestedBy` /
+  `notSubmittedByUser`) across page.tsx, api/dashboard-counts, m/hr,
+  m/hr/pending — now matches /api/approvals which was already null-safe.
+  `claimantId` left alone (non-nullable). Updated scope-registry source
+  assertions + added helper regression tests (approval-queue.test.ts 13/13).
+- **F2 — frozen queues**: the poll endpoint never returned
+  `overdue-installments` / `pending-cheques` keys, and the server page
+  rendered `count: take5List.length` — both cards froze at ≤5 forever.
+  Poll now counts both with the exact page predicates (canSeeSales-gated,
+  blocking urgency, pendingActions rows); page renders real `.count()`
+  totals while the list stays take:5.
+
+Remaining audit items: sales due/overdue surfaces still disagree on
+computed-vs-stored due state; POs can show ₹0 totals with nonzero lines;
+empty gate passes approvable; notification deep-links land on /m/*.

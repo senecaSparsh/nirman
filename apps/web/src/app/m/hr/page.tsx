@@ -13,6 +13,7 @@ import { migrateRole, ROLES, PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { fetchMonthlyLabourCost } from "@/lib/labour-cost";
 import { formatDate, formatCurrency } from "@/lib/utils";
+import { notSubmittedByUser } from "@/lib/approval-queue";
 import {
   SectionHead} from "@/components/mobile/v2/primitives";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
@@ -112,7 +113,7 @@ export default function HrHomePage() {
                   where: {
                     ...dprScope,
                     approvalStatus: { in: approvableStatuses },
-                    submittedById: { not: currentUser?.id }}})
+                    ...notSubmittedByUser(currentUser?.id ?? "")}})
                 .catch(() => 0)
             : Promise.resolve(0),
           // Scoped-leave count — the approve route lifts a scoped HR_MANAGER/
@@ -125,7 +126,7 @@ export default function HrHomePage() {
                     companyId: company.id,
                     status: "PENDING",
                     ...await scopeWhere("LeaveRequest"),
-                    employee: { userId: { not: currentUser?.id }}}})
+                    employee: { OR: [{ userId: { not: currentUser?.id } }, { userId: null }] }}})
                 .catch(() => 0)
             : Promise.resolve(0),
           // Self-service asks (advance + punch-fix) — the same deciders as
