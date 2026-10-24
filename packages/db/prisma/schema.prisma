@@ -5554,6 +5554,8 @@ model MaterialSalePayment {
   chequeStatus    String?    // "PENDING" | "CLEARED" | "BOUNCED"
   chequeClearDate DateTime?
   chequeBounceReason String?
+  // set when the buyer-side TDS credit appears in Form 26AS
+  tdsReconciledAt DateTime?
 
   // Direction: IN = money collected from the customer; OUT = a refund paid
   // back (returns on an already-paid sale leave a negative receivable —

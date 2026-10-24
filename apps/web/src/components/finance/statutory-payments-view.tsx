@@ -48,6 +48,15 @@ export type TdsSaleRow = {
   status: string;
 };
 
+type PreviewRow = { section: string; deductorName: string | null; txnDate: string | null; taxDeducted: number; tdsDeposited: number; amountPaid: number | null };
+type PreviewCandidate = { kind: "asset-sale" | "material-sale-payment"; id: string; label: string; amount: number };
+type Preview = {
+  matched: { rowIndex: number; kind: PreviewCandidate["kind"]; id: string; label: string; bookAmount: number; row: PreviewRow }[];
+  ambiguous: { rowIndex: number; row: PreviewRow; candidates: PreviewCandidate[] }[];
+  unmatched: { rowIndex: number; row: PreviewRow }[];
+  totalRows: number;
+};
+
 const KIND_LABEL: Record<string, string> = {
   PF: "Provident Fund",
   ESI: "ESI",
@@ -167,6 +176,11 @@ export function StatutoryPaymentsView({
 }) {
   const router = useRouter();
   const [payOpen, setPayOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [picks, setPicks] = useState<Record<number, string>>({});
+  const [importing, setImporting] = useState(false);
   const [kind, setKind] = useState<StatutoryOutstanding["kind"]>("PF");
   const [amount, setAmount] = useState("");
   const [period, setPeriod] = useState("");
@@ -192,6 +206,59 @@ export function StatutoryPaymentsView({
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Void failed");
+    }
+  }
+
+  async function runPreview() {
+    setImporting(true);
+    try {
+      const res = await fetch("/api/tds-reconciliation/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: importText }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Could not parse the statement");
+      setPreview(data as Preview);
+      setPicks({});
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Preview failed");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function applyImport() {
+    if (!preview) return;
+    const matches = [
+      ...preview.matched.map((m) => ({ kind: m.kind, id: m.id })),
+      ...preview.ambiguous
+        .map((a) => picks[a.rowIndex])
+        .filter((key): key is string => Boolean(key))
+        .map((key) => {
+          const [kind, id] = key.split("|") as [PreviewCandidate["kind"], string];
+          return { kind, id };
+        }),
+    ];
+    if (matches.length === 0) { toast.error("Nothing selected to apply"); return; }
+    setImporting(true);
+    try {
+      const res = await fetch("/api/tds-reconciliation/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ matches }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Apply failed");
+      toast.success(`${data.applied} TDS credit${data.applied === 1 ? "" : "s"} marked 26AS-matched`);
+      setImportOpen(false);
+      setPreview(null);
+      setImportText("");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Apply failed");
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -314,7 +381,14 @@ export function StatutoryPaymentsView({
                 1% of the higher of sale price or stamp-duty value. Verify each buyer filed 26QB and issued Form 16B — amounts sit in TDS Receivable until your 26AS claim.
               </p>
             </div>
-            <Badge variant="outline" className="tnum">{formatCurrency(tdsSales.reduce((s, r) => s + r.tdsAmount, 0))}</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="tnum">{formatCurrency(tdsSales.reduce((s, r) => s + r.tdsAmount, 0))}</Badge>
+              {canManage && (
+                <Button size="xs" variant="outline" onClick={() => { setPreview(null); setImportOpen(true); }}>
+                  Import 26AS
+                </Button>
+              )}
+            </div>
           </div>
           <DataTable
             columns={tdsSaleColumns(onTdsReconcile, canManage)}
@@ -368,6 +442,68 @@ export function StatutoryPaymentsView({
             <Button type="submit" disabled={saving}>{saving ? "Recording…" : "Record"}</Button>
           </div>
         </form>
+      </Dialog>
+
+      <Dialog open={importOpen} onOpenChange={(o) => { setImportOpen(o); if (!o) setPreview(null); }} title="Import Form 26AS" description="Paste the TDS-credit table from the income-tax portal's Form 26AS (Part A). Amounts are matched to unreconciled book TDS by deposited value.">
+        <div className="space-y-3">
+          {!preview && (
+            <textarea
+              aria-label="26AS statement text"
+              className="h-44 w-full rounded-md border border-border bg-background p-2 font-mono text-xs"
+              placeholder={"Paste 26AS rows here — e.g.\n1  194IA  15-Oct-2024  F  4500000.00  45000.00  45000.00"}
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+            />
+          )}
+
+          {preview && (
+            <div className="max-h-[50vh] space-y-3 overflow-y-auto">
+              <p className="text-caption text-muted-foreground">
+                {preview.totalRows} credit rows parsed — {preview.matched.length} auto-matched, {preview.ambiguous.length} need a choice, {preview.unmatched.length} not in books.
+              </p>
+              {preview.matched.map((m) => (
+                <div key={`m-${m.rowIndex}`} className="flex items-center justify-between rounded-md border border-success/40 bg-success/5 px-3 py-2 text-caption">
+                  <span className="tnum">{formatCurrency(m.row.tdsDeposited)} <span className="text-muted-foreground">· {m.row.section}{m.row.deductorName ? ` · ${m.row.deductorName}` : ""}</span></span>
+                  <span className="font-medium">{m.label}</span>
+                </div>
+              ))}
+              {preview.ambiguous.map((a) => (
+                <div key={`a-${a.rowIndex}`} className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-caption">
+                  <p className="tnum mb-1">{formatCurrency(a.row.tdsDeposited)} <span className="text-muted-foreground">· {a.row.section}{a.row.deductorName ? ` · ${a.row.deductorName}` : ""} — same amount appears on:</span></p>
+                  {a.candidates.map((c) => {
+                    const key = `${c.kind}|${c.id}`;
+                    return (
+                      <label key={key} className="flex items-center gap-2 py-0.5">
+                        <input
+                          type="radio"
+                          name={`pick-${a.rowIndex}`}
+                          checked={picks[a.rowIndex] === key}
+                          onChange={() => setPicks((p) => ({ ...p, [a.rowIndex]: key }))}
+                        />
+                        <span>{c.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ))}
+              {preview.unmatched.map((u) => (
+                <div key={`u-${u.rowIndex}`} className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-caption text-muted-foreground">
+                  <span className="tnum">{formatCurrency(u.row.tdsDeposited)} <span>· {u.row.section}{u.row.deductorName ? ` · ${u.row.deductorName}` : ""}</span></span>
+                  <span>no book match</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={() => setImportOpen(false)}>Cancel</Button>
+            {!preview ? (
+              <Button onClick={runPreview} disabled={importing || !importText.trim()}>{importing ? "Parsing…" : "Match entries"}</Button>
+            ) : (
+              <Button onClick={applyImport} disabled={importing}>{importing ? "Applying…" : `Apply ${preview.matched.length + Object.keys(picks).length} matches`}</Button>
+            )}
+          </div>
+        </div>
       </Dialog>
     </div>
   );
