@@ -2586,3 +2586,25 @@ approved measurements (single-sub-per-item is fine today); RA dialog
 sweeps all unbilled entries with no per-entry picker (partial-period
 billing control); desktop WO detail is a drawer only — no deep-linkable
 `/work-orders/[id]` (mobile has one).
+
+Round 104 addendum — full WO lifecycle: advance → recovery → write-off → DLP → retention release
+
+Continued `WO-261024-0001` through the money cycle:
+
+- **Advance** — ₹5L mobilization via pay-advance: Dr 1600 Advances to
+  Subcontractors / Cr Cash. Recoverable asset, not expense.
+- **RA-261024-0002** (4,000 cft) — deductions exact: retention ₹1.30L,
+  TDS ₹52K, **advance recovery ₹2.60L (10% of gross)**; cumulativeGross
+  ₹59.60L. Approval GL adds Cr 1600 Advances ₹2.6L against the asset;
+  payment Dr AP / Cr Cash ₹21.58L (FINANCE_HEAD).
+- **Complete guard** — refused with ₹2.4L stranded advance + requires a
+  reason to forgive. `forgiveAdvanceReason` posted Dr 6000-series OpEx /
+  Cr 1600 ₹2.4L with audit memo; `advanceWrittenOff` tracked separately.
+- **DLP guard** — retention release refused inside 12-month defect
+  liability ("eligible after 2027-10-24"); `overrideReason` releases
+  early and flags `defectPeriodOverridden` in audit.
+- **Release** — Dr 2600 Retention / Cr Cash ₹2,98,025; WO → CLOSED,
+  retentionBalance 0, totalPaid ₹55,81,290 — reconciles exactly
+  (31,25,265 + 21,58,000 + 2,98,025).
+- Same guard class also blocks completion while approved-unbilled MB
+  entries exist on the WO's BOQ items (no stranded measurements).
