@@ -2474,3 +2474,32 @@ field-level error.
 the table row are stale until refetch after dialog actions;
 transient toasts vanish fast (screen readers may miss them — polite
 live-region audit worth a later pass).
+
+## Round 101 — Collections semantics unified: bounced/pending cheques no longer inflate paid figures
+
+Trigger: SAL-20261019-0001 showed **142% paid** — the bounce/clear suite's
+15×₹2k bounced + 6×₹1.5k pending + voided cheques were being summed into
+"collected". Root cause: the write side (`sale-payment.ts` recompute,
+`sumClearedAssetSalePayments`, escrow ledger) always used cleared-payment
+semantics, but ~30 **read-side** aggregations diverged into two bugs:
+
+- **Over-count**: `status != "VOID"` reduces (or fully raw sums) counted
+  PENDING + BOUNCED cheque rows as collected — desktop+mobile sale lists,
+  customer totals, pending-payments + sales-revenue reports, real-estate
+  KPIs, customer portal API, CSV/Excel export, AI assistant, land
+  purchases, printed sale invoice / material receipt.
+- **Under-count**: `status: "RECEIVED"` queries excluded cheques that had
+  cleared (clearing only flips `chequeStatus`, leaving status at its
+  default) — mobile books/reports revenue feeds.
+
+Canonical predicate now applied at all ~30 sites (query-level where the
+rows feed only a sum, reduce-level where the rows are also displayed):
+`status != VOID AND (chequeStatus IS NULL OR chequeStatus = 'CLEARED')`,
+plus `direction = 'IN'` for material-sale receipts (refunds excluded).
+Supplier-payment sums exclude VOID; rental `totalReceived` counts only
+`status = RECEIVED` rows (PENDING/OVERDUE are schedule items, not money);
+receipt registers exclude VOID material payments.
+
+Verified against the production DB for SAL-20261019-0001: 142% → 109%
+paid (residual = 15 genuinely-cleared ₹1k cheques — real money, honest
+overpayment). Typecheck + lint clean. Shipped in `79590200`.
