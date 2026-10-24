@@ -436,7 +436,7 @@ async function CommandCenterContent() {
   if (canSeeStock && lowStock.length > 0) queues.push({
     key: "low", title: "Materials below their reorder point",
     consequence: "Raise an indent before site runs out",
-    count: lowStock.length, href: "/materials", cta: __effPerms.includes(PERM.PROCUREMENT_MANAGE) || canApproveReq ? "Reorder" : "View", urgency: "soon", icon: "package",
+    count: lowStockCount, href: "/materials", cta: __effPerms.includes(PERM.PROCUREMENT_MANAGE) || canApproveReq ? "Reorder" : "View", urgency: "soon", icon: "package",
     items: lowStock.map((m) => ({ label: m.name, sub: `${formatNumber(m.totalQty, 0)} ${m.unit} left · need ${formatNumber(m.reorderPoint, 0)}` }))});
   if (canApproveReq && approvedReqs.length > 0) queues.push({
     key: "approved-req", title: "Approved indents ready to order",

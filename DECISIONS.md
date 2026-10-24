@@ -2752,3 +2752,27 @@ Two service paths wrote stale `paymentStatus`, the audit's
   needed on prod post-deploy.
 - Tests: void-payment.test.ts +2 (final-cheque clear → PAID; only-cheque
   bounce → PENDING). 8/8 green.
+
+Round 109 — Trust audit sweep: gate-pass guard, /dprs redirect, dates, low-stock count
+
+- **Empty gate passes**: `approveGatePass` refused nothing — 17 PENDING
+  - 1 APPROVED empty passes sat in the queue (verify-script fixtures, but
+    the guard should hold regardless). Now: line-less passes need MANUAL
+    category + purpose to approve/create; linked-ref auto-create requires
+    lines. Fixtures cleaned from dev.
+- **`/dprs` 404** (F15): permanent redirects `/dprs` + `/dprs/:id` →
+  `/hr/dprs`. The deeper IA question (DPR filed under HR vs site-ops)
+  stays open.
+- **Date formats**: bare `en-IN` toLocaleDateString rendered numeric
+  24/10/2026 vs canonical "24 Oct 2026" — unified unit-spec print,
+  HR exits, delegation messages, search sublabels on formatDate/
+  formatDateShort. `en-CA` sites verified correct (date-input values).
+- **Low-stock count**: queue card showed `count` of the take:5 slice —
+  now the real `lowStockCount` (same frozen-at-5 family as F2).
+- Verified already-correct: notification link resolution (every entity
+  maps to a real desktop page via desktopPath manifest — audit finding
+  was the documented shared-link trade-off), PO totals (zero drift in
+  dev, no prod POs), all `variancePct`/budget divisions already guarded
+  (F14 render sites handle zero-budget + null).
+- paymentStatus repair verified canonical on dev — prod AssetSale empty,
+  nothing to repair.
