@@ -25,7 +25,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { MoneyCell, DateCell } from "@/components/ui/cells";
 import { Dialog } from "@/components/ui/dialog";
 import {
-  SALARY_COMPONENT_OPTIONS, SALARY_UNIT_OPTIONS, SALARY_FREQUENCY_OPTIONS,
+  SALARY_COMPONENT_OPTIONS, SALARY_UNIT_OPTIONS, SALARY_FREQUENCY_OPTIONS, STATUTORY_COMPONENT_DEFAULTS,
   compCalc, unitSuffix, componentLabel, frequencyLabel,
   type SalaryComponentRow, type SalaryComponentCalc,
 } from "@/lib/salary-components";
@@ -2067,7 +2067,17 @@ function SalaryStructureSection({ employeeId, canManage }: { employeeId: string;
             <div className="rounded-md border border-dashed border-border p-3 space-y-2">
               <p className="text-meta font-semibold uppercase tracking-wide text-muted-foreground">Add component</p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                <Select value={newType} onChange={(e) => setNewType(e.target.value)} aria-label="Component type">
+                <Select value={newType} onChange={(e) => {
+                  const t = e.target.value;
+                  setNewType(t);
+                  const d = STATUTORY_COMPONENT_DEFAULTS[t];
+                  if (d) {
+                    setNewCalc("PERCENTAGE_OF_BASIC");
+                    setNewPercentage(String(d.pct));
+                    setNewWageCap(d.wageCap != null ? String(d.wageCap) : "");
+                    setNewWageCeiling(d.wageCeiling != null ? String(d.wageCeiling) : "");
+                  }
+                }} aria-label="Component type">
                   <option value="">Component type…</option>
                   {SALARY_COMPONENT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </Select>

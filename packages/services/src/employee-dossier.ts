@@ -649,6 +649,27 @@ export async function deleteSalaryComponent(
  * `effectiveFrom` date. This gives a full audit trail of every salary
  * change over time.
  */
+/** Statutory guard defaults by component type — Indian labour law.
+ *  Only applied when the caller leaves the field null; explicit values win. */
+const STATUTORY_COMPONENT_GUARDS: Record<string, { wageCap?: number; wageCeiling?: number }> = {
+  EMPLOYEE_PF: { wageCap: 15000 }, // EPF base = min(basic, ₹15,000/mo)
+  EMPLOYER_PF: { wageCap: 15000 },
+  EMPLOYEE_ESI: { wageCeiling: 21000 }, // ESI applies only while basic ≤ ₹21,000/mo
+  EMPLOYER_ESI: { wageCeiling: 21000 },
+};
+
+/** Fill statutory guard fields the caller left unset — a client that can't
+ *  express caps (mobile) or a form whose option label already promises them
+ *  still produces compliant components. */
+export function resolveStatutoryGuards(
+  type: string,
+  wageCap: number | null | undefined,
+  wageCeiling: number | null | undefined,
+): { wageCap: number | null; wageCeiling: number | null } {
+  const d = STATUTORY_COMPONENT_GUARDS[type] ?? {};
+  return { wageCap: wageCap ?? d.wageCap ?? null, wageCeiling: wageCeiling ?? d.wageCeiling ?? null };
+}
+
 export async function setSalaryComponents(
   employeeId: string,
   companyId: string,
@@ -673,6 +694,11 @@ export async function setSalaryComponents(
       components.map((c) => {
         const calc = resolveComponentCalc(c);
         assertComponentAmount(c.amount, calc.calculationType, c.percentageOfBasic);
+        // Statutory guard rails (EPF ₹15k base cap, ESI ₹21k eligibility
+        // ceiling). A client that can't express them — or a form where the
+        // option's label already promises them — still produces compliant
+        // components. Explicit caller values always win.
+        const { wageCap, wageCeiling } = resolveStatutoryGuards(c.type, c.wageCap, c.wageCeiling);
         return tx.salaryComponent.create({
           data: {
             employeeId,
@@ -683,8 +709,8 @@ export async function setSalaryComponents(
             isPercentage: calc.isPercentage,
             percentageOfBasic: c.percentageOfBasic != null ? new Prisma.Decimal(c.percentageOfBasic) : null,
             calculationType: calc.calculationType,
-            wageCap: c.wageCap != null ? new Prisma.Decimal(c.wageCap) : null,
-            wageCeiling: c.wageCeiling != null ? new Prisma.Decimal(c.wageCeiling) : null,
+            wageCap: wageCap != null ? new Prisma.Decimal(wageCap) : null,
+            wageCeiling: wageCeiling != null ? new Prisma.Decimal(wageCeiling) : null,
             unitType: calc.unitType,
             unitLabel: c.unitLabel ?? null,
             notes: c.notes ?? null,

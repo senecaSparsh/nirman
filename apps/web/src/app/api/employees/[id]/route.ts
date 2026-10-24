@@ -163,6 +163,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
           isPercentage: c.isPercentage ?? false,
           percentageOfBasic: c.percentageOfBasic ?? null,
           calculationType: c.calculationType,
+          wageCap: c.wageCap ?? null,
+          wageCeiling: c.wageCeiling ?? null,
           unitType: c.unitType ?? null,
           unitLabel: c.unitLabel ?? null,
           notes: c.notes ?? null,

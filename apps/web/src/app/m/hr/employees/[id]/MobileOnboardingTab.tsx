@@ -153,6 +153,7 @@ export type OnboardingEmployeeData = {
     id: string; type: string; amount: number; frequency: string;
     isDeduction: boolean; isPercentage: boolean; percentageOfBasic: number | null;
     calculationType: string; unitType: string | null; unitLabel: string | null;
+    wageCap?: number | null; wageCeiling?: number | null;
     notes: string | null; active: boolean;
   }[];
   // Attachments
@@ -1297,6 +1298,8 @@ function SalarySubTab({
             isPercentage: c.isPercentage,
             percentageOfBasic: c.percentageOfBasic,
             calculationType: compCalc(c),
+            wageCap: c.wageCap ?? null,
+            wageCeiling: c.wageCeiling ?? null,
             unitType: c.unitType ?? null,
             unitLabel: c.unitLabel ?? null,
             notes: c.notes ?? null,

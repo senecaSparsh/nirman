@@ -251,6 +251,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
             isPercentage: c.isPercentage ?? false,
             percentageOfBasic: c.percentageOfBasic ?? null,
             calculationType: c.calculationType,
+            wageCap: c.wageCap ?? null,
+            wageCeiling: c.wageCeiling ?? null,
             unitType: c.unitType ?? null,
             unitLabel: c.unitLabel ?? null,
             notes: c.notes ?? null,

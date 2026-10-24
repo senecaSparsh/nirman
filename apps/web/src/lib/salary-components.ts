@@ -36,6 +36,16 @@ export const SALARY_UNIT_OPTIONS = [
   { value: "CUSTOM", label: "custom unit", hint: "name it below" },
 ] as const;
 
+/** Statutory defaults for Indian labour-law components — auto-filled when the
+ *  type is picked so the label's promise ("12% capped ₹15k") materializes.
+ *  Server-side guards in employee-dossier.ts enforce the same caps. */
+export const STATUTORY_COMPONENT_DEFAULTS: Record<string, { pct: number; wageCap?: number; wageCeiling?: number }> = {
+  EMPLOYEE_PF: { pct: 12, wageCap: 15000 },
+  EMPLOYER_PF: { pct: 12, wageCap: 15000 },
+  EMPLOYEE_ESI: { pct: 0.75, wageCeiling: 21000 },
+  EMPLOYER_ESI: { pct: 3.25, wageCeiling: 21000 },
+};
+
 export const SALARY_FREQUENCY_OPTIONS = [
   { value: "MONTHLY", label: "Monthly" },
   { value: "QUARTERLY", label: "Quarterly" },
