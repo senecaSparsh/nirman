@@ -1074,10 +1074,12 @@ export async function getTdsCertificate(
   });
   if (!subcontractor) throw new ServiceError("Subcontractor not found", 404);
 
-  // Get all PAID RA bills for this subcontractor's work orders in the FY
+  // TDS is deducted at bill approval (the JE credits TDS Payable then), so
+  // the certificate must include APPROVED bills too — matching
+  // listTdsSubcontractors. PAID-only understates deductions vs the GL.
   const raBills = await prisma.raBill.findMany({
     where: {
-      status: "PAID",
+      status: { in: ["APPROVED", "PAID"] },
       billDate: { gte: fyStart, lte: fyEnd },
       workOrder: { subcontractorId },
       ...(companyId ? { companyId } : {}),
@@ -1114,7 +1116,9 @@ export async function getTdsCertificate(
       id: subcontractor.id,
       name: subcontractor.name,
       gstin: subcontractor.gstin,
-      pan: subcontractor.gstin?.slice(2, 12) ?? null, // PAN is embedded in GSTIN (chars 3-12)
+      // Recorded PAN wins — unregistered subs have no GSTIN to infer it from;
+      // GSTIN chars 3-12 hold the PAN for registered ones.
+      pan: subcontractor.pan ?? subcontractor.gstin?.slice(2, 12) ?? null,
       trade: subcontractor.trade,
     },
     company: {
@@ -1168,7 +1172,7 @@ export async function listTdsSubcontractors(
     include: {
       workOrder: {
         select: {
-          subcontractor: { select: { id: true, name: true, trade: true, gstin: true } },
+          subcontractor: { select: { id: true, name: true, trade: true, gstin: true, pan: true } },
         },
       },
     },
@@ -1199,7 +1203,7 @@ export async function listTdsSubcontractors(
         subcontractorId: sub.id,
         subcontractorName: sub.name,
         trade: sub.trade,
-        pan: sub.gstin?.slice(2, 12) ?? null,
+        pan: sub.pan ?? sub.gstin?.slice(2, 12) ?? null,
         billCount: 1,
         totalGross: gross,
         totalTds: tds,
