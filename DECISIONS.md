@@ -2554,3 +2554,35 @@ shows the matched badge alongside the re-derived ₹65K TDS on
 `SAL-20261024-0001`. Remaining Collect gap: bulk 26AS/AIS statement
 import + auto-match (the flag is the data hook it would write).
 Shipped in `839af1ea`.
+
+## Round 104 — Build pillar verified end-to-end: WO → MB → RA bill → pay, correct GL + SoD
+
+Drove the real subcontractor chain through the UI as PM → engineer →
+finance personas on apex center:
+
+- **WO create** — `WO-261024-0001` "Blockwork — Level 2" (Sharma Masonry):
+  BOQ-linked line (1.1 brickwork, agreed ₹650 vs BOQ ₹145 — variance
+  flagged ▲), retention 5%, TDS 194C section picker (Company 2%),
+  advance/recovery fields. DRAFT → ISSUED via row action.
+- **Measurement book** — `MB-261024-0001` (5,000 cft, SLAB-01, L2 north)
+  DRAFT → VERIFIED → APPROVED through row actions. Service enforces the
+  BOQ cumulative-quantity guard (25,000 cft cap) and stores project-wide
+  cumulative per BOQ item.
+- **RA bill** — `RA-261024-0001` swept all 18 approved unbilled MB entries
+  on the WO's BOQ items: gross ₹33,60,500; retention −₹1,68,025 (5%);
+  TDS −₹67,210 (2%); net ₹31,25,265 — deductions exact. Approve posted
+  **Dr 1500 WIP ₹33.60L / Cr 2000 AP ₹31.25L / Cr 2400 TDS ₹67.2K /
+  Cr 2600 Retention ₹1.68L**; WO rolled to ACTIVE with WorkDone/Paid/
+  Deductions/Retention all correct.
+- **SoD enforced** — OWNER got a clean 403 + toast on pay ("cannot pay a
+  bill you created or submitted"); FINANCE_HEAD paid it — Dr 2000 AP /
+  Cr 1000 Cash ₹31,25,265, UTR ref appended to bill notes.
+- **Mobile parity** — `/m/work-orders/[id]` renders the same financials,
+  terms, RA bill, lifecycle stepper and actions.
+
+Gaps logged (not shipped): MB entries carry no `workOrderId` — two
+subcontractors on the same BOQ item would cross-bill each other's
+approved measurements (single-sub-per-item is fine today); RA dialog
+sweeps all unbilled entries with no per-entry picker (partial-period
+billing control); desktop WO detail is a drawer only — no deep-linkable
+`/work-orders/[id]` (mobile has one).
