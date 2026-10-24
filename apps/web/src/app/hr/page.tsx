@@ -16,7 +16,7 @@ import { buildOrgTree } from "@/lib/org-tree-builder";
 import { NoAccess } from "@/components/no-access";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 import { SettleExitButton } from "@/components/hr/settle-exit-button";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default function HrDashboardPage() {
   return (
@@ -245,7 +245,7 @@ async function ExitsPanel({ companyId, canManage }: { companyId: string; canMana
                 {employeeById.get(x.employeeId)?.name ?? "Former employee"}
               </p>
               <p className="text-caption text-muted-foreground">
-                Exited {x.terminationDate.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
+                Exited {formatDate(x.terminationDate)}
                 {x.terminationReason ? ` · ${x.terminationReason}` : ""}
                 {(x.pfExitFiled === false || x.esiExitFiled === false) && <span className="ml-1.5 text-warning">statutory filing pending</span>}
               </p>

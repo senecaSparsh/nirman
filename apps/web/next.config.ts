@@ -154,6 +154,11 @@ const nextConfig: NextConfig = {
     return [
       { source: "/dashboard", destination: "/", permanent: true },
       { source: "/home", destination: "/", permanent: true },
+      // People type "/dprs" — the page lives under HR today (daily site
+      // reports are a site-ops artifact; the HR grouping is filed under
+      // the IA ledger in DECISIONS). Catch the guess instead of a 404.
+      { source: "/dprs", destination: "/hr/dprs", permanent: true },
+      { source: "/dprs/:id", destination: "/hr/dprs", permanent: true },
     ];
   },
 };

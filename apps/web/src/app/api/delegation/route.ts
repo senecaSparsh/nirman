@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { formatDate } from "@/lib/utils";
 import { prisma } from "@nirman/db";
 import { apiHandler, getActingRole, getCompany, getOwnRole, json, requireUser } from "@/lib/server";
 import { canManageDelegationOf, roleTier } from "@/lib/roles";
@@ -268,7 +269,7 @@ export const PUT = apiHandler(async (req: NextRequest) => {
       userId: delegate.userId,
       eventType: "delegation.granted",
       title: "Approval authority delegated to you",
-      message: `${delegatorUser?.name ?? "A member"} delegated their authority to you until ${endsAt.toLocaleDateString("en-IN")}${body.note ? ` — ${body.note}` : ""}`,
+      message: `${delegatorUser?.name ?? "A member"} delegated their authority to you until ${formatDate(endsAt)}${body.note ? ` — ${body.note}` : ""}`,
       link: "/m/hr/pending",
     });
   } catch {

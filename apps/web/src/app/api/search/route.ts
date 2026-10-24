@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { formatDateShort } from "@/lib/utils";
 import { prisma } from "@nirman/db";
 import { apiHandler, getAssignedProjectIds, getCompany, getUserPermissions, getUserScope, json, requireUser, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -263,7 +264,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     })),
     ...dprs.map((d) => ({
       type: "dpr", id: d.id, label: d.project.name,
-      sublabel: new Date(d.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+      sublabel: formatDateShort(d.date),
       href: HREF.dpr(d.id),
     })),
     ...employees.map((e) => ({

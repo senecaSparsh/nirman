@@ -4,7 +4,7 @@ import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
 import { toNum, getCompany, scopeWhere, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
 /**
@@ -181,7 +181,7 @@ export default async function UnitSpecSheetPage({
       </div>
 
       <div className="mt-4 text-center text-xs text-gray-500">
-        Generated on {new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
+        Generated on {formatDate(new Date())}
       </div>
 
     </div></main>
