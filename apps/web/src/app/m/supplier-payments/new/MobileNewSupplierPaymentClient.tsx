@@ -405,7 +405,7 @@ export function MobileNewSupplierPaymentClient({
                 </span>
               </>
             ) : (
-              <span className="text-m-caption" style={{ color: "var(--color-ink-300)" }}>
+              <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 Enter amount
               </span>
             )}

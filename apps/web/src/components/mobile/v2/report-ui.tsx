@@ -126,6 +126,12 @@ export function MobileBarChart({
     stop: "var(--color-stop)",
     signal: "var(--color-signal)",
   };
+  const toneText = {
+    default: "var(--color-ink-600)",
+    go: "var(--color-go)",
+    stop: "var(--color-stop)",
+    signal: "var(--color-signal-dark)",
+  };
   return (
     <div className="flex flex-col gap-2">
       {sorted.map((d, i) => {
@@ -142,7 +148,7 @@ export function MobileBarChart({
               </span>
               <span
                 className="text-m-body font-bold tabular-nums shrink-0"
-                style={{ color: toneColor[d.tone ?? "default"] }}
+                style={{ color: toneText[d.tone ?? "default"] }}
               >
                 {fmt(d.value)}
               </span>

@@ -431,8 +431,9 @@ function SummaryStat({ label, value, unit }: { label: string; value: string; uni
 
 /* ─── Legend dot ─── */
 function LegendDot({ color, label }: { color: string; label: string }) {
+  const textColor = color === "var(--color-signal)" ? "var(--color-signal-dark)" : color;
   return (
-    <span className="flex items-center gap-0.5" style={{ color }}>
+    <span className="flex items-center gap-0.5" style={{ color: textColor }}>
       <span className="size-1.5 rounded-full" style={{ backgroundColor: color }} />
       {label}
     </span>

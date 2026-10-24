@@ -220,13 +220,13 @@ async function AttentionContent() {
         {/* Category pills */}
         <div className="flex flex-wrap gap-1.5">
           {approvalCount > 0 ? (
-            <CategoryPill label="Approvals" count={approvalCount} color="var(--color-signal)" />
+            <CategoryPill label="Approvals" count={approvalCount} color="var(--color-signal-dark)" />
           ) : null}
           {overduePOs.length > 0 ? (
             <CategoryPill label="Overdue POs" count={overduePOs.length} color="var(--color-stop)" />
           ) : null}
           {lowStock.length > 0 ? (
-            <CategoryPill label="Low stock" count={lowStock.length} color="var(--color-signal)" />
+            <CategoryPill label="Low stock" count={lowStock.length} color="var(--color-signal-dark)" />
           ) : null}
           {overBudget.length > 0 ? (
             <CategoryPill label="Cost overruns" count={overBudget.length} color="var(--color-stop)" />
@@ -235,7 +235,7 @@ async function AttentionContent() {
             <CategoryPill label="Tally" count={tallyStats.pending} color="var(--color-steel)" />
           ) : null}
           {leaseExpiry.length > 0 ? (
-            <CategoryPill label="Lease" count={leaseExpiry.length} color="var(--color-signal)" />
+            <CategoryPill label="Lease" count={leaseExpiry.length} color="var(--color-signal-dark)" />
           ) : null}
         </div>
       </div>
@@ -247,7 +247,7 @@ async function AttentionContent() {
           title="Approvals"
           subtitle="Waiting for your sign-off"
           count={approvalCount}
-          color="var(--color-signal)"
+          color="var(--color-signal-dark)"
         >
           {/* PO approvals */}
           {draftPOs.length > 0 ? (
@@ -263,7 +263,7 @@ async function AttentionContent() {
                     title={po.supplier.name}
                     subtitle={`Purchase Order ${po.poNumber}`}
                     meta="Draft"
-                    metaColor="var(--color-signal)"
+                    metaColor="var(--color-signal-dark)"
                     icon={<ClipboardCheck className="size-3" />}
                   />
                 ))}
@@ -294,7 +294,7 @@ async function AttentionContent() {
                     title={req.project?.name ?? "Indent"}
                     subtitle={`Indent ${req.reqNumber ?? req.id.slice(-6)}`}
                     meta="Submitted"
-                    metaColor="var(--color-signal)"
+                    metaColor="var(--color-signal-dark)"
                     icon={<ClipboardCheck className="size-3" />}
                   />
                 ))}
@@ -327,7 +327,7 @@ async function AttentionContent() {
                 title={`${t.count} ${t.label}`}
                 subtitle="Awaiting approval"
                 meta="Review"
-                metaColor="var(--color-signal)"
+                metaColor="var(--color-signal-dark)"
                 icon={<ClipboardCheck className="size-3" />}
               />
             ))}
@@ -391,7 +391,7 @@ async function AttentionContent() {
           title="Low Stock"
           subtitle="Materials at or below reorder point"
           count={lowStock.length}
-          color="var(--color-signal)"
+          color="var(--color-signal-dark)"
         >
           <div className="flex flex-col gap-1.5">
             {lowStock.slice(0, 10).map((m) => (
@@ -401,7 +401,7 @@ async function AttentionContent() {
                 title={m.name}
                 subtitle={`${m.code} · reorder at ${formatNumber(toNum(m.reorderPoint), 2)} ${m.unit}`}
                 meta={`${formatNumber(toNum(m.totalStock), 2)} ${m.unit}`}
-                metaColor={m.isCritical ? "var(--color-stop)" : "var(--color-signal)"}
+                metaColor={m.isCritical ? "var(--color-stop)" : "var(--color-signal-dark)"}
                 icon={<Package className="size-3" />}
                 borderAccent={m.isCritical ? "var(--color-stop)" : undefined}
               />
@@ -489,13 +489,13 @@ async function AttentionContent() {
           title="Lease Expiry"
           subtitle="Land leases expiring within 90 days"
           count={leaseExpiry.length}
-          color="var(--color-signal)"
+          color="var(--color-signal-dark)"
         >
           <div className="flex flex-col gap-1.5">
             {leaseExpiry.slice(0, 10).map((l) => {
               const isExpired = l.daysUntilExpiry < 0;
               const isCritical = l.daysUntilExpiry <= 30 && l.daysUntilExpiry >= 0;
-              const accent = isExpired ? "var(--color-stop)" : isCritical ? "var(--color-signal)" : "var(--color-steel)";
+              const accent = isExpired ? "var(--color-stop)" : isCritical ? "var(--color-signal-dark)" : "var(--color-steel)";
               return (
                 <AlertCard
                   key={l.landPurchaseId}

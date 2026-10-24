@@ -148,7 +148,7 @@ async function MobilePendingListContent() {
           className="ml-auto rounded-full px-2 py-0.5 text-m-caption font-bold"
           style={{
             backgroundColor: totalCount > 0 ? "var(--color-signal)" : "var(--color-concrete)",
-            color: "var(--color-paper)",
+            color: totalCount > 0 ? "var(--color-signal-foreground)" : "var(--color-ink-700)",
           }}
         >
           {totalCount}
@@ -332,6 +332,7 @@ function MobilePendingSection({
     info: "var(--color-info)",
     neutral: "var(--color-ink-400)",
   }[tone];
+  const accentFg = tone === "signal" ? "var(--color-signal-foreground)" : "var(--color-paper)";
 
   return (
     <div
@@ -351,7 +352,7 @@ function MobilePendingSection({
         </h2>
         <span
           className="ml-auto rounded-full px-1.5 py-0.5 text-m-caption font-bold"
-          style={{ backgroundColor: accentColor, color: "var(--color-paper)" }}
+          style={{ backgroundColor: accentColor, color: accentFg }}
         >
           {count}
         </span>
