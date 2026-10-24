@@ -72,7 +72,14 @@ ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL} \
     # Cap build-time heap — build.mjs auto-detects host RAM and over-allocates
     # when the builder shares a host with Coolify/Postgres (OOM 137). This cap
     # is honored by build.mjs (unlike NODE_OPTIONS, which it overrides).
-    BUILD_MAX_HEAP_MB=3072
+    BUILD_MAX_HEAP_MB=3072 \
+    # Deps were installed frozen in the deps stage with --ignore-scripts.
+    # pnpm 11's verify-deps-before-run sees that script-skipped state and
+    # re-runs a FULL `pnpm install` (with scripts) before every `pnpm run` —
+    # which makes sharp re-download libvips from GitHub releases mid-build.
+    # That download is flaky and has killed deploys twice; the lockfile
+    # install already ran, so the check is pure downside here.
+    PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false
 
 # Generate Prisma client BEFORE build — the app imports types from @nirman/db
 # at compile time, so the generated client must exist first.
