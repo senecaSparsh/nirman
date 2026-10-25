@@ -1321,6 +1321,7 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
         refType: "GoodsReceipt",
         refId: goodsReceipt.id,
         toLocationId: input.locationId,
+        photos: input.photos,
         tx,
       });
     }

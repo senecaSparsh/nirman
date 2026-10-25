@@ -168,22 +168,8 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     unloadingRemarks: parsed.data.unloadingRemarks,
   });
 
-  // Log the vehicle trip (auto-creates/updates Vehicle master)
-  if (parsed.data.vehicleNumber) {
-    await recordVehicleTrip({
-      vehicleNumber: parsed.data.vehicleNumber,
-      vehicleType: parsed.data.vehicleType ?? "OTHER",
-      driverName: parsed.data.driverName,
-      driverPhone: parsed.data.driverPhone,
-      transporterName: parsed.data.transporterName,
-      movementType: "PURCHASE_RECEIPT",
-      refType: "GoodsReceipt",
-      refId: result.goodsReceipt.id,
-      toLocationId: po.destinationLocationId,
-      photos: parsed.data.photos,
-      companyId: company.id,
-    }).catch(() => { /* best-effort — don't fail the receipt */ });
-  }
+  // The vehicle trip is logged inside receiveGoods (same tx as the stock
+  // receipt) — logging it again here would double-count trips.
 
   revalidatePath("/procurement");
   revalidatePath("/m/procurement");

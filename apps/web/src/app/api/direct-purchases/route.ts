@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { startOfDayIST, endOfDayIST } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createDirectPurchase, listDirectPurchases, recordVehicleTrip, ServiceError } from "@nirman/services";
+import { createDirectPurchase, listDirectPurchases, ServiceError } from "@nirman/services";
 import { prisma } from "@nirman/db";
 import { dateParam, apiHandler, assertScopeAllows, getCompany, json, scopeWhere, toNum, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -135,21 +135,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
         : undefined,
     });
 
-    // Log the vehicle trip
-    if (parsed.data.vehicleNumber) {
-      await recordVehicleTrip({
-        vehicleNumber: parsed.data.vehicleNumber,
-        vehicleType: parsed.data.vehicleType ?? "OTHER",
-        photoUrl: parsed.data.vehiclePhotoUrl,
-        driverName: parsed.data.driverName,
-        driverPhone: parsed.data.driverPhone,
-        movementType: "DIRECT_PURCHASE",
-        refType: "DirectPurchase",
-        refId: result.purchase.id,
-        toLocationId: parsed.data.locationId,
-        companyId: company.id,
-      }).catch(() => { /* best-effort */ });
-    }
+    // The vehicle trip is logged inside createDirectPurchase (same tx as the
+    // stock receipt) — logging it again here would double-count trips.
 
     revalidatePath("/procurement");
     revalidatePath("/m/procurement");
