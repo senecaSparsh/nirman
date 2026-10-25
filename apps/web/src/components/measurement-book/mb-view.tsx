@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useFetch } from "@/lib/use-fetch";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -154,7 +155,11 @@ export function MeasurementBookView({
 }) {
   const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
   useEffect(() => { setLocalProjects(projects); }, [projects]);
-  const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
+  const searchParams = useSearchParams();
+  const [projectId, setProjectId] = useState(() => {
+    const p = searchParams.get("project");
+    return p && projects.some((pr) => pr.id === p) ? p : (projects[0]?.id ?? "");
+  });
   const { data: entriesData, loading, error, retry: refetchEntries } = useFetch<MbEntry[]>(
     projectId ? `/api/mb-entries?projectId=${projectId}` : null,
   );

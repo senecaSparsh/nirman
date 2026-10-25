@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useUrlQuery } from "@/lib/use-url-filter";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -229,7 +230,11 @@ function generateMonthMarkers(range: { start: number; end: number }): { label: s
 // Main component
 // ════════════════════════════════════════════════════════════
 export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: boolean }) {
-  const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
+  const searchParams = useSearchParams();
+  const [projectId, setProjectId] = useState(() => {
+    const p = searchParams.get("project");
+    return p && projects.some((pr) => pr.id === p) ? p : (projects[0]?.id ?? "");
+  });
   const { data: treeData, loading, error, retry: fetchTree } = useFetch<WbsNode[]>(
     projectId ? `/api/wbs/tree?projectId=${projectId}` : null,
   );

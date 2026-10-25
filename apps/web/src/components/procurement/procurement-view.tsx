@@ -378,15 +378,18 @@ function PurchaseOrdersTab({
     }
   }, [searchParams, purchaseOrders]);
 
+  // ?project=<id> deep-links (project hub "View POs") scope the list.
+  const projectParam = searchParams.get("project");
   const filtered = useMemo(
     () => purchaseOrders.filter((p) => {
+      if (projectParam && p.projectId !== projectParam) return false;
       if (statusFilter && p.status !== statusFilter) return false;
       const poDate = p.orderDate ?? p.createdAt;
       if (dateFrom && poDate < dateFrom) return false;
       if (dateTo && poDate > dateTo) return false;
       return true;
     }),
-    [purchaseOrders, statusFilter, dateFrom, dateTo],
+    [purchaseOrders, projectParam, statusFilter, dateFrom, dateTo],
   );
 
   // Group by status for the kanban board
