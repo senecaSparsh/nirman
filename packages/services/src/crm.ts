@@ -482,22 +482,23 @@ export async function generatePaymentSchedule(input: GeneratePaymentScheduleInpu
     throw new ServiceError(`Payment percentages must sum to 100, got ${totalPct}%`, 400);
   }
 
-  // Fetch the sale to compute per-item amounts. The schedule must always
-  // collect exactly what the customer owes — salePrice + the sale's OWN
-  // recorded gstAmount. Recomputing a hypothetical GST rate here (5%×2/3
-  // residential / 18% commercial) disagrees with the stored gstAmount on
-  // almost every real sale and made createSalePaymentSchedule()'s
-  // sum-validation fail with a 400 on every attempt.
+  // Fetch the sale to compute per-item amounts. The schedule must collect
+  // exactly what the buyer pays: salePrice + the sale's OWN recorded
+  // gstAmount, less the 1% 194-IA TDS the buyer withholds and deposits with
+  // the government. Recomputing a hypothetical GST rate here disagrees with
+  // the stored gstAmount on almost every real sale, and leaving the TDS out
+  // makes createSalePaymentSchedule()'s sum-validation reject every plan on
+  // a sale that has TDS.
   const sale = await prisma.assetSale.findUnique({
     where: { id: input.assetSaleId },
-    select: { salePrice: true, gstAmount: true, projectId: true, status: true, saleStage: true },
+    select: { salePrice: true, gstAmount: true, tdsAmount: true, projectId: true, status: true, saleStage: true },
   });
   if (!sale) throw new ServiceError("Asset sale not found", 404);
   if (sale.status === "CANCELLED") throw new ServiceError("Cannot create schedule for a cancelled sale");
 
-  const baseAmount = new Decimal(sale.salePrice);
-  const gstAmount = new Decimal(sale.gstAmount);
-  const grandTotal = baseAmount.plus(gstAmount);
+  const grandTotal = new Decimal(sale.salePrice)
+    .plus(new Decimal(sale.gstAmount))
+    .minus(new Decimal(sale.tdsAmount ?? 0));
 
   // Build schedule items with GST-aware amounts
   const items: PaymentScheduleItemInput[] = input.milestones.map((m, i) => {

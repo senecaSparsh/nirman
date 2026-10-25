@@ -2405,7 +2405,7 @@ export async function createSalePaymentSchedule(
     );
     if (!totalAmt.eq(totalCollectible)) {
       throw new ServiceError(
-        `Installment amounts must sum to ${totalCollectible} (sale price + GST), got ${totalAmt}`,
+        `Installment amounts must sum to ${totalCollectible} (sale price + GST − 1% TDS withheld by buyer), got ${totalAmt}`,
       );
     }
 
