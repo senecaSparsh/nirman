@@ -112,6 +112,9 @@ async function seedProjectCosts(
   }[],
 ) {
   await prisma.$transaction(async (tx) => {
+    const projCompany = new Map(
+      (await tx.project.findMany({ where: { id: { in: rows.map((r) => r.projectId) } }, select: { id: true, companyId: true } })).map((p) => [p.id, p.companyId] as const),
+    );
     for (const r of rows) {
       const cost = await tx.projectCost.create({
         data: {
@@ -125,7 +128,7 @@ async function seedProjectCosts(
         },
       });
       await postJournalEntry(tx, {
-        companyId,
+        companyId: projCompany.get(r.projectId) ?? companyId,
         sourceType: "PROJECT_COST",
         sourceId: cost.id,
         memo: "Project cost capitalised into WIP",
@@ -223,6 +226,10 @@ async function wipeTransactional() {
 async function main() {
   console.log("Wiping existing transactional data…");
   await wipeTransactional();
+  // Cache columns live on master rows that survive the wipe — reset them so
+  // they agree with the freshly-empty subledgers they summarise.
+  await prisma.supplier.updateMany({ data: { balanceOwed: 0 } });
+  await prisma.project.updateMany({ data: { totalProjectCost: null } });
 
   // ── 0. Chart of accounts ────────────────────────────────────
   // Must be seeded BEFORE any mutation that posts a journal entry (receiveGoods,
@@ -3634,7 +3641,10 @@ async function main() {
   // Collect existing IDs for procedural data references
   const allCompanies = await prisma.company.findMany({ where: { deletedAt: null } });
   const allCompanyIds = allCompanies.map((c) => c.id);
-  const allWarehouses = await prisma.stockLocation.findMany({ where: { type: "COMPANY_WAREHOUSE", deletedAt: null } });
+  // Material-flow pools are scoped to the seed's own company — materials are
+  // company-owned, so a movement/sale/issue touching another company's
+  // location would be cross-company data the API itself rejects.
+  const allWarehouses = await prisma.stockLocation.findMany({ where: { type: "COMPANY_WAREHOUSE", deletedAt: null, companyId: company.id } });
   const allWarehouseIds = allWarehouses.map((w) => w.id);
   const allCategoryIds = Object.values(catMap);
   const allMaterialCodes = Object.keys(matMap);
@@ -3776,6 +3786,10 @@ async function main() {
     newProjMap[p.name] = row.id;
   }
   const allProjectIds = [project1.id, project2.id, realtyProj1.id, realtyProj2.id, infraProj1.id, infraProj2.id, interiorsProj1.id, interiorsProj2.id, ...Object.values(newProjMap)];
+  // Projects belonging to the seed company — DPRs, attendance, material
+  // issues and expenses under company.id must only point at these.
+  const newProjCompany = new Map(newProjDefs.map((p) => [newProjMap[p.name], p.companyId] as const));
+  const companyProjectIds = [project1.id, project2.id, ...Object.values(newProjMap).filter((id) => newProjCompany.get(id) === company.id)];
 
   // Phases (1-2 per new project)
   const newPhaseMap: Record<string, string> = {};
@@ -3799,7 +3813,11 @@ async function main() {
     });
     newLocMap[projName] = row.id;
   }
-  const allSiteLocIds = Object.values(newLocMap);
+  // Only site locations under the seed company — cross-company material
+  // writes are invalid data the API itself would reject.
+  const allSiteLocIds = Object.entries(newLocMap)
+    .filter(([projName]) => newProjDefs.find((p) => p.name === projName)!.companyId === company.id)
+    .map(([, locId]) => locId);
 
   // ── MB6. Built units (~540 more for ~600 total) ──────────────
   console.log("  MB6: Built units (540+)…");
@@ -3850,7 +3868,7 @@ async function main() {
     const suppName = pick(allSuppNamesNow);
     const scope = rng() < 0.5 ? "COMPANY" : "PROJECT";
     const destLoc = scope === "COMPANY" || allSiteLocIds.length === 0 ? pick(allWarehouseIds) : pick(allSiteLocIds);
-    const projectId = scope === "PROJECT" ? pick(allProjectIds) : undefined;
+    const projectId = scope === "PROJECT" ? pick(companyProjectIds) : undefined;
     const lines: { materialId: string; qtyOrdered: number; unitCost: number; gstRate: number }[] = [];
     for (let li = 0; li < randInt(1, 4); li++) {
       lines.push({ materialId: matMap[pick(allMatCodesNow)], qtyOrdered: randInt(10, 5000), unitCost: randInt(20, 5000), gstRate: pick([5, 12, 18, 28]) });
@@ -3944,9 +3962,10 @@ async function main() {
   for (let di = 0; di < 117; di++) {
     const date = randDate(new Date("2024-01-01"), new Date("2024-12-01"));
     const status = pick(dprApprovalStatuses) as any;
+    try {
     const dpr = await prisma.dailyProgressReport.create({
       data: {
-        companyId: company.id, projectId: pick(allProjectIds), date,
+        companyId: company.id, projectId: pick(companyProjectIds), date,
         submittedById: U.supervisor,
         weather: `${pick(["Sunny", "Cloudy", "Rainy", "Overcast"])}, ${randInt(20, 38)}°C`,
         workSummary: `Mega bulk DPR ${di + 1} — ${pick(dprWorkTypes)} work in progress`,
@@ -3965,8 +3984,9 @@ async function main() {
       await prisma.dPRMaterialLine.create({ data: { dprId: dpr.id, materialId: matMap[pick(allMatCodesNow)], qty: new Decimal(randInt(5, 200)), unitCost: new Decimal(0) } });
     }
     for (let li = 0; li < randInt(1, 2); li++) {
-      await prisma.dPRLaborLine.create({ data: { dprId: dpr.id, employeeId: pick(allEmpIds), hoursWorked: new Decimal(randInt(4, 10)), taskDescription: pick(dprWorkTypes) } });
+      await prisma.dPRLaborLine.create({ data: { dprId: dpr.id, employeeId: pick(companyEmpIds), hoursWorked: new Decimal(randInt(4, 10)), taskDescription: pick(dprWorkTypes) } });
     }
+    } catch { /* (projectId, date) collision — skip this draw */ }
   }
 
   // ── MB13. Procedural attendance (~3500+ more rows) ───────────
@@ -3976,7 +3996,7 @@ async function main() {
   const attEnd = new Date("2024-11-30");
   const totalAttDays = Math.floor((attEnd.getTime() - attStart.getTime()) / 86400000);
   // Use a subset of employees to keep volume reasonable (~30 emps × ~120 days ≈ 3600)
-  const attEmpIds = allEmpIds.slice(0, 30);
+  const attEmpIds = companyEmpIds.slice(0, 30);
   for (let di = 0; di < totalAttDays; di++) {
     const date = new Date(attStart.getTime() + di * 86400000);
     if (date.getDay() === 0) continue; // skip Sundays
@@ -3987,7 +4007,7 @@ async function main() {
       const checkOut = status === "ABSENT" || status === "PAID_LEAVE" ? null : new Date(`${dateStr}T${status === "OVERTIME" ? "19" : "18"}:00:00`);
       const hours = status === "ABSENT" || status === "PAID_LEAVE" ? null : status === "OVERTIME" ? 10 : status === "HALF_DAY" ? 4 : status === "LATE" ? 7.5 : 9;
       attBatch.push({
-        companyId: company.id, employeeId: empId, date, projectId: pick(allProjectIds),
+        companyId: company.id, employeeId: empId, date, projectId: pick(companyProjectIds),
         checkIn, checkOut, hoursWorked: hours ? new Decimal(hours) : null,
         status, recordedById: U.supervisor,
       });
@@ -4044,7 +4064,7 @@ async function main() {
 
   // ── MB15. Procedural asset sales (~108 more for ~120 total) ──
   console.log("  MB15: Asset sales (108)…");
-  const availableUnits = await prisma.builtUnit.findMany({ where: { status: "AVAILABLE" }, take: 200 });
+  const availableUnits = await prisma.builtUnit.findMany({ where: { status: "AVAILABLE", project: { companyId: company.id } }, take: 200 });
   let saleCnt = 0;
   for (const unit of availableUnits) {
     if (saleCnt >= 108) break;
@@ -4103,7 +4123,7 @@ async function main() {
       companyId: company.id, category: pick(expenseCats),
       amount: randInt(5000, 200000), date: randDate(new Date("2024-01-01"), new Date("2024-12-01")),
       notes: `Mega bulk expense ${i + 1}`,
-      ...(rng() < 0.5 ? { projectId: pick(allProjectIds) } : {}),
+      ...(rng() < 0.5 ? { projectId: pick(companyProjectIds) } : {}),
     });
   }
   await prisma.expense.createMany({ data: bulkExp });
@@ -4201,6 +4221,43 @@ async function main() {
   }
 
   console.log("  Mega bulk complete.");
+
+  // ── Opening capital: top up any company whose cash went negative ────────
+  // Project-cost JEs credit Cash, so without promoter capital the 1000
+  // account lands on the wrong side (books-health "account-signs").
+  for (const comp of await prisma.company.findMany({ where: { deletedAt: null }, select: { id: true, name: true } })) {
+    const cashAccount = await prisma.glAccount.findUnique({ where: { companyId_code: { companyId: comp.id, code: ACCT.CASH } }, select: { id: true } });
+    if (!cashAccount) continue;
+    const agg = await prisma.journalLine.aggregate({
+      _sum: { debit: true, credit: true },
+      where: { accountId: cashAccount.id, journalEntry: { companyId: comp.id, status: "POSTED" } },
+    });
+    const balance = new Decimal(agg._sum.debit ?? 0).minus(agg._sum.credit ?? 0);
+    const buffer = new Decimal(5000000); // keep ≥ ₹50L headroom
+    if (balance.lt(buffer)) {
+      await prisma.$transaction(async (tx) => {
+        await postJournalEntry(tx, {
+          companyId: comp.id,
+          sourceType: "OPENING_BALANCE",
+          sourceId: `${comp.id}:opening-capital`,
+          memo: `Promoter capital brought in at go-live — ${comp.name}`,
+          lines: [
+            { accountCode: ACCT.CASH, debit: buffer.minus(balance), credit: 0, memo: "Opening bank balance" },
+            { accountCode: ACCT.OPENING_EQUITY, debit: 0, credit: buffer.minus(balance), memo: "Capital introduced" },
+          ],
+        });
+      });
+    }
+  }
+
+  // ── Refresh cached project-cost allocation ──────────────────
+  // totalProjectCost is a write-path cache maintained by the service layer;
+  // several bulk inserts bypass it, so recompute once for every project that
+  // actually carries cost docs.
+  const costedProjectIds = await prisma.projectCost.findMany({ select: { projectId: true }, distinct: ["projectId"] });
+  for (const { projectId } of costedProjectIds) {
+    await prisma.$transaction((tx) => reallocateProjectCosts(tx, projectId, U.owner));
+  }
 
   // ── Summary ─────────────────────────────────────────────────
   const totalUnits = await prisma.builtUnit.count();
