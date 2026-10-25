@@ -27,15 +27,11 @@ jobs:
     steps:
       - name: Query Coolify deployments
         run: |
-          for EP in "deployments/${{ inputs.depuuid || 'wz7hauz6oailb6tuyrsitpay' }}" \
-                    "applications/${{ secrets.COOLIFY_APP_UUID }}/deployments"; do
-            echo "== GET $EP =="
-            curl -sS -m 15 \
-              -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
-              -H "Accept: application/json" \
-              "${{ secrets.COOLIFY_URL }}/api/v1/$EP" | head -c 3000
-            echo
-          done
+          RESP=$(curl -sS -m 15 \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            -H "Accept: application/json" \
+            "${{ secrets.COOLIFY_URL }}/api/v1/deployments/${{ inputs.depuuid || 'wz7hauz6oailb6tuyrsitpay' }}")
+          echo "$RESP" | python3 -c 'import json,sys; d=json.load(sys.stdin); ks=["status","status_reason","created_at","updated_at","finished_at","commit","pull_request_id","is_webhook","build_server_id","application_id"]; print({k:d.get(k) for k in ks if k in d}); print("LOG_TAIL:", (d.get("current_process_status") or "")[:200])'
 
   deploy:
     if: inputs.mode != 'status'
