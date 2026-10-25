@@ -473,7 +473,7 @@ function SupplierReturnDetailDialog({
           <div className="space-y-2">
             <div className="space-y-1.5">
               <Label>Credit Note Number</Label>
-              <Input aria-label="Redit Note No"
+              <Input aria-label="Credit Note No"
                 value={creditNoteNo}
                 onChange={(e) => setCreditNoteNo(e.target.value)}
                 placeholder="Enter credit note number from supplier"
