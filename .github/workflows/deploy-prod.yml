@@ -7,15 +7,40 @@ name: Deploy production
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "deploy = build+swap; status = show latest Coolify deployment"
+        required: false
+        default: deploy
+        type: choice
+        options: [deploy, status]
 
 jobs:
+  status:
+    if: inputs.mode == 'status'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Query Coolify deployments
+        run: |
+          curl -sS -m 15 \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            -H "Accept: application/json" \
+            "${{ secrets.COOLIFY_URL }}/api/v1/deployments" | \
+            python3 -c 'import json,sys
+d=json.load(sys.stdin)
+for x in d[:8]:
+    print(x.get("deployment_uuid"), "|", x.get("status"), "|", (x.get("created_at") or "")[:19], "|", (x.get("application_name") or ""))' \
+          || echo "status query failed"
+
   deploy:
+    if: inputs.mode != 'status'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
       VPS_HOST: 82.41.67.77
       HEALTH_URL: https://${{ secrets.PROD_DOMAIN }}/api/health
-      CANARY_URL: https://${{ secrets.PROD_DOMAIN }}/api/projects/__canary__/site-pour
+      FINGERPRINT_URL: https://${{ secrets.PROD_DOMAIN }}/sign-in
     steps:
       - name: Set up SSH key
         run: |
@@ -56,22 +81,25 @@ jobs:
             exit 1
           fi
 
-      - name: Wait for container swap (canary route)
+      - name: Wait for container swap (bundle fingerprint)
         run: |
-          # The site-pour route doesn't exist in the old build — the router
-          # returns the app 404 (text/html). New code returns application/json.
+          # A new build emits new JS chunk hashes in the page. The old check
+          # (canary content-type) passed instantly whenever the previous deploy
+          # already served that route — false-positive swap detection.
+          OLD_FP=$(curl -skS -m 10 "$FINGERPRINT_URL" | grep -oE '/_next/static/chunks/[^"]+\.js' | sort -u | md5sum | cut -d' ' -f1)
+          echo "Baseline bundle fingerprint: $OLD_FP"
           ELAPSED=0
           while [ $ELAPSED -lt 1080 ]; do
             sleep 20
             ELAPSED=$((ELAPSED + 20))
-            TYPE=$(curl -skS -m 10 -o /dev/null -w '%{content_type}' "$CANARY_URL" 2>/dev/null || echo "")
-            if echo "$TYPE" | grep -q 'application/json'; then
-              echo "New code live after ${ELAPSED}s (canary type=$TYPE)"
+            NEW_FP=$(curl -skS -m 10 "$FINGERPRINT_URL" | grep -oE '/_next/static/chunks/[^"]+\.js' | sort -u | md5sum | cut -d' ' -f1)
+            if [ -n "$NEW_FP" ] && [ "$NEW_FP" != "$OLD_FP" ]; then
+              echo "New bundle live after ${ELAPSED}s (fp=$NEW_FP)"
               exit 0
             fi
-            [ $((ELAPSED % 120)) -eq 0 ] && echo "  ...building (${ELAPSED}s, type=$TYPE)"
+            [ $((ELAPSED % 120)) -eq 0 ] && echo "  ...building (${ELAPSED}s)"
           done
-          echo "::error::Canary still returns HTML after 18min — build may have failed"
+          echo "::error::Bundle fingerprint unchanged after 18min — build may have failed"
           exit 1
 
       - name: Verify health
