@@ -2887,3 +2887,24 @@ Round 115 — Comply pillar: TDS certs, statutory guards, Tally XML, 2400 recon
   JEs (mx* sourceIds, 2026-10-16, ₹300 TDS leg) — deleted; balance now
   ₹146,801 = 143,640 + 11,377 − 8,216 exactly. No code path can orphan
   JEs (no RaBill hard-delete exists); prod clean.
+
+Round 116 — GL reconciliation sweep + books-health verification
+
+- 1060 RERA escrow: receipts route by project.escrowAccountNo → 1060
+  (allottee money held 100%, ≥ the 70% floor); withdrawals need 3
+  Sec 4(2)(l)(D) signatories + can't exceed the project's ledgered
+  balance. Verified: Apex Center ₹70.75L held, clean.
+- 2200/2250 payroll GLs reconcile: salaries payable ₹165,870
+  (accrual−payments−net advances), PF payable ₹54,000 outstanding.
+  All 11 payroll JEs map to live PayrollPeriods, per-period line sums
+  = JE credits.
+- runBookReconciliation on dev: 14/20 PASS, 5 FAIL, 1 WARN — all 5
+  traced to fixture noise, not code: 3,133 stock cache drift pairs
+  (seeds write movements without cache sync), ₹1.76L stock-vs-GL
+  (seeded StockLocationItem rows with no JEs), ₹15k WIP / ₹22.8k
+  stale project cost (same), and 1 sale-overpayment row = ~15
+  clear/bounce cheque probes on one sale.
+- Structural note for the backlog: verify-workflows/seed scripts write
+  via SQL and bypass services — every GL/stock invariant FAIL on the
+  dev DB is currently unprovable noise. Real-value options: seed via
+  service paths, or per-fixture cleanup so /health-books reads true.
