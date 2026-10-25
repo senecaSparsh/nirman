@@ -2998,3 +2998,36 @@ Round 119 — Client transcript fidelity audit (Gopalpur 3 walkthrough + Alpha R
   true bank-API linking for auto-pull (SMS/statement covers intent today),
   "raw chat" recording access alongside AI transcripts (Call.rawUrl exists?),
   AI outbound calls (owner skeptical re: spam — not pursued).
+
+Round 120 — books-health fixture hygiene (repair-books-dev.sh)
+
+- NEW: `scripts/repair-books-dev.sh` — dev-only cleanup + repair for the
+  fixture drift that made /api/health/books unreadable:
+  1. Delete fixture JEs (sourceId vfy*/hrc*, memo 'wf*')
+  2. Delete fixture parent rows (id LIKE vfy%/hrc%) — FK cascades take
+     API-created children; explicit GoodsReceipt→PurchaseOrder chain
+     deletes first (Restrict FK)
+     2b. Orphan-JE sweep: for every entityType mapped to a table, delete JEs
+     whose lines reference deleted rows (RaBill 96, PurchaseOrder 52,
+     EmployeeAdvance 40, PettyCash 24, ExpenseClaim 17, PayrollLine 16, ...)
+     2c. Delete TRANSFER_OUT movements whose StockTransfer ref is gone
+  3. Rebuild StockLocationItem.qty + movingAvgCost from the StockMovement
+     log (IN−OUT; MAC from latest movement's balanceValueAfter/balanceAfter);
+     net-negative pairs skipped and reported (can't express in a
+     non-negative cache)
+     3b. Rebuild Supplier.balanceOwed := doc-resolved AP GL net (authoritative
+     after orphan sweep)
+- Result on dev: 5 unexplained FAILs → 3 FAILs with identified residual
+  causes, 16/20 PASS:
+  - Stock Ledger: 1 pair (WIRE-BIND@Central) log−cache net-negative —
+    needs an OPENING_BALANCE movement written through the service
+    (day-1 load path), not a blind repair
+  - GL vs stock: same pair + real in-transit ₹1,925 (16 live transfers —
+    operational state, not drift)
+  - WIP apex −254K: seeded ProjectCost docs never posted JEs (fixture-era
+    writes); orphan −25K is a real MANUAL writeoff lacking entity linkage
+- Deleted: 275 orphan JEs, 79 fixture AssetSalePayments (the sale
+  overpayment FAIL cleared), 23 hrc employees, 141 stock-cache rows
+  corrected, Apex balanceOwed +57K (was stale after doc deletions).
+- Next: wire repair into a `pnpm books:repair` script; on prod this file
+  must NEVER run (dev/staging only — guard at top).
