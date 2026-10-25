@@ -82,6 +82,22 @@ for pair in \
   fi
 done
 
+# Chain-script marker: ProjectCost rows stamped '— <chain> chain verify' —
+# their parent RaBills die elsewhere; the cost docs must follow or doc-side
+# WIP inflates with no GL behind it.
+N=$(P "SELECT count(*) FROM \"ProjectCost\" WHERE notes ILIKE '%chain verify%'")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"ProjectCost\" WHERE notes ILIKE '%chain verify%'" | tail -1
+  echo "  ProjectCost chain-fixture: $N row(s) removed"
+fi
+
+# Chain-script unit fixtures: isu*/wcu*/wcp* id prefixes (issue/wip chains).
+N=$(P "SELECT count(*) FROM \"BuiltUnit\" WHERE id LIKE 'isu%' OR id LIKE 'wcu%' OR id LIKE 'wcp%'")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"BuiltUnit\" WHERE id LIKE 'isu%' OR id LIKE 'wcu%' OR id LIKE 'wcp%'" | tail -1
+  echo "  BuiltUnit chain-fixture: $N row(s) removed"
+fi
+
 echo "═══ 2b. Orphaned journal entries — JE lines pointing at rows deleted above ═══"
 # API-created children of fixture parents (cuid ids, e.g. RaBills on vfy
 # work-orders) cascade-deleted with their parent — but the JEs they posted
@@ -89,17 +105,24 @@ echo "═══ 2b. Orphaned journal entries — JE lines pointing at rows delet
 # real table and delete JEs whose lines reference a missing row.
 ORPHAN_JES=0
 for T in $(P "SELECT DISTINCT \"entityType\" FROM \"JournalLine\" WHERE \"entityType\" IS NOT NULL"); do
-  EXISTS=$(P "SELECT to_regclass('\"$T\"') IS NOT NULL")
+  TT="$T"
+  EXISTS=$(P "SELECT to_regclass('\"$TT\"') IS NOT NULL")
+  if [ "$EXISTS" != "t" ]; then
+    # entityType may be SCREAMING_SNAKE — resolve to PascalCase
+    # (BUILT_UNIT → BuiltUnit) before giving up.
+    TT=$(echo "$T" | tr '[:upper:]_' '[:lower:] ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)}1' | tr -d ' ')
+    EXISTS=$(P "SELECT to_regclass('\"$TT\"') IS NOT NULL")
+  fi
   [ "$EXISTS" != "t" ] && continue
   N=$(P "SELECT count(*) FROM \"JournalEntry\" je WHERE EXISTS (
     SELECT 1 FROM \"JournalLine\" l WHERE l.\"journalEntryId\"=je.id AND l.\"entityType\"='$T'
-    AND NOT EXISTS (SELECT 1 FROM \"$T\" r WHERE r.id=l.\"entityId\"))")
+    AND NOT EXISTS (SELECT 1 FROM \"$TT\" r WHERE r.id=l.\"entityId\"))")
   if [ "${N:-0}" != "0" ]; then
     PX "DELETE FROM \"JournalEntry\" je WHERE EXISTS (
       SELECT 1 FROM \"JournalLine\" l WHERE l.\"journalEntryId\"=je.id AND l.\"entityType\"='$T'
-      AND NOT EXISTS (SELECT 1 FROM \"$T\" r WHERE r.id=l.\"entityId\"))" >/dev/null
+      AND NOT EXISTS (SELECT 1 FROM \"$TT\" r WHERE r.id=l.\"entityId\"))" >/dev/null
     ORPHAN_JES=$((ORPHAN_JES + N))
-    echo "  $T: deleted $N JE(s) with dangling entityIds"
+    echo "  $T → $TT: deleted $N JE(s) with dangling entityIds"
   fi
 done
 echo "  $ORPHAN_JES orphaned JE(s) removed"
