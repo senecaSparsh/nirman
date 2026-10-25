@@ -80,26 +80,39 @@ jobs:
             echo "::error::Deploy trigger failed (HTTP $HTTP_CODE)"
             exit 1
           fi
+          DEP_UUID=$(echo "$BODY" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["deployments"][0]["deployment_uuid"])')
+          echo "dep_uuid=$DEP_UUID" >> "$GITHUB_OUTPUT"
+          echo "Deployment queued: $DEP_UUID"
 
-      - name: Wait for container swap (bundle fingerprint)
+      - name: Wait for container swap (deployment status)
+        env:
+          DEP_UUID: ${{ steps.trigger.outputs.dep_uuid }}
         run: |
-          # A new build emits new JS chunk hashes in the page. The old check
-          # (canary content-type) passed instantly whenever the previous deploy
-          # already served that route — false-positive swap detection.
-          OLD_FP=$(curl -skS -m 10 "$FINGERPRINT_URL" | grep -oE '/_next/static/chunks/[^"]+\.js' | sort -u | md5sum | cut -d' ' -f1)
-          echo "Baseline bundle fingerprint: $OLD_FP"
+          # Poll the deployment's own lifecycle — status flips to 'finished'
+          # only after Coolify builds, swaps, and health-checks the container.
+          # Page-content checks (canary type, bundle fingerprint) can't tell
+          # builds apart when a diff doesn't touch the probed page's chunks.
           ELAPSED=0
           while [ $ELAPSED -lt 1080 ]; do
             sleep 20
             ELAPSED=$((ELAPSED + 20))
-            NEW_FP=$(curl -skS -m 10 "$FINGERPRINT_URL" | grep -oE '/_next/static/chunks/[^"]+\.js' | sort -u | md5sum | cut -d' ' -f1)
-            if [ -n "$NEW_FP" ] && [ "$NEW_FP" != "$OLD_FP" ]; then
-              echo "New bundle live after ${ELAPSED}s (fp=$NEW_FP)"
-              exit 0
-            fi
-            [ $((ELAPSED % 120)) -eq 0 ] && echo "  ...building (${ELAPSED}s)"
+            RESP=$(curl -skS -m 10 \
+              -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+              -H "Accept: application/json" \
+              "${{ secrets.COOLIFY_URL }}/api/v1/deployments/$DEP_UUID" 2>/dev/null || echo '{}')
+            STATUS=$(echo "$RESP" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))' 2>/dev/null || echo "")
+            case "$STATUS" in
+              finished)
+                COMMIT=$(echo "$RESP" | python3 -c 'import json,sys; print((json.load(sys.stdin).get("commit") or "")[:12])')
+                echo "Deployment finished after ${ELAPSED}s (commit=$COMMIT)"
+                exit 0 ;;
+              failed|*error*|cancelled)
+                echo "::error::Deployment ended: $STATUS"
+                exit 1 ;;
+            esac
+            [ $((ELAPSED % 120)) -eq 0 ] && echo "  ...deploying (${ELAPSED}s, status=$STATUS)"
           done
-          echo "::error::Bundle fingerprint unchanged after 18min — build may have failed"
+          echo "::error::Deployment still not finished after 18min"
           exit 1
 
       - name: Verify health
