@@ -2243,6 +2243,19 @@ export async function processPayroll(input: { payrollPeriodId: string; userId?: 
     const totalDeductions = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.totalDeductions)), new Decimal(0));
     const totalNet = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.netPay)), new Decimal(0));
 
+    // Advance recoveries are deductions too, but their credit leg is NOT a
+    // liability — the employee already received the cash when the advance
+    // was issued. Split them out so the GL credits the Advances-to-Employees
+    // asset instead of leaving a phantom balance in Salaries Payable.
+    const advanceComponentAgg = await tx.payrollLineComponent.aggregate({
+      where: {
+        payrollLineId: { in: period.lines.map((l) => l.id) },
+        advanceId: { not: null },
+      },
+      _sum: { amount: true },
+    });
+    const totalAdvanceRecovery = new Decimal(advanceComponentAgg._sum.amount ?? 0);
+
     // Allocate labor costs to projects — group payroll lines by the employee's
     // activeProjectId and create a ProjectCost(LABOUR) record for each project.
     // This connects the HR payroll flow to the asset-value pipeline: the
@@ -2313,6 +2326,7 @@ export async function processPayroll(input: { payrollPeriodId: string; userId?: 
       totalProfessionTax,
       totalTDS,
       totalDeductions,
+      totalAdvanceRecovery,
       projectLabour,
       postedById: input.userId,
     });

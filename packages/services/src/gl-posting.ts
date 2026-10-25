@@ -1596,11 +1596,15 @@ export async function postLandCostComponent(
  *   Cr ESI Payable                 (totalESI)              — if totalESI > 0
  *   Cr Profession Tax Payable      (totalProfessionTax)    — if > 0
  *   Cr TDS Payable                 (totalTDS)             — if totalTDS > 0
+ *   Cr Advances to Employees       (totalAdvanceRecovery) — if > 0
  *   Cr Salaries Payable            (otherDeductions)      — residual, if > 0
  *
  * Where otherDeductions = totalDeductions − PF − ESI − professionTax − TDS
- * (loans, advances, penalties etc. — these are held in Salaries Payable
- * until settled, not as separate statutory liabilities).
+ * − advanceRecovery (loans, penalties etc. — these are held in Salaries
+ * Payable until settled, not as separate statutory liabilities). Advance
+ * recoveries are different: the employee already received the cash at
+ * issue, so the recovery reduces the Advances-to-Employees asset —
+ * crediting a payable would leave a phantom balance that never settles.
  */
 export async function postPayroll(
   tx: Prisma.TransactionClient,
@@ -1615,6 +1619,9 @@ export async function postPayroll(
     totalProfessionTax?: Decimal | number | string;
     totalTDS?: Decimal | number | string;
     totalDeductions?: Decimal | number | string;
+    /** Employee-advance recoveries inside totalDeductions — credited to the
+     * Advances-to-Employees asset, not to a payable. */
+    totalAdvanceRecovery?: Decimal | number | string;
     /** Gross-pay shares allocated to projects via attendance day-weights.
      *  These debit WIP (capitalised into the project) instead of Salaries
      *  Expense — the matching ProjectCost(LABOUR) rows carry the same amounts,
@@ -1633,12 +1640,15 @@ export async function postPayroll(
   const totalProfessionTax = new Decimal(opts.totalProfessionTax ?? 0);
   const totalTDS = new Decimal(opts.totalTDS ?? 0);
   const totalDeductions = new Decimal(opts.totalDeductions ?? 0);
+  const totalAdvanceRecovery = new Decimal(opts.totalAdvanceRecovery ?? 0);
   // Other deductions = totalDeductions − PF − ESI − professionTax − TDS
+  // − advance recoveries (those credit the advance asset, not a payable)
   const otherDeductions = totalDeductions
     .minus(totalPF)
     .minus(totalESI)
     .minus(totalProfessionTax)
-    .minus(totalTDS);
+    .minus(totalTDS)
+    .minus(totalAdvanceRecovery);
 
   // Employer PF is an additional expense on top of gross salary
   const totalExpense = totalGross.plus(totalEmployerPf);
@@ -1671,6 +1681,9 @@ export async function postPayroll(
   }
   if (totalTDS.gt(0)) {
     lines.push({ accountCode: ACCT.TDS_PAYABLE, debit: 0, credit: totalTDS, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "TDS payable to Income Tax" });
+  }
+  if (totalAdvanceRecovery.gt(0)) {
+    lines.push({ accountCode: ACCT.ADVANCE_TO_EMP, debit: 0, credit: totalAdvanceRecovery, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "Advance recovery — reduces advance asset" });
   }
   if (otherDeductions.gt(0)) {
     lines.push({ accountCode: ACCT.SALARIES_PAYABLE, debit: 0, credit: otherDeductions, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "Other deductions (loans/advances)" });
