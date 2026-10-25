@@ -2002,7 +2002,7 @@ function PayrollHistoryRow({ p, canManagePayroll, _employeeId }: { p: PayrollIte
       {/* Mark as paid form */}
       {showMarkPaid && (
         <div className="mt-2 space-y-1.5">
-          <input aria-label="Ayment Ref"
+          <input aria-label="Payment Ref"
             type="text"
             value={paymentRef}
             onChange={(e) => setPaymentRef(e.target.value)}

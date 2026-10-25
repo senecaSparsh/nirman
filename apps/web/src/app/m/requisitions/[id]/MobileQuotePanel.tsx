@@ -1235,7 +1235,7 @@ function MobileQuoteUploadDialog({
               >
                 Payment Terms *
               </label>
-              <input aria-label="Ayment Terms"
+              <input aria-label="Payment Terms"
                 type="text"
                 value={paymentTerms}
                 onChange={(e) => setPaymentTerms(e.target.value)}
@@ -1759,7 +1759,7 @@ function MobileEditQuoteDialog({
                 >
                   Payment Terms
                 </label>
-                <input aria-label="Ayment Terms"
+                <input aria-label="Payment Terms"
                   value={paymentTerms}
                   onChange={(e) => setPaymentTerms(e.target.value)}
                   placeholder="e.g. 30 days credit"

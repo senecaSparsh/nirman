@@ -918,7 +918,7 @@ function EditQuoteDialog({
         </div>
         <div className="space-y-1.5">
           <Label>Payment Terms</Label>
-          <Input aria-label="Ayment Terms"
+          <Input aria-label="Payment Terms"
             value={paymentTerms}
             onChange={(e) => setPaymentTerms(e.target.value)}
             placeholder="e.g. 30 days credit"

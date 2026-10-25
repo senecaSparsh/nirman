@@ -2203,7 +2203,7 @@ function AddQuoteDialog({
             </div>
             <div>
               <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Payment terms <span style={{ color: "var(--color-stop)" }}>*</span></label>
-              <input aria-label="Ayment Terms"
+              <input aria-label="Payment Terms"
                 type="text"
                 value={paymentTerms}
                 onChange={(e) => setPaymentTerms(e.target.value)}

@@ -410,7 +410,7 @@ export function QuoteUploadDialog({
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label>Payment Terms *</Label>
-            <Input aria-label="Ayment Terms"
+            <Input aria-label="Payment Terms"
               type="text"
               value={paymentTerms}
               onChange={(e) => setPaymentTerms(e.target.value)}

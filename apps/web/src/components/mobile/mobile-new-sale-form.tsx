@@ -593,7 +593,7 @@ export function MobileNewSaleForm({
                 />
               </FormFieldSm>
               <FormFieldSm label="Cycle">
-                <input aria-label="Ayment Cycle"
+                <input aria-label="Payment Cycle"
                   type="text"
                   value={paymentCycle}
                   onChange={(e) => setPaymentCycle(e.target.value)}
