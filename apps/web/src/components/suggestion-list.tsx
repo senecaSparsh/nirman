@@ -57,6 +57,21 @@ export const COMMON_DESIGNATIONS = [
   "Helper",
 ];
 
+export const COMMON_DEPARTMENTS = [
+  "Site Operations",
+  "Procurement",
+  "Stores",
+  "Accounts & Finance",
+  "HR & Admin",
+  "Sales & Marketing",
+  "Estimation & Billing",
+  "Quality",
+  "Safety",
+  "Planning",
+  "Legal & Liaison",
+  "Management",
+];
+
 export function SuggestionList({ id, options }: { id: string; options: string[] }) {
   return (
     <datalist id={id}>

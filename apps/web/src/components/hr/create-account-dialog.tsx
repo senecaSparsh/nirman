@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
-import { COMMON_DESIGNATIONS, SuggestionList } from "@/components/suggestion-list";
+import { COMMON_DEPARTMENTS, COMMON_DESIGNATIONS, SuggestionList } from "@/components/suggestion-list";
 import { Dialog } from "@/components/ui/dialog";
 import {
   ROLE_LIST,
@@ -455,7 +455,8 @@ export function CreateAccountDialog({
               </div>
               <div className="space-y-1.5">
                 <Label>Org Unit</Label>
-                <Input aria-label="Construction" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="Construction" />
+                <Input aria-label="Construction" list="suggest-departments" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="Construction" />
+                <SuggestionList id="suggest-departments" options={COMMON_DEPARTMENTS} />
               </div>
             </div>
             {/* Multi-role: additional hats — the employee can switch into
