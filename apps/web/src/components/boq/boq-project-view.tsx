@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useFetch } from "@/lib/use-fetch";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,11 @@ export function BoqProjectView({
   materials: Material[];
   canEdit: boolean;
 }) {
-  const [projectId, setProjectId] = useState<string>(projects[0]?.id ?? "");
+  const searchParams = useSearchParams();
+  const [projectId, setProjectId] = useState<string>(() => {
+    const p = searchParams.get("project");
+    return p && projects.some((pr) => pr.id === p) ? p : (projects[0]?.id ?? "");
+  });
   const { data, loading, error, retry: fetchTree } = useFetch<{
     tree?: BoqNode[];
     totalEstimatedAmount?: number;

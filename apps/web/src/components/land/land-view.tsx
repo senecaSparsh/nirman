@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { useUrlFilter } from "@/lib/use-url-filter";
 import Link from "next/link";
@@ -305,8 +306,10 @@ export function LandView({
     if (statusFilter === "SOLD") return p.soldCount > 0;
     return true;
   };
-  const wholePurchases = purchases.filter((p) => !p.hasChildren && matchesStatus(p));
-  const subdividedPurchases = purchases.filter((p) => p.hasChildren && matchesStatus(p));
+  // ?project=<id> deep-links (project hub "Land" count) scope the tables.
+  const projectParam = useSearchParams().get("project");
+  const wholePurchases = purchases.filter((p) => !p.hasChildren && matchesStatus(p) && (!projectParam || p.projectId === projectParam));
+  const subdividedPurchases = purchases.filter((p) => p.hasChildren && matchesStatus(p) && (!projectParam || p.projectId === projectParam));
 
   return (
     <div className="space-y-6">
