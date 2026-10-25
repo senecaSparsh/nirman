@@ -2908,3 +2908,28 @@ Round 116 — GL reconciliation sweep + books-health verification
   via SQL and bypass services — every GL/stock invariant FAIL on the
   dev DB is currently unprovable noise. Real-value options: seed via
   service paths, or per-fixture cleanup so /health-books reads true.
+
+Round 117 — Friendly errors for non-technical users (18f60d5e)
+
+- Problem: ~960 `toast.error(err instanceof Error ? err.message : ...)`
+  sites surfaced browser jargon verbatim — "Failed to fetch",
+  "Load failed", "NetworkError", "HTTP 500". On construction sites
+  with patchy connectivity, "Failed to fetch" was the single most
+  common message a field user ever saw.
+- Fix at the source, not the sinks: `lib/friendly-fetch.ts` wraps
+  `window.fetch` once at app root (installed inside
+  ChunkErrorRecovery's mount effect). Network TypeErrors are
+  re-thrown as friendly TypeErrors ("No internet connection. Check
+  your connection and try again.") — keeping `instanceof TypeError`
+  so use-api-action retry detection still works; original error on
+  `.cause`. TimeoutError gets its own plain DOMException. Zero
+  per-site edits — every existing and future catch block benefits.
+- `HTTP ${status}` jargon fallbacks replaced with "Something went
+  wrong. Please try again." in all 6 shared fetch wrappers
+  (use-api-action, use-optimistic-action, use-fetch, swr,
+  local-first, offline/queue). Status stays available via the
+  `.status` property where code inspects it.
+- Verified: typecheck clean, friendly-fetch + use-api-action tests
+  green (13). Audited already-good: error/404 pages, shared
+  EmptyState (280 sites, role-aware contactHint), data-table
+  fallbacks — all plain language.
