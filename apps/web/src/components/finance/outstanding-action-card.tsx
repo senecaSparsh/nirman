@@ -34,7 +34,7 @@ export function OutstandingActionCard({
       </div>
       <div className="flex items-center gap-2">
         <Link
-          href="/sales?filter=outstanding"
+          href="/sales?pay=OUTSTANDING"
           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-card px-3 text-[13px] font-medium text-foreground shadow-raised transition-colors hover:border-border-strong hover:bg-muted"
         >
           View outstanding <ArrowRight className="size-3.5" />

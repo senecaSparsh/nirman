@@ -360,7 +360,7 @@ function SalesTab({
     () => sales.filter((s) => {
       if (statusFilter && s.status !== statusFilter) return false;
       if (stageFilter && s.saleStage !== stageFilter) return false;
-      if (payFilter && s.paymentStatus !== payFilter) return false;
+      if (payFilter === "OUTSTANDING" ? s.paymentStatus === "PAID" : payFilter && s.paymentStatus !== payFilter) return false;
       if (bbaFilter === "signed" && !s.bbaNo && !s.bbaDocumentUrl) return false;
       if (bbaFilter === "pending" && (s.bbaNo || s.bbaDocumentUrl)) return false;
       if (dateFrom && s.saleDate < dateFrom) return false;
@@ -572,6 +572,7 @@ function SalesTab({
                 ], "Filter by sale stage")}
                 {filterSelect(payFilter, setPayFilter, 130, [
                   { value: "", label: "All payments" },
+                  { value: "OUTSTANDING", label: "Outstanding" },
                   { value: "PENDING", label: "Pending" },
                   { value: "PARTIAL", label: "Partial" },
                   { value: "PAID", label: "Paid" },

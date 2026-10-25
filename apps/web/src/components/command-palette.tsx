@@ -90,7 +90,7 @@ const ACTIONS: ActionItem[] = [
   { label: "Cost centres", hint: "Inside Settings", icon: Wallet, href: "/settings?tab=cost-centres", keywords: ["cost centre", "cost center", "department", "allocation"] },
   { label: "Leave requests", hint: "Inside Attendance", icon: CalendarCheck, href: "/hr/attendance?tab=leave", keywords: ["leave", "absence", "holiday", "time off", "chutti", "leave request", "approve leave"] },
   { label: "Portal listings", hint: "Inside Built Units", icon: Globe, href: "/units?tab=portals", keywords: ["portal", "listing", "99acres", "magicbricks", "housing", "marketplace", "property portal"] },
-  { label: "Supplier ratings", hint: "Inside Suppliers", icon: ShieldCheck, href: "/suppliers?tab=ratings", keywords: ["rating", "score", "performance", "on-time", "quality", "supplier rating", "vendor rating"] },
+  { label: "Supplier ratings", hint: "Inside Suppliers", icon: ShieldCheck, href: "/vendor-ratings", keywords: ["rating", "score", "performance", "on-time", "quality", "supplier rating", "vendor rating"] },
 ];
 
 // ── Entity search ───────────────────────────────────────────────
