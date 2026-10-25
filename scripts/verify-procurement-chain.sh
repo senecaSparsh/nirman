@@ -11,10 +11,10 @@ BASE="${BASE:-http://localhost:3000}"
 JAR="${COOKIE_JAR:-/tmp/nirman-cookies.txt}"
 P() { psql -h localhost -d nirman_inventory -tAc "$1" 2>/dev/null | tr -d ' '; }
 C="cmtv3x4t50000vlp0b23vdtxe"                      # SRG REALCON
-SUP="cmv0q7nhr005yvlt79m5jwk7q"                   # Apex Steel Traders
+SUP="vfypc$(date +%s)"                            # fresh fixture supplier — deterministic payable
 LOC="cmv0q8a4h006avlt72rifonze"                   # Central Store (COMPANY_WAREHOUSE — required for COMPANY-scope POs)
 MAT="cmv0qadjq006qvlt7o4zo7eae"                   # material A
-MAT2="mat-test-02"                                 # material B
+MAT2=$(P "SELECT id FROM \"Material\" WHERE \"companyId\"='$C' AND id<>'$MAT' AND \"deletedAt\" IS NULL LIMIT 1")
 
 PASS=0; FAIL=0
 req() { curl -s -b "$JAR" -H "Content-Type: application/json" --max-time 60 -X "$1" "$BASE/api/$2" -d "$3"; }
@@ -35,6 +35,7 @@ QTY0=$(P "SELECT coalesce(sum(qty),0) FROM \"StockLocationItem\" WHERE \"locatio
 echo "  site $MAT baseline qty: $QTY0"
 
 echo "════════ 1. PO → approve → order ════════"
+P "INSERT INTO \"Supplier\" (id,\"companyId\",name,\"updatedAt\",\"createdAt\") VALUES ('$SUP','$C','wf procurement supplier',now(),now())"
 PO=$(uid); L1=$(uid); L2=$(uid)
 P "INSERT INTO \"PurchaseOrder\" (id,\"poNumber\",\"supplierId\",\"procurementScope\",\"companyId\",\"destinationLocationId\",status,\"updatedAt\",\"createdAt\") VALUES ('$PO','PO-CH-$RANDOM','$SUP','COMPANY','$C','$LOC','DRAFT',now(),now())"
 P "INSERT INTO \"PurchaseOrderLine\" (id,\"purchaseOrderId\",\"materialId\",\"qtyOrdered\",\"unitCost\") VALUES ('$L1','$PO','$MAT',10,100)"

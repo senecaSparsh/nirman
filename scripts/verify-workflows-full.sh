@@ -61,7 +61,7 @@ for L in "$LOC_SITE" "$LOC_WH"; do
   if [ "${NET:-0}" -lt 500 ]; then
     ADD=$((500-NET)); SMX=$(uid)
     BALV=$(python3 -c "print(round(500*float('$MAC'),2))")
-    P "INSERT INTO \"StockMovement\" (id,\"materialId\",\"movementType\",\"toLocationId\",qty,\"unitCost\",\"balanceAfter\",\"balanceValueAfter\",\"refType\",\"refId\",timestamp) VALUES ('$SMX','$MAT','OPENING_BALANCE','$L',$ADD,$MAC,500,$BALV,'FIXTURE','vfy-opening-stock',now())"
+    P "INSERT INTO \"StockMovement\" (id,\"materialId\",\"movementType\",\"toLocationId\",qty,\"unitCost\",\"balanceAfter\",\"balanceValueAfter\",\"refType\",\"refId\",timestamp) VALUES ('$SMX','$MAT','OPENING_BALANCE','$L',$ADD,$MAC,500,$BALV,'FIXTURE','vfy-opening-stock',timezone('UTC',now()))"
     P "INSERT INTO \"StockLocationItem\" (id,\"locationId\",\"materialId\",qty,\"movingAvgCost\",\"updatedAt\") VALUES ('$(uid)','$L','$MAT',500,$MAC,now())
        ON CONFLICT (\"locationId\",\"materialId\") DO UPDATE SET qty=500,\"movingAvgCost\"=$MAC,\"updatedAt\"=now()" 2>/dev/null || \
     P "UPDATE \"StockLocationItem\" SET qty=500,\"movingAvgCost\"=$MAC,\"updatedAt\"=now() WHERE \"locationId\"='$L' AND \"materialId\"='$MAT'"

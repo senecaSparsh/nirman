@@ -335,13 +335,15 @@ export async function createSupplierPayment(input: {
       }
     }
 
-    // 2c. For unlinked payments (no PO), prevent overpaying the supplier's balanceOwed.
-    //     Without this guard, two concurrent unlinked payments could each read the
-    //     same balanceOwed and both succeed, overpaying the supplier. A LINKED
-    //     payment is allowed to exceed balanceOwed — that's a prepayment on the
-    //     PO (goods not yet received → AP not yet booked); the excess lands as a
-    //     debit balance on AP = a supplier advance, while balanceOwed floors at 0.
-    if (!input.purchaseOrderId) {
+    // 2c. For unlinked payments (no PO, no invoice), prevent overpaying the
+    //     supplier's balanceOwed. Without this guard, two concurrent unlinked
+    //     payments could each read the same balanceOwed and both succeed,
+    //     overpaying the supplier. A LINKED payment is allowed to exceed
+    //     balanceOwed — that's a prepayment on the PO (goods not yet received
+    //     → AP not yet booked); the excess lands as a debit balance on AP = a
+    //     supplier advance, while balanceOwed floors at 0. An invoice-linked
+    //     payment is already capped by the invoice's own outstanding above.
+    if (!input.purchaseOrderId && !input.invoiceId) {
       const currentBalance = new Decimal(supplier.balanceOwed);
       if (amount.gt(currentBalance)) {
         throw new ServiceError(

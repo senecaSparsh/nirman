@@ -27,6 +27,18 @@ expect_num() { got=$(P "$2"); ok=$(psql -h localhost -d nirman_inventory -tAc "S
 expect_cnt() { got=$(P "$2"); [ "$got" = "$3" ] && { PASS=$((PASS+1)); echo "  PASS $1 → $got"; } || { FAIL=$((FAIL+1)); echo "  FAIL $1: want $3 got ${got:-<none>}"; }; }
 expect_refused() { case "$2" in *'"ok":true'*) FAIL=$((FAIL+1)); echo "  FAIL $1: unexpectedly succeeded: ${2:0:110}";; *) PASS=$((PASS+1)); echo "  PASS $1 → refused (${2:0:70})";; esac; }
 
+# Provision baseline stock for any of the three materials that have none at
+# this location — empty SLI rows made the count body malformed JSON.
+for M in "$WIR" "$SND" "$AGG"; do
+  if [ -z "$(P "SELECT qty FROM \"StockLocationItem\" WHERE \"locationId\"='$LOC' AND \"materialId\"='$M'")" ]; then
+    SID="vfysc$(date +%s)$RANDOM"
+    P "INSERT INTO \"StockMovement\" (id,\"materialId\",\"movementType\",\"toLocationId\",qty,\"unitCost\",\"balanceAfter\",\"balanceValueAfter\",\"refType\",\"refId\",timestamp) VALUES ('$SID','$M','OPENING_BALANCE','$LOC',50,10,50,500,'FIXTURE','vfy-opening-stock',timezone('UTC',now()))"
+    P "INSERT INTO \"StockLocationItem\" (id,\"locationId\",\"materialId\",qty,\"movingAvgCost\",\"updatedAt\") VALUES ('vfysc$RANDOM','$LOC','$M',50,10,now())
+       ON CONFLICT (\"locationId\",\"materialId\") DO UPDATE SET qty=50,\"updatedAt\"=now()" 2>/dev/null || \
+    P "UPDATE \"StockLocationItem\" SET qty=50,\"movingAvgCost\"=10,\"updatedAt\"=now() WHERE \"locationId\"='$LOC' AND \"materialId\"='$M'"
+  fi
+done
+
 WQ=$(P "SELECT qty FROM \"StockLocationItem\" WHERE \"locationId\"='$LOC' AND \"materialId\"='$WIR'")
 SQ=$(P "SELECT qty FROM \"StockLocationItem\" WHERE \"locationId\"='$LOC' AND \"materialId\"='$SND'")
 AQ=$(P "SELECT qty FROM \"StockLocationItem\" WHERE \"locationId\"='$LOC' AND \"materialId\"='$AGG'")

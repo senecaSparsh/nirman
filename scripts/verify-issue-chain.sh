@@ -17,7 +17,13 @@ JAR="${COOKIE_JAR:-/tmp/nirman-cookies.txt}"
 P() { psql -h localhost -d nirman_inventory -tAc "$1" 2>/dev/null | tr -d ' '; }
 C="cmtv3x4t50000vlp0b23vdtxe"                       # SRG REALCON
 PROJ="cmtwhwzer000pvlt3cth8e8qo"                    # apex center
-UNIT="cmv0pf8qx003evlt7wuspedjg"                    # A-101 (apex)
+# Resolve a live CREATED sellable unit — the ΣproductionCost reallocation check
+# needs one; provision a fixture unit if the project has none.
+UNIT=$(P "SELECT id FROM \"BuiltUnit\" WHERE \"projectId\"='$PROJ' AND \"originType\"='CREATED' AND status IN ('AVAILABLE','HOLD','UNDER_CONSTRUCTION','RESERVED') AND \"deletedAt\" IS NULL LIMIT 1")
+[ -z "$UNIT" ] && { UNIT="vfyu$(date +%s)"; P "INSERT INTO \"BuiltUnit\" (id,\"projectId\",\"unitNumber\",\"unitType\",area,status,\"originType\",\"updatedAt\",\"createdAt\") VALUES ('$UNIT','$PROJ','VFY-1','BHK_2',1200,'AVAILABLE','CREATED',now(),now())"; }
+# The SOLD-unit guard check needs a unit whose cost basis is frozen.
+SOLDUNIT=$(P "SELECT id FROM \"BuiltUnit\" WHERE \"projectId\"='$PROJ' AND status='SOLD' AND \"deletedAt\" IS NULL LIMIT 1")
+[ -z "$SOLDUNIT" ] && { SOLDUNIT="vfysu$(date +%s)"; P "INSERT INTO \"BuiltUnit\" (id,\"projectId\",\"unitNumber\",\"unitType\",area,status,\"originType\",\"updatedAt\",\"createdAt\") VALUES ('$SOLDUNIT','$PROJ','VFY-S1','BHK_2',1200,'SOLD','CREATED',now(),now())"; }
 LOC="cmv0q8a4h006avlt72rifonze"                     # Central Store - Agra
 MAT="cmv0qadjq006qvlt7o4zo7eae"                     # WIRE-BIND 5mm
 DEPT="isd$(date +%s)"
@@ -73,7 +79,7 @@ expect_num "ΣproductionCost +lineCost" "SELECT COALESCE(SUM(\"productionCost\")
 echo "════════ 2. unit-tagged issue ════════"
 # SOLD unit: cost basis frozen — the issue must be refused (was silently
 # accepted and stranded in WIP before the guard).
-r=$(req POST "issue-materials" "{\"projectId\":\"$PROJ\",\"builtUnitId\":\"$UNIT\",\"fromLocationId\":\"$LOC\",\"lines\":[{\"materialId\":\"$MAT\",\"qty\":2}]}")
+r=$(req POST "issue-materials" "{\"projectId\":\"$PROJ\",\"builtUnitId\":\"$SOLDUNIT\",\"fromLocationId\":\"$LOC\",\"lines\":[{\"materialId\":\"$MAT\",\"qty\":2}]}")
 expect_refused "issue to SOLD unit" "$r"
 # PLANNED unit: allowed — the direct cost waits in WIP until the unit joins
 # the allocatable set, then lands on it. Prove the deferred write by

@@ -20,8 +20,10 @@ BASE="${BASE:-http://localhost:3000}"
 JAR="${COOKIE_JAR:-/tmp/nirman-cookies.txt}"
 P() { psql -h localhost -d nirman_inventory -tAc "$1" 2>/dev/null | tr -d ' '; }
 C="cmtv3x4t50000vlp0b23vdtxe"                      # SRG REALCON
-CUST="cmtwi53250001vljm6ru892z6"                  # seeded customer
-LP="cmv2i9h3x0005vlwavyovr9qy"                    # seeded land purchase
+CUST=$(P "SELECT id FROM \"Customer\" WHERE \"companyId\"='$C' LIMIT 1")
+[ -z "$CUST" ] && { CUST="vfyacu$RANDOM"; P "INSERT INTO \"Customer\" (id,\"companyId\",name,\"updatedAt\",\"createdAt\") VALUES ('$CUST','$C','wf asset customer',now(),now())"; }
+LP="vfyalp$(date +%s)"                              # fresh fixture land purchase
+P "INSERT INTO \"LandPurchase\" (id,\"companyId\",\"sellerName\",\"totalArea\",\"totalCost\",\"createdAt\") VALUES ('$LP','$C','wf-seller',5000,2500000,now())"
 
 PASS=0; FAIL=0
 req() { curl -s -b "$JAR" -H "Content-Type: application/json" --max-time 60 -X "$1" "$BASE/api/$2" -d "$3"; }

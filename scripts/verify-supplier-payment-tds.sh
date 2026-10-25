@@ -14,13 +14,25 @@ BASE="${BASE:-http://localhost:3000}"
 JAR="${COOKIE_JAR:-/tmp/nirman-cookies.txt}"
 P() { psql -h localhost -d nirman_inventory -tAc "$1" 2>/dev/null | tr -d ' '; }
 C="cmtv3x4t50000vlp0b23vdtxe"                        # SRG REALCON
-SUP="cmv0q7nh2005uvlt7kolwshxz"                      # Shree Cement Suppliers
+SUP="vfysp$(date +%s)"                               # fresh fixture supplier — deterministic payable
 
 PASS=0; FAIL=0
 req() { curl -s -b "$JAR" -H "Content-Type: application/json" --max-time 60 -X "$1" "$BASE/api/$2" -d "$3"; }
 expect_num() { got=$(P "$2"); ok=$(psql -h localhost -d nirman_inventory -tAc "SELECT abs(coalesce(${got:-NULL}::numeric,-999999) - $3::numeric) < 0.03"); [ "$ok" = "t" ] && { PASS=$((PASS+1)); echo "  PASS $1 → $got"; } || { FAIL=$((FAIL+1)); echo "  FAIL $1: want $3 got ${got:-<none>}"; }; }
 expect_cnt() { got=$(P "$2"); [ "$got" = "$3" ] && { PASS=$((PASS+1)); echo "  PASS $1 → $got"; } || { FAIL=$((FAIL+1)); echo "  FAIL $1: want $3 got ${got:-<none>}"; }; }
 expect_refused() { case "$2" in *'"ok":true'*|*'"id"'*) FAIL=$((FAIL+1)); echo "  FAIL $1: unexpectedly succeeded: ${2:0:110}";; *) PASS=$((PASS+1)); echo "  PASS $1 → refused (${2:0:70})";; esac; }
+
+# Provision a fresh supplier + a real API-posted invoice so the payable is
+# deterministic (seeded balances were rebuilt from GL and no longer cover the
+# amounts this chain moves).
+P "INSERT INTO \"Supplier\" (id,\"companyId\",name,\"updatedAt\",\"createdAt\") VALUES ('$SUP','$C','wf supplier tds',now(),now())"
+# Service invoice (no material lines) — material lines require a linked PO for
+# three-way matching. Posted via the API so balanceOwed + AP GL move together.
+INVRES=$(req POST "supplier-invoices" "{\"invoiceNumber\":\"INV-TDS-$RANDOM\",\"supplierId\":\"$SUP\",\"invoiceDate\":\"2025-10-01\",\"subtotal\":10000,\"gstAmount\":1800,\"totalAmount\":11800}")
+echo "  invoice: ${INVRES:0:120}"
+# balanceOwed + AP GL move at invoice APPROVE, not create — approve it first.
+INVID=$(echo "$INVRES" | python3 -c "import json,sys;print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+req PATCH "supplier-invoices/$INVID" '{"action":"approve"}' >/dev/null
 
 BAL0=$(P "SELECT \"balanceOwed\" FROM \"Supplier\" WHERE id='$SUP'")
 echo "  baseline: balanceOwed=$BAL0"
