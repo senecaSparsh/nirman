@@ -76,6 +76,20 @@ echo "5. Money assertions"
 [ "$(P "SELECT status FROM \"PaymentScheduleItem\" WHERE id='$ITEM2'")" = "PENDING" ] && ok "completion installment still PENDING" || bad "completion installment changed unexpectedly"
 [ "$(P "SELECT count(*) FROM \"AuditLog\" WHERE action='CLP_DEMAND_GENERATED' AND \"entityId\"='$NODE'")" -ge 1 ] && ok "CLP demand logged in audit trail" || bad "no CLP audit entry"
 
+echo "6. Collect the due installment"
+D=$(req POST "payment-schedules/items/$ITEM1/demand" '{}')
+echo "$D" | grep -q '"notificationLogId"' && ok "demand sent to buyer" || bad "demand failed: $D"
+OVER=$(req POST "payment-schedules/items/$ITEM1/pay" "{\"amount\":$((NET*40/100*2)),\"paymentMode\":\"NEFT\"}")
+echo "$OVER" | grep -q 'exceeds installment' && ok "overpayment refused" || bad "overpayment not refused: $OVER"
+PART=$(req POST "payment-schedules/items/$ITEM1/pay" '{"amount":500000,"paymentMode":"NEFT","reference":"UTR-WF-CLP"}')
+echo "$PART" | grep -q '"status":"PARTIAL"' && ok "partial payment → PARTIAL" || bad "partial payment failed: $PART"
+REST=$(P "SELECT \"totalAmount\"-\"paidAmount\" FROM \"PaymentScheduleItem\" WHERE id='$ITEM1'")
+FULL=$(req POST "payment-schedules/items/$ITEM1/pay" "{\"amount\":$REST,\"paymentMode\":\"NEFT\"}")
+echo "$FULL" | grep -q '"status":"PAID"' && ok "balance paid → PAID" || bad "final payment failed: $FULL"
+PAYS=$(P "SELECT count(*) FROM \"AssetSalePayment\" WHERE \"assetSaleId\"='$SALE'")
+JE=$(P "SELECT count(DISTINCT je.id) FROM \"JournalEntry\" je JOIN \"JournalLine\" jl ON jl.\"journalEntryId\"=je.id JOIN \"GlAccount\" ga ON ga.id=jl.\"accountId\" WHERE jl.\"entityType\"='AssetSale' AND jl.\"entityId\"='$SALE' AND je.\"sourceType\"='ASSET_SALE_DEPOSIT' AND ga.code='1060' AND jl.debit>0")
+[ "${JE:-0}" -ge "${PAYS:-1}" ] && ok "each of $PAYS collections posted to the GL (Dr Bank / Cr Customer deposits)" || bad "GL postings missing (payments $PAYS, entries ${JE:-0})"
+
 echo ""
 echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]
