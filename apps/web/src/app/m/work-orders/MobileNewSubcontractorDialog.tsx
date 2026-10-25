@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
+import { COMMON_TRADES, SuggestionList } from "@/components/suggestion-list";
 
 /**
  * Mobile bottom-sheet dialog for creating a subcontractor inline.
@@ -106,7 +107,9 @@ export function MobileNewSubcontractorDialog({
                 value={trade}
                 onChange={setTrade}
                 placeholder="Plumbing, Masonry…"
+                list="suggest-sub-trades"
               />
+              <SuggestionList id="suggest-sub-trades" options={COMMON_TRADES} />
               <div className="pl-2">
                 <UnderlineInput
                   label="GSTIN"

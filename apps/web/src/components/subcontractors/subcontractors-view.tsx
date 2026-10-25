@@ -7,6 +7,7 @@ import {Plus, Pencil, Trash2, HardHat, Phone} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
+import { COMMON_TRADES, SuggestionList } from "@/components/suggestion-list";
 import { Dialog } from "@/components/ui/dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
@@ -275,7 +276,8 @@ function SubcontractorFormDialog({
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Trade">
-            <Input aria-label="Masonry, Plumbing, Electrical" value={trade} onChange={(e) => setTrade(e.target.value)} placeholder="Masonry, Plumbing, Electrical…" />
+            <Input aria-label="Masonry, Plumbing, Electrical" list="suggest-trades" value={trade} onChange={(e) => setTrade(e.target.value)} placeholder="Masonry, Plumbing, Electrical…" />
+            <SuggestionList id="suggest-trades" options={COMMON_TRADES} />
           </Field>
           <Field label="GSTIN">
             <Input aria-label="GSTIN" value={gstin} onChange={(e) => setGstin(e.target.value)} placeholder="22AAAAA0000A1Z5" className="font-mono" />
