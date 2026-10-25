@@ -251,7 +251,7 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [projectId, setProjectId] = useState(() => {
-    const p = searchParams.get("project");
+    const p = searchParams.get("project") ?? searchParams.get("projectId");
     return p && projects.some((pr) => pr.id === p) ? p : (projects[0]?.id ?? "");
   });
   const [dialogOpen, setDialogOpen] = useState(false);

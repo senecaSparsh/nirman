@@ -159,7 +159,12 @@ export function BuiltUnitsView({
   }, [router]);
 
   // ── Full set — filtering is now handled inside the DataTable ──
-  const filtered = units;
+  // ?project=<id> deep-links (project hub "Built Units", mobile project
+  // tiles) scope the table to that project.
+  const filtered = useMemo(() => {
+    const p = searchParams.get("project");
+    return p ? units.filter((u) => u.projectId === p) : units;
+  }, [units, searchParams]);
 
   // ── Portfolio metrics ──
   const _portfolio = useMemo(() => {
