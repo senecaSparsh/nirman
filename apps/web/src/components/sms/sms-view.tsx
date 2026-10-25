@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { MessageSquare, Plus, Link2, Check, X, AlertCircle, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { Input, Label, Textarea } from "@/components/ui/input";
+import { useFetch } from "@/lib/use-fetch";
 import { Dialog } from "@/components/ui/dialog";
 import { formatCurrency, formatDate, formatEnumLabel } from "@/lib/utils";
 import { EmptyState } from "@/components/empty-state";
@@ -301,6 +302,20 @@ function IngestDialog({
 
 // ── Manual match dialog ──
 
+type Receivable = {
+  entityType: "ASSET_SALE" | "MATERIAL_SALE" | "TENANCY";
+  entityId: string;
+  label: string;
+  sublabel: string;
+  due: number;
+};
+
+const RECEIVABLE_TYPE_LABEL: Record<Receivable["entityType"], string> = {
+  ASSET_SALE: "Unit sale",
+  MATERIAL_SALE: "Material sale",
+  TENANCY: "Rent",
+};
+
 function MatchDialog({
   sms,
   onClose,
@@ -310,31 +325,26 @@ function MatchDialog({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const [entityType, setEntityType] = useState<"ASSET_SALE" | "MATERIAL_SALE" | "TENANCY">("ASSET_SALE");
-  const [entityId, setEntityId] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const { data, error } = useFetch<{ items?: Receivable[] }>("/api/sms/receivables");
+  const items = error ? [] : data ? (data.items ?? []) : null;
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!entityId.trim()) {
-      toast.error("Entity ID is required");
-      return;
-    }
-    setSaving(true);
+  async function pick(item: Receivable) {
+    if (busy) return;
+    setBusy(item.entityId);
     try {
       const res = await fetch("/api/sms/match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ smsId: sms.id, entityType, entityId: entityId.trim() }),
+        body: JSON.stringify({ smsId: sms.id, entityType: item.entityType, entityId: item.entityId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to match SMS");
-      toast.success("SMS matched and payment created");
+      toast.success(`Matched to ${item.label} — payment recorded`);
       onDone();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to match SMS");
-    } finally {
-      setSaving(false);
+      setBusy(null);
     }
   }
 
@@ -343,44 +353,52 @@ function MatchDialog({
       open={true}
       onOpenChange={onClose}
       title="Match SMS to Payment"
-      description={`Link this ${sms.amount ? formatCurrency(sms.amount) : "unknown amount"} SMS to a sale or tenancy.`}
+      description={`Link this ${sms.amount ? formatCurrency(sms.amount) : "unknown amount"} SMS to an outstanding payment.`}
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="match-type">Payment Type</Label>
-          <Select
-            id="match-type"
-            value={entityType}
-            onChange={(e) => setEntityType(e.target.value as typeof entityType)}
-          >
-            <option value="ASSET_SALE">Asset Sale (property/unit sale)</option>
-            <option value="MATERIAL_SALE">Material Sale</option>
-            <option value="TENANCY">Tenancy (rent payment)</option>
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="match-id">Sale / Tenancy ID</Label>
-          <Input
-            id="match-id"
-            value={entityId}
-            onChange={(e) => setEntityId(e.target.value)}
-            placeholder="Paste the ID of the sale or tenancy"
-            required
-          />
-          <p className="text-micro text-muted-foreground">
-            You can find the ID in the URL of the sale/tenancy detail page.
+      <div className="max-h-80 overflow-y-auto -mx-1 px-1">
+        {items === null ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : items.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            No outstanding payments to match against.
           </p>
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {saving ? "Matching…" : "Create Payment"}
-          </Button>
-        </div>
-      </form>
+        ) : (
+          <div className="flex flex-col divide-y divide-border rounded-md border border-border">
+            {items.map((item) => (
+              <button
+                key={`${item.entityType}-${item.entityId}`}
+                type="button"
+                onClick={() => pick(item)}
+                disabled={!!busy}
+                className="flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold truncate">
+                    {item.label}
+                  </span>
+                  <span className="block text-micro text-muted-foreground truncate">
+                    {RECEIVABLE_TYPE_LABEL[item.entityType]} · {item.sublabel}
+                  </span>
+                </span>
+                {busy === item.entityId ? (
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0 text-muted-foreground" />
+                ) : (
+                  <span className="text-sm font-bold tabular-nums shrink-0 text-danger">
+                    {formatCurrency(item.due)}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="flex justify-end">
+        <Button type="button" variant="outline" onClick={onClose} disabled={!!busy}>
+          Cancel
+        </Button>
+      </div>
     </Dialog>
   );
 }
