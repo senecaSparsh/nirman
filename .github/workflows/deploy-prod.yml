@@ -27,10 +27,7 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
             -H "Accept: application/json" \
             "${{ secrets.COOLIFY_URL }}/api/v1/deployments" | \
-            python3 -c 'import json,sys
-d=json.load(sys.stdin)
-for x in d[:8]:
-    print(x.get("deployment_uuid"), "|", x.get("status"), "|", (x.get("created_at") or "")[:19], "|", (x.get("application_name") or ""))' \
+            python3 -c 'import json,sys; d=json.load(sys.stdin); [print(x.get("deployment_uuid"),"|",x.get("status"),"|",(x.get("created_at") or "")[:19]) for x in (d if isinstance(d,list) else d.get("data",[]))[:10]]' \
           || echo "status query failed"
 
   deploy:
