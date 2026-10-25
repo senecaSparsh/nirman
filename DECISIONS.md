@@ -2867,3 +2867,23 @@ Round 114 — GST place of supply: immovable-property sales by project state
 - Verified against real journal data: SRG REALCON's ₹275,000 output GST on
   a Maharashtra project with a no-GSTIN buyer now splits CGST ₹137,500 +
   SGST ₹137,500 (was IGST ₹275,000). +4 unit tests in gst-split.test.ts.
+
+Round 115 — Comply pillar: TDS certs, statutory guards, Tally XML, 2400 recon
+
+- getTdsCertificate counted PAID-only while the index used APPROVED+PAID —
+  TDS deducts at approval, so certificates understated vs the index and GL
+  (dev: Sharma Masonry, 11 bills / ₹4,870 missing). Also prefer the recorded
+  Subcontractor.pan (206AA column) over GSTIN-derived PAN.
+- Form 16C → Form 16A labels (194C certificates); tdsRate now effective
+  rate, not first-bill rate.
+- Statutory guards: EPF ₹15k base cap + ESI ₹21k eligibility ceiling now
+  server-enforced in setSalaryComponents when callers omit them; employee
+  POST/PATCH routes were stripping wageCap/wageCeiling; mobile replace-all
+  PUT wiped caps (GET+PUT echo added); desktop auto-fills on type pick.
+- Tally XML: credits must serialize negative AMOUNT — sign, not
+  ISDEEMEDPOSITIVE, sets direction. Every synced voucher previously would
+  have double-booked or failed balancing. +3 XML-gen tests.
+- 2400 TDS Payable reconciled to ops records: found 15 orphaned fixture
+  JEs (mx* sourceIds, 2026-10-16, ₹300 TDS leg) — deleted; balance now
+  ₹146,801 = 143,640 + 11,377 − 8,216 exactly. No code path can orphan
+  JEs (no RaBill hard-delete exists); prod clean.
