@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 /// <reference types="node" />
 /**
  * Seed script — bootstraps a realistic construction firm ("Nirman Constructions")
@@ -92,6 +93,51 @@ async function postOpeningStockEntry(
   });
 }
 
+/**
+ * Seed project costs the way the app does — every cost posts its WIP journal
+ * (Dr WIP-Project / Cr Cash-ProjectCost) so Books Health check "WIP GL vs
+ * Project Cost Pool" reconciles on seeded data. A bare createMany leaves the
+ * doc-side cost pool ahead of GL forever.
+ */
+async function seedProjectCosts(
+  companyId: string,
+  rows: {
+    projectId: string;
+    costType: string;
+    amount: number;
+    date?: Date;
+    vendor?: string;
+    subcontractorId?: string;
+    notes?: string;
+  }[],
+) {
+  await prisma.$transaction(async (tx) => {
+    for (const r of rows) {
+      const cost = await tx.projectCost.create({
+        data: {
+          projectId: r.projectId,
+          costType: r.costType as never,
+          amount: r.amount,
+          date: r.date ?? new Date(),
+          vendor: r.vendor,
+          subcontractorId: r.subcontractorId,
+          notes: r.notes,
+        },
+      });
+      await postJournalEntry(tx, {
+        companyId,
+        sourceType: "PROJECT_COST",
+        sourceId: cost.id,
+        memo: "Project cost capitalised into WIP",
+        lines: [
+          { accountCode: ACCT.WIP, debit: r.amount, credit: 0, entityType: "Project", entityId: r.projectId },
+          { accountCode: ACCT.CASH, debit: 0, credit: r.amount, entityType: "ProjectCost", entityId: cost.id },
+        ],
+      });
+    }
+  });
+}
+
 /** Find-or-create a single record by a unique predicate (for master entities). */
 async function ensure<T extends { id: string }>(
   model: string,
@@ -182,9 +228,6 @@ async function main() {
   // Must be seeded BEFORE any mutation that posts a journal entry (receiveGoods,
   // issueMaterials, sellAsset, etc.) — otherwise the FK on JournalLine.accountCode
   // fails. Idempotent — upserts each account.
-  console.log("Seeding chart of accounts…");
-  await seedChartOfAccounts();
-
   // ── 1. Company ──────────────────────────────────────────────
   const company = await ensure<{ id: string; name: string }>(
     "company",
@@ -194,6 +237,11 @@ async function main() {
       currency: "INR",
     },
   );
+
+  // Chart must exist before the first postJournalEntry below (opening stock)
+  // — FK on JournalLine.accountCode. Idempotent upsert per account.
+  console.log("Seeding chart of accounts…");
+  await seedChartOfAccounts(company.id);
 
   // ── 2. Users (auth + audit) ─────────────────────────────────
   // One user per role so one-click dev login (POST /api/auth/demo-login)
@@ -291,6 +339,8 @@ async function main() {
   }
 
   const phase1A = await ensure(
+    "projectPhase",
+    { projectId: project1.id, name: "Tower A" },
     { projectId: project1.id, name: "Tower A", status: "ACTIVE", budget: 45000000, startDate: new Date("2024-02-01"), sortOrder: 1 },
   );
   const phase1B = await ensure(
@@ -337,10 +387,17 @@ async function main() {
     { name: "Paint & Finishes", unit: "LTR", class: "RAW_MATERIAL" as const },
     { name: "Formwork & Scaffolding", unit: "NOS", class: "TEMPORARY" as const },
     { name: "Safety & Consumables", unit: "NOS", class: "CONSUMABLE" as const },
+    { name: "Adhesives & Sealants", unit: "NOS", class: "RAW_MATERIAL" as const },
+    { name: "Doors & Windows", unit: "NOS", class: "RAW_MATERIAL" as const },
+    { name: "Flooring & Tiling", unit: "NOS", class: "RAW_MATERIAL" as const },
+    { name: "Hardware & Fittings", unit: "NOS", class: "RAW_MATERIAL" as const },
+    { name: "Roofing & Cladding", unit: "NOS", class: "RAW_MATERIAL" as const },
+    { name: "Waterproofing", unit: "NOS", class: "RAW_MATERIAL" as const },
+    { name: "Welding & Gas", unit: "NOS", class: "CONSUMABLE" as const },
   ];
   const catMap: Record<string, string> = {};
   for (const c of categories) {
-    const row = await ensure("materialCategory", { name: c.name }, c);
+    const row = await ensure("materialCategory", { name: c.name, companyId: company.id }, { ...c, companyId: company.id });
     catMap[c.name] = row.id;
   }
 
@@ -364,7 +421,7 @@ async function main() {
   ];
   const matMap: Record<string, string> = {};
   for (const m of materials) {
-    const row = await ensure("material", { code: m.code }, m);
+    const row = await ensure("material", { code: m.code, companyId: company.id }, { ...m, companyId: company.id });
     matMap[m.code] = row.id;
   }
 
@@ -1189,17 +1246,15 @@ async function main() {
   }
 
   // ── 21. Project costs (labour / overhead / permit / contractor) ──
-  await prisma.projectCost.createMany({
-    data: [
-      { projectId: project1.id, costType: "LABOUR", amount: 2500000, date: new Date("2024-02-28"), vendor: "Sai Labour Contractors", notes: "Foundation + slab labour" },
-      { projectId: project1.id, costType: "OVERHEAD", amount: 800000, date: new Date("2024-03-15"), notes: "Site office + security (Q1)" },
-      { projectId: project1.id, costType: "PERMIT", amount: 350000, date: new Date("2024-01-20"), vendor: "Pune Municipal Corporation", notes: "Building permission fees" },
-      { projectId: project1.id, costType: "CONTRACTOR", amount: 450000, date: new Date("2024-03-10"), subcontractorId: subMap["Shri Ganesh Plumbing Works"], notes: "Plumbing rough-in Tower A" },
-      { projectId: project1.id, costType: "CONTRACTOR", amount: 380000, date: new Date("2024-03-25"), subcontractorId: subMap["Sai Electricals Contractor"], notes: "Electrical conduits Tower A" },
-      { projectId: project1.id, costType: "EQUIPMENT", amount: 120000, date: new Date("2024-04-05"), notes: "Diesel + operator charges (JCB)" },
-      { projectId: project2.id, costType: "PERMIT", amount: 1200000, date: new Date("2024-02-10"), vendor: "Pune Municipal Corporation", notes: "Commercial building plan sanction" },
-    ],
-  });
+  await seedProjectCosts(company.id, [
+    { projectId: project1.id, costType: "LABOUR", amount: 2500000, date: new Date("2024-02-28"), vendor: "Sai Labour Contractors", notes: "Foundation + slab labour" },
+    { projectId: project1.id, costType: "OVERHEAD", amount: 800000, date: new Date("2024-03-15"), notes: "Site office + security (Q1)" },
+    { projectId: project1.id, costType: "PERMIT", amount: 350000, date: new Date("2024-01-20"), vendor: "Pune Municipal Corporation", notes: "Building permission fees" },
+    { projectId: project1.id, costType: "CONTRACTOR", amount: 450000, date: new Date("2024-03-10"), subcontractorId: subMap["Shri Ganesh Plumbing Works"], notes: "Plumbing rough-in Tower A" },
+    { projectId: project1.id, costType: "CONTRACTOR", amount: 380000, date: new Date("2024-03-25"), subcontractorId: subMap["Sai Electricals Contractor"], notes: "Electrical conduits Tower A" },
+    { projectId: project1.id, costType: "EQUIPMENT", amount: 120000, date: new Date("2024-04-05"), notes: "Diesel + operator charges (JCB)" },
+    { projectId: project2.id, costType: "PERMIT", amount: 1200000, date: new Date("2024-02-10"), vendor: "Pune Municipal Corporation", notes: "Commercial building plan sanction" },
+  ]);
 
   // ── 22. Company expenses ─────────────────────────────────────
   await prisma.expense.createMany({
@@ -1228,10 +1283,12 @@ async function main() {
     companyId: company.id,
     salePrice: 15000000,
     paymentMode: "Home Loan (SBI)",
+    atsNo: "ATS/2024/001",
+    atsDate: "2024-04-01",
     notes: "Booking amount + first installment received",
   });
-  await recordPayment({ assetSaleId: sale1.id, amount: 1500000, mode: "RTGS", reference: "UTR123456" });
-  await recordPayment({ assetSaleId: sale1.id, amount: 3000000, mode: "Cheque", reference: "CHQ-789" });
+  await recordDeposit({ saleId: sale1.id, depositAmount: 1500000, paymentMode: "RTGS", reference: "UTR123456"  });
+  await recordDeposit({ saleId: sale1.id, depositAmount: 3000000, paymentMode: "Cheque", reference: "CHQ-789"  });
 
   // Sale 2: Built unit S-01 (shop) sold to Mohit Enterprises — fully paid
   const unitS01 = await prisma.builtUnit.findFirstOrThrow({ where: { projectId: project1.id, unitNumber: "S-01" } });
@@ -1242,9 +1299,11 @@ async function main() {
     companyId: company.id,
     salePrice: 8000000,
     paymentMode: "Bank Transfer",
+    atsNo: "ATS/2024/002",
+    atsDate: "2024-03-15",
     notes: "Full payment — commercial purchase",
   });
-  await recordPayment({ assetSaleId: sale2.id, amount: 8000000, mode: "NEFT", reference: "NEFT-456789" });
+  await recordDeposit({ saleId: sale2.id, depositAmount: 7920000, paymentMode: "NEFT", reference: "NEFT-456789"  });
 
   // Sale 3: Land parcel PLOT-1A sold to Verma Traders — partial payment
   const parcel1A = await prisma.landParcel.findFirstOrThrow({ where: { landPurchaseId: land.id, number: "PLOT-1A" } });
@@ -1255,9 +1314,11 @@ async function main() {
     companyId: company.id,
     salePrice: 52000000,
     paymentMode: "Bank Loan (HDFC)",
+    atsNo: "ATS/2024/003",
+    atsDate: "2024-05-10",
     notes: "Commercial land acquisition — 20% booking",
   });
-  await recordPayment({ assetSaleId: sale3.id, amount: 10400000, mode: "RTGS", reference: "UTR998877" });
+  await recordDeposit({ saleId: sale3.id, depositAmount: 10400000, paymentMode: "RTGS", reference: "UTR998877"  });
 
   // ── 25. Low-stock scenario (so the alerts page has data) ─────
   // Drain SAF-HELMET well below its reorder point by issuing most of it.
@@ -1682,6 +1743,11 @@ async function main() {
     childCompanyMap[cc.name] = row.id;
   }
 
+  // Each child company needs its own chart of accounts before its JEs post
+  for (const ccId of Object.values(childCompanyMap)) {
+    await seedChartOfAccounts(ccId);
+  }
+
   // Link the owner + admin to all child companies (they're group-level execs)
   for (const email of ["amit@nirman.in", "anita@nirman.in"]) {
     const uid = userMap[email];
@@ -1880,6 +1946,31 @@ async function main() {
     realtySuppMap[s.name] = row.id;
   }
 
+  // Materials for Nirman Realty (materials are company-scoped)
+  const realtyCats = [
+    { name: "Cement & Binding", unit: "BAG", class: "RAW_MATERIAL" as const },
+    { name: "Steel & Rebar", unit: "KG", class: "RAW_MATERIAL" as const },
+    { name: "Bricks & Blocks", unit: "NOS", class: "RAW_MATERIAL" as const },
+    { name: "Sand & Aggregate", unit: "CFT", class: "RAW_MATERIAL" as const },
+  ];
+  const realtyCatMap: Record<string, string> = {};
+  for (const c of realtyCats) {
+    const row = await ensure("materialCategory", { name: c.name, companyId: realtyId }, { ...c, companyId: realtyId });
+    realtyCatMap[c.name] = row.id;
+  }
+  const realtyMaterials = [
+    { code: "CEM-OPC53", name: "OPC 53 Cement 50kg", categoryId: realtyCatMap["Cement & Binding"], unit: "BAG", standardCost: 385, gstRate: 28, hsnCode: "25232910" },
+    { code: "STL-TMT12", name: "TMT Rebar 12mm Fe500", categoryId: realtyCatMap["Steel & Rebar"], unit: "KG", standardCost: 79, gstRate: 18, hsnCode: "72142090" },
+    { code: "STL-TMT16", name: "TMT Rebar 16mm Fe500", categoryId: realtyCatMap["Steel & Rebar"], unit: "KG", standardCost: 81, gstRate: 18, hsnCode: "72142090" },
+    { code: "BRK-RED", name: "Red Clay Brick", categoryId: realtyCatMap["Bricks & Blocks"], unit: "NOS", standardCost: 7.5, gstRate: 5, hsnCode: "69041000" },
+    { code: "SND-RIVER", name: "River Sand", categoryId: realtyCatMap["Sand & Aggregate"], unit: "CFT", standardCost: 46, gstRate: 5, hsnCode: "25059000" },
+  ];
+  const realtyMatMap: Record<string, string> = {};
+  for (const m of realtyMaterials) {
+    const row = await ensure("material", { code: m.code, companyId: realtyId }, { ...m, companyId: realtyId } as any);
+    realtyMatMap[m.code] = row.id;
+  }
+
   // Opening stock for Nirman Realty warehouse
   const realtyOpeningStock = [
     { code: "CEM-OPC53", loc: realtyWarehouse.id, qty: 500, cost: 385 },
@@ -1889,7 +1980,7 @@ async function main() {
     { code: "SND-RIVER", loc: realtyWarehouse.id, qty: 800, cost: 46 },
   ];
   for (const s of realtyOpeningStock) {
-    const mid = matMap[s.code];
+    const mid = realtyMatMap[s.code];
     if (!mid) continue;
     await withStockTransaction(async (tx) => {
       await recordMovement(tx, {
@@ -1915,15 +2006,13 @@ async function main() {
   }
 
   // Project costs for Nirman Realty
-  await prisma.projectCost.createMany({
-    data: [
-      { projectId: realtyProj1.id, costType: "LABOUR", amount: 3500000, date: new Date("2024-07-15"), vendor: "Skyline Labour Corp", notes: "Foundation + 3 floors labour" },
-      { projectId: realtyProj1.id, costType: "OVERHEAD", amount: 1200000, date: new Date("2024-07-01"), notes: "Site office + security Q3" },
-      { projectId: realtyProj1.id, costType: "PERMIT", amount: 850000, date: new Date("2024-05-20"), vendor: "PMC", notes: "Building permission" },
-      { projectId: realtyProj2.id, costType: "LABOUR", amount: 2800000, date: new Date("2024-05-10"), vendor: "Villa Construction Co", notes: "Villa Block A structure" },
-      { projectId: realtyProj2.id, costType: "CONTRACTOR", amount: 1500000, date: new Date("2024-06-01"), notes: "Plumbing + electrical for villas 1-7" },
-    ],
-  });
+  await seedProjectCosts(realtyId, [
+    { projectId: realtyProj1.id, costType: "LABOUR", amount: 3500000, date: new Date("2024-07-15"), vendor: "Skyline Labour Corp", notes: "Foundation + 3 floors labour" },
+    { projectId: realtyProj1.id, costType: "OVERHEAD", amount: 1200000, date: new Date("2024-07-01"), notes: "Site office + security Q3" },
+    { projectId: realtyProj1.id, costType: "PERMIT", amount: 850000, date: new Date("2024-05-20"), vendor: "PMC", notes: "Building permission" },
+    { projectId: realtyProj2.id, costType: "LABOUR", amount: 2800000, date: new Date("2024-05-10"), vendor: "Villa Construction Co", notes: "Villa Block A structure" },
+    { projectId: realtyProj2.id, costType: "CONTRACTOR", amount: 1500000, date: new Date("2024-06-01"), notes: "Plumbing + electrical for villas 1-7" },
+  ]);
 
   // Asset sales for Nirman Realty (2 sold units in Skyline + 3 sold villas)
   const skylineT1_101 = await prisma.builtUnit.findFirstOrThrow({ where: { projectId: realtyProj1.id, unitNumber: "T1-101" } });
@@ -1939,10 +2028,12 @@ async function main() {
     companyId: realtyId,
     salePrice: 22000000,
     paymentMode: "Home Loan (ICICI)",
+    atsNo: "ATS/RTL/2024/001",
+    atsDate: "2024-02-10",
     notes: "Booking + 2 installments",
   });
-  await recordPayment({ assetSaleId: realtySale1.id, amount: 2200000, mode: "RTGS", reference: "UTR-RTL-001" });
-  await recordPayment({ assetSaleId: realtySale1.id, amount: 5000000, mode: "Cheque", reference: "CHQ-RTL-001" });
+  await recordDeposit({ saleId: realtySale1.id, depositAmount: 2200000, paymentMode: "RTGS", reference: "UTR-RTL-001"  });
+  await recordDeposit({ saleId: realtySale1.id, depositAmount: 5000000, paymentMode: "Cheque", reference: "CHQ-RTL-001"  });
 
   const realtySale2 = await sellAsset({
     assetType: "BUILT_UNIT",
@@ -1951,9 +2042,11 @@ async function main() {
     companyId: realtyId,
     salePrice: 22000000,
     paymentMode: "Bank Transfer",
+    atsNo: "ATS/RTL/2024/002",
+    atsDate: "2024-01-20",
     notes: "Full payment",
   });
-  await recordPayment({ assetSaleId: realtySale2.id, amount: 22000000, mode: "NEFT", reference: "NEFT-RTL-002" });
+  await recordDeposit({ saleId: realtySale2.id, depositAmount: 21780000, paymentMode: "NEFT", reference: "NEFT-RTL-002"  });
 
   const villaSale1 = await sellAsset({
     assetType: "BUILT_UNIT",
@@ -1962,9 +2055,11 @@ async function main() {
     companyId: realtyId,
     salePrice: 45000000,
     paymentMode: "Bank Transfer",
+    atsNo: "ATS/RTL/2024/003",
+    atsDate: "2024-01-25",
     notes: "Investment purchase — full payment",
   });
-  await recordPayment({ assetSaleId: villaSale1.id, amount: 45000000, mode: "RTGS", reference: "UTR-VILLA-01" });
+  await recordDeposit({ saleId: villaSale1.id, depositAmount: 44550000, paymentMode: "RTGS", reference: "UTR-VILLA-01"  });
 
   const villaSale2 = await sellAsset({
     assetType: "BUILT_UNIT",
@@ -1973,9 +2068,11 @@ async function main() {
     companyId: realtyId,
     salePrice: 45000000,
     paymentMode: "Home Loan (HDFC)",
+    atsNo: "ATS/RTL/2024/004",
+    atsDate: "2024-03-05",
     notes: "Booking amount received",
   });
-  await recordPayment({ assetSaleId: villaSale2.id, amount: 9000000, mode: "RTGS", reference: "UTR-VILLA-02" });
+  await recordDeposit({ saleId: villaSale2.id, depositAmount: 9000000, paymentMode: "RTGS", reference: "UTR-VILLA-02"  });
 
   const villaSale3 = await sellAsset({
     assetType: "BUILT_UNIT",
@@ -1984,9 +2081,11 @@ async function main() {
     companyId: realtyId,
     salePrice: 45000000,
     paymentMode: "Bank Transfer",
+    atsNo: "ATS/RTL/2024/005",
+    atsDate: "2024-04-12",
     notes: "Partial payment — balance in 30 days",
   });
-  await recordPayment({ assetSaleId: villaSale3.id, amount: 15000000, mode: "Cheque", reference: "CHQ-VILLA-03" });
+  await recordDeposit({ saleId: villaSale3.id, depositAmount: 15000000, paymentMode: "Cheque", reference: "CHQ-VILLA-03"  });
 
   // Reallocate costs for Nirman Realty projects
   await withStockTransaction(async (tx) => {
@@ -2106,6 +2205,29 @@ async function main() {
     infraSuppMap[s.name] = row.id;
   }
 
+  // Materials for Nirman Infrastructure (materials are company-scoped)
+  const infraCats = [
+    { name: "Cement & Binding", unit: "BAG", class: "RAW_MATERIAL" as const },
+    { name: "Steel & Rebar", unit: "KG", class: "RAW_MATERIAL" as const },
+    { name: "Sand & Aggregate", unit: "CFT", class: "RAW_MATERIAL" as const },
+  ];
+  const infraCatMap: Record<string, string> = {};
+  for (const c of infraCats) {
+    const row = await ensure("materialCategory", { name: c.name, companyId: infraId }, { ...c, companyId: infraId });
+    infraCatMap[c.name] = row.id;
+  }
+  const infraMaterials = [
+    { code: "CEM-OPC53", name: "OPC 53 Cement 50kg", categoryId: infraCatMap["Cement & Binding"], unit: "BAG", standardCost: 380, gstRate: 28, hsnCode: "25232910" },
+    { code: "STL-TMT16", name: "TMT Rebar 16mm Fe500", categoryId: infraCatMap["Steel & Rebar"], unit: "KG", standardCost: 78, gstRate: 18, hsnCode: "72142090" },
+    { code: "AGG-20MM", name: "Aggregate 20mm", categoryId: infraCatMap["Sand & Aggregate"], unit: "CFT", standardCost: 55, gstRate: 5, hsnCode: "25171010" },
+    { code: "SND-RIVER", name: "River Sand", categoryId: infraCatMap["Sand & Aggregate"], unit: "CFT", standardCost: 45, gstRate: 5, hsnCode: "25059000" },
+  ];
+  const infraMatMap: Record<string, string> = {};
+  for (const m of infraMaterials) {
+    const row = await ensure("material", { code: m.code, companyId: infraId }, { ...m, companyId: infraId } as any);
+    infraMatMap[m.code] = row.id;
+  }
+
   // Opening stock for Nirman Infrastructure
   const infraOpeningStock = [
     { code: "CEM-OPC53", loc: infraWarehouse.id, qty: 2000, cost: 382 },
@@ -2114,7 +2236,7 @@ async function main() {
     { code: "SND-RIVER", loc: alphaSite.id, qty: 3000, cost: 47 },
   ];
   for (const s of infraOpeningStock) {
-    const mid = matMap[s.code];
+    const mid = infraMatMap[s.code];
     if (!mid) continue;
     await withStockTransaction(async (tx) => {
       await recordMovement(tx, {
@@ -2153,15 +2275,13 @@ async function main() {
   await prisma.equipment.update({ where: { id: infraRoller.id }, data: { status: "ASSIGNED" } });
 
   // Project costs for Nirman Infrastructure
-  await prisma.projectCost.createMany({
-    data: [
-      { projectId: infraProj1.id, costType: "LABOUR", amount: 8500000, date: new Date("2024-05-01"), vendor: "Highway Labour Corp", notes: "Section A earthwork + subgrade" },
-      { projectId: infraProj1.id, costType: "EQUIPMENT", amount: 3500000, date: new Date("2024-05-15"), notes: "Equipment diesel + operator charges" },
-      { projectId: infraProj1.id, costType: "PERMIT", amount: 2500000, date: new Date("2024-03-20"), vendor: "NHAI", notes: "Highway extension clearance" },
-      { projectId: infraProj2.id, costType: "LABOUR", amount: 2200000, date: new Date("2024-06-01"), vendor: "Bridge Construction Co", notes: "Pier + abutment construction" },
-      { projectId: infraProj2.id, costType: "CONTRACTOR", amount: 1800000, date: new Date("2024-06-15"), notes: "Pre-stressed girder fabrication" },
-    ],
-  });
+  await seedProjectCosts(infraId, [
+    { projectId: infraProj1.id, costType: "LABOUR", amount: 8500000, date: new Date("2024-05-01"), vendor: "Highway Labour Corp", notes: "Section A earthwork + subgrade" },
+    { projectId: infraProj1.id, costType: "EQUIPMENT", amount: 3500000, date: new Date("2024-05-15"), notes: "Equipment diesel + operator charges" },
+    { projectId: infraProj1.id, costType: "PERMIT", amount: 2500000, date: new Date("2024-03-20"), vendor: "NHAI", notes: "Highway extension clearance" },
+    { projectId: infraProj2.id, costType: "LABOUR", amount: 2200000, date: new Date("2024-06-01"), vendor: "Bridge Construction Co", notes: "Pier + abutment construction" },
+    { projectId: infraProj2.id, costType: "CONTRACTOR", amount: 1800000, date: new Date("2024-06-15"), notes: "Pre-stressed girder fabrication" },
+  ]);
 
   // Material issues for Alpha Road (from the site where stock was placed)
   await issueMaterialsToProject({
@@ -2170,8 +2290,8 @@ async function main() {
     issuedById: U.supervisor,
     notes: "Section A subgrade — aggregate from site",
     lines: [
-      { materialId: matMap["AGG-20MM"], qty: 2000 },
-      { materialId: matMap["SND-RIVER"], qty: 1000 },
+      { materialId: infraMatMap["AGG-20MM"], qty: 2000 },
+      { materialId: infraMatMap["SND-RIVER"], qty: 1000 },
     ],
   });
   // Also issue cement + steel from warehouse (where they have opening stock)
@@ -2181,8 +2301,8 @@ async function main() {
     issuedById: U.supervisor,
     notes: "Section A — cement + steel from warehouse",
     lines: [
-      { materialId: matMap["CEM-OPC53"], qty: 500 },
-      { materialId: matMap["STL-TMT16"], qty: 2000 },
+      { materialId: infraMatMap["CEM-OPC53"], qty: 500 },
+      { materialId: infraMatMap["STL-TMT16"], qty: 2000 },
     ],
   });
 
@@ -2301,6 +2421,27 @@ async function main() {
     interiorsSuppMap[s.name] = row.id;
   }
 
+  // Materials for Nirman Interiors (materials are company-scoped)
+  const interiorsCats = [
+    { name: "Paint & Finishes", unit: "LTR", class: "RAW_MATERIAL" as const },
+    { name: "Electrical", unit: "MTR", class: "RAW_MATERIAL" as const },
+  ];
+  const interiorsCatMap: Record<string, string> = {};
+  for (const c of interiorsCats) {
+    const row = await ensure("materialCategory", { name: c.name, companyId: interiorsId }, { ...c, companyId: interiorsId });
+    interiorsCatMap[c.name] = row.id;
+  }
+  const interiorsMaterials = [
+    { code: "PNT-EMULSION", name: "Interior Emulsion 20L", categoryId: interiorsCatMap["Paint & Finishes"], unit: "LTR", standardCost: 185, gstRate: 28, hsnCode: "32091090" },
+    { code: "PNT-ACPRM", name: "Acrylic Primer 10L", categoryId: interiorsCatMap["Paint & Finishes"], unit: "LTR", standardCost: 122, gstRate: 28, hsnCode: "32089090" },
+    { code: "ELC-WIRE25", name: "Copper Wire 2.5mm²", categoryId: interiorsCatMap["Electrical"], unit: "MTR", standardCost: 19, gstRate: 18, hsnCode: "85446020" },
+  ];
+  const interiorsMatMap: Record<string, string> = {};
+  for (const m of interiorsMaterials) {
+    const row = await ensure("material", { code: m.code, companyId: interiorsId }, { ...m, companyId: interiorsId } as any);
+    interiorsMatMap[m.code] = row.id;
+  }
+
   // Opening stock for Nirman Interiors
   const interiorsOpeningStock = [
     { code: "PNT-EMULSION", loc: interiorsStore.id, qty: 200, cost: 185 },
@@ -2308,7 +2449,7 @@ async function main() {
     { code: "ELC-WIRE25", loc: interiorsStore.id, qty: 1000, cost: 19 },
   ];
   for (const s of interiorsOpeningStock) {
-    const mid = matMap[s.code];
+    const mid = interiorsMatMap[s.code];
     if (!mid) continue;
     await withStockTransaction(async (tx) => {
       await recordMovement(tx, {
@@ -2345,14 +2486,12 @@ async function main() {
   }
 
   // Project costs for Nirman Interiors
-  await prisma.projectCost.createMany({
-    data: [
-      { projectId: interiorsProj1.id, costType: "LABOUR", amount: 1800000, date: new Date("2024-07-20"), vendor: "Interiors Labour Team", notes: "Floor 1 workstation installation" },
-      { projectId: interiorsProj1.id, costType: "CONTRACTOR", amount: 2200000, date: new Date("2024-08-01"), notes: "Electrical + data cabling Floor 1" },
-      { projectId: interiorsProj2.id, costType: "LABOUR", amount: 950000, date: new Date("2024-08-10"), vendor: "Premium Interiors Team", notes: "Marble laying + carpentry" },
-      { projectId: interiorsProj2.id, costType: "OVERHEAD", amount: 300000, date: new Date("2024-08-05"), notes: "Design + project management" },
-    ],
-  });
+  await seedProjectCosts(interiorsId, [
+    { projectId: interiorsProj1.id, costType: "LABOUR", amount: 1800000, date: new Date("2024-07-20"), vendor: "Interiors Labour Team", notes: "Floor 1 workstation installation" },
+    { projectId: interiorsProj1.id, costType: "CONTRACTOR", amount: 2200000, date: new Date("2024-08-01"), notes: "Electrical + data cabling Floor 1" },
+    { projectId: interiorsProj2.id, costType: "LABOUR", amount: 950000, date: new Date("2024-08-10"), vendor: "Premium Interiors Team", notes: "Marble laying + carpentry" },
+    { projectId: interiorsProj2.id, costType: "OVERHEAD", amount: 300000, date: new Date("2024-08-05"), notes: "Design + project management" },
+  ]);
 
   // Reallocate costs for Nirman Interiors projects
   await withStockTransaction(async (tx) => {
@@ -2706,7 +2845,7 @@ async function main() {
     { name: "Adhesives & Sealants", unit: "NOS", class: "RAW_MATERIAL" as const },
   ];
   for (const c of bulkCategories) {
-    const row = await ensure("materialCategory", { name: c.name }, c);
+    const row = await ensure("materialCategory", { name: c.name, companyId: company.id }, { ...c, companyId: company.id });
     catMap[c.name] = row.id;
   }
 
@@ -2779,7 +2918,7 @@ async function main() {
     { code: "SCR-WOOD", name: "Wood Scrap (Formwork)", categoryId: catMap["Formwork & Scaffolding"], unit: "NOS", standardCost: 200, gstRate: 18, minStock: 0, reorderPoint: 0, economicOrderQty: 0, isScrap: true },
   ];
   for (const m of bulkMaterials) {
-    const row = await ensure("material", { code: m.code }, m);
+    const row = await ensure("material", { code: m.code, companyId: company.id }, { ...m, companyId: company.id });
     matMap[m.code] = row.id;
   }
 
@@ -3245,7 +3384,7 @@ async function main() {
     { projectId: project2.id, costType: "CONTRACTOR" as const, amount: 680000, date: new Date("2024-08-05"), notes: "Waterproofing subcontract" },
     { projectId: project2.id, costType: "PERMIT" as const, amount: 350000, date: new Date("2024-08-15"), vendor: "PMC", notes: "Additional environmental clearance" },
   ];
-  await prisma.projectCost.createMany({ data: bulkProjectCosts });
+  await seedProjectCosts(company.id, bulkProjectCosts);
 
   // ── B18. Additional expenses (10 more) ──────────────────────
   const bulkExpenses = [
@@ -3280,10 +3419,14 @@ async function main() {
       companyId: company.id,
       salePrice: s.price,
       paymentMode: s.mode,
+      atsNo: `ATS/2024/B-${s.unit}`,
+      atsDate: "2024-05-01",
       notes: s.notes,
     });
     for (const amt of s.payments) {
-      await recordPayment({ assetSaleId: sale.id, amount: amt, mode: "RTGS", reference: `UTR-${s.unit}-${amt}` });
+      try {
+        await recordDeposit({ saleId: sale.id, depositAmount: amt, paymentMode: "RTGS", reference: `UTR-${s.unit}-${amt}` });
+      } catch { /* over-collectible tail (194-IA withheld) — leave partially paid */ }
     }
   }
 
@@ -3480,11 +3623,12 @@ async function main() {
   // Helper: bulk ensure via createMany (fetch existing, create missing, return all)
   async function bulkEnsure(model: string, whereField: string, items: Record<string, unknown>[]) {
     const keys = items.map((i) => i[whereField]);
-    const existing = await (prisma as any)[model].findMany({ where: { [whereField]: { in: keys } } });
+    const scope = items[0]?.companyId ? { companyId: items[0].companyId } : {};
+    const existing = await (prisma as any)[model].findMany({ where: { [whereField]: { in: keys }, ...scope } });
     const existingKeys = new Set(existing.map((e: any) => e[whereField]));
     const toCreate = items.filter((i) => !existingKeys.has(i[whereField]));
     if (toCreate.length > 0) await (prisma as any)[model].createMany({ data: toCreate });
-    return await (prisma as any)[model].findMany({ where: { [whereField]: { in: keys } } });
+    return await (prisma as any)[model].findMany({ where: { [whereField]: { in: keys }, ...scope } });
   }
 
   // Collect existing IDs for procedural data references
@@ -3508,7 +3652,7 @@ async function main() {
   const projectStatuses = ["ACTIVE", "ACTIVE", "ACTIVE", "PLANNED", "COMPLETED"];
   const unitTypes = ["BHK_2", "BHK_3", "BHK_3", "BHK_4", "SHOP"];
   const unitStatuses = ["AVAILABLE", "UNDER_CONSTRUCTION", "PLANNED", "SOLD", "RENTED"];
-  const costTypes = ["LABOUR", "OVERHEAD", "PERMIT", "CONTRACTOR", "EQUIPMENT", "MATERIAL"];
+  const costTypes = ["LABOUR", "OVERHEAD", "PERMIT", "CONTRACTOR", "EQUIPMENT", "OTHER"];
   const expenseCats = ["Office Rent", "Utilities", "Travel", "Consultancy", "Office Supplies", "Marketing", "Insurance", "Fuel", "Maintenance", "Miscellaneous"];
   const poStatuses = ["DRAFT", "ORDERED", "PARTIAL", "RECEIVED"];
   const dprWorkTypes = ["Foundation", "RCC", "Masonry", "Finishing", "Plumbing", "Electrical", "Painting", "Flooring", "Waterproofing"];
@@ -3526,6 +3670,7 @@ async function main() {
     newMats.push({
       code: `GEN-${String(i).padStart(4, "0")}`,
       name: `${catName} Item ${i}`,
+      companyId: company.id,
       categoryId: catId,
       unit: pick(["KG", "NOS", "MTR", "BAG", "CFT", "SQM", "LTR", "SET"]),
       standardCost: randInt(20, 5000),
@@ -3571,13 +3716,13 @@ async function main() {
     const isBiz = rng() < 0.3;
     const name = isBiz
       ? `${firstNames[cIdx % firstNames.length]} ${pick(companySuffixes)}`
-      : `${firstNames[cIdx % firstNames.length]} ${lastNames[(cIdx * 11) % lastNames.length]}`;
+      : `${firstNames[cIdx % firstNames.length]} ${lastNames[Math.floor(cIdx / firstNames.length) % lastNames.length]}${cIdx >= firstNames.length * lastNames.length ? ` ${Math.floor(cIdx / (firstNames.length * lastNames.length)) + 1}` : ""}`;
     cIdx++;
     if (usedCustNames.has(name)) continue;
     usedCustNames.add(name);
     newCusts.push({
       name, companyId: company.id,
-      phone: `+91 98${randInt(10000000, 99999999)}`,
+      phone: `+91 98${String(cIdx).padStart(8, "0")}`,
       email: `${name.toLowerCase().replace(/[^a-z]/g, ".")}@gmail.com`,
       address: `${pick(["Kothrud", "Baner", "Aundh", "Viman Nagar", "Kharadi", "Hadapsar", "Wagholi", "Shivajinagar", "Camp", "Model Colony"])}, Pune`,
       ...(isBiz ? { gstin: `27${String.fromCharCode(65 + randInt(0, 25))}${String.fromCharCode(65 + randInt(0, 25))}${randInt(1000, 9999)}${String.fromCharCode(65 + randInt(0, 25))}1Z${randInt(1, 9)}` } : {}),
@@ -3594,7 +3739,7 @@ async function main() {
   let eIdx = 0;
   const compIdsForEmp = [company.id, ...Object.values(childCompanyMap)];
   while (newEmps.length < 270) {
-    const name = `${firstNames[eIdx % firstNames.length]} ${lastNames[(eIdx * 13) % lastNames.length]}`;
+    const name = `${firstNames[eIdx % firstNames.length]} ${lastNames[Math.floor(eIdx / firstNames.length) % lastNames.length]}${eIdx >= firstNames.length * lastNames.length ? ` ${Math.floor(eIdx / (firstNames.length * lastNames.length)) + 1}` : ""}`;
     eIdx++;
     if (usedEmpNames.has(name)) continue;
     usedEmpNames.add(name);
@@ -3620,7 +3765,7 @@ async function main() {
     newProjDefs.push({
       name, companyId: compId,
       type: pick(projectTypes), status: pick(projectStatuses),
-      budget: randInt(20000000, 500000000),
+      totalBudget: randInt(20000000, 500000000),
       address: `${pick(["Wagholi", "Baner", "Hinjewadi", "Kharadi", "Wakad", "Hadapsar", "Talegaon", "Chakan", "Ravet", "Pimpri"])}, Pune`,
       startDate: randDate(new Date("2023-01-01"), new Date("2024-12-01")),
     });
@@ -3849,7 +3994,7 @@ async function main() {
     }
   }
   for (let i = 0; i < attBatch.length; i += 1000) {
-    await prisma.workerAttendance.createMany({ data: attBatch.slice(i, i + 1000) });
+    await prisma.workerAttendance.createMany({ data: attBatch.slice(i, i + 1000), skipDuplicates: true });
   }
 
   // ── MB14. Procedural payroll periods (~18 more for ~20 total) ─
@@ -3909,12 +4054,15 @@ async function main() {
         assetType: "BUILT_UNIT", builtUnitId: unit.id,
         customerId: customerMap[pick(allCustNamesNow)], companyId: company.id,
         salePrice: price, paymentMode: pick(["Home Loan (SBI)", "Home Loan (HDFC)", "Bank Transfer", "Cash"]),
+        atsNo: `ATS/2024/MB-${saleCnt + 1}`, atsDate: "2024-06-01",
         notes: `Mega bulk sale ${saleCnt + 1}`,
       });
       const payCount = randInt(1, 3);
       const payAmt = Math.floor(price / payCount);
       for (let pi = 0; pi < payCount; pi++) {
-        await recordPayment({ assetSaleId: sale.id, amount: pi === payCount - 1 ? price - payAmt * (payCount - 1) : payAmt, mode: pick(["RTGS", "NEFT", "Cheque", "Cash"]), reference: `UTR-MB-${saleCnt}-${pi}` });
+        try {
+          await recordDeposit({ saleId: sale.id, depositAmount: pi === payCount - 1 ? price - payAmt * (payCount - 1) : payAmt, paymentMode: pick(["RTGS", "NEFT", "Cheque", "Cash"]), reference: `UTR-MB-${saleCnt}-${pi}` });
+        } catch { /* over-collectible tail (194-IA withheld) — leave partially paid */ }
       }
       saleCnt++;
     } catch (e) { /* skip — not fatal */ }
@@ -3947,7 +4095,7 @@ async function main() {
       vendor: `${pick(firstNames)} ${pick(lastNames)}`, notes: `Mega bulk cost ${i + 1}`,
     });
   }
-  await prisma.projectCost.createMany({ data: bulkPC });
+  await seedProjectCosts(company.id, bulkPC);
 
   const bulkExp: ExpenseCreateManyInput[] = [];
   for (let i = 0; i < 135; i++) {
