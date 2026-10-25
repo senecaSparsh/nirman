@@ -91,4 +91,4 @@ export function pourAt(t: number) {
 }
 export const POUR_REST = { fill: 0.35, bay: 1, within: 0.4, bags: 9.8 };
 export const readoutOf = (p: { bay: number; within: number; bags: number }) =>
-  `Bay ${Math.min(p.bay + 1, POUR_BAYS)}/${POUR_BAYS} · ${p.bags.toFixed(1)} bags · ${Math.round((p.bay + p.within) / POUR_BAYS * 100)}% poured`;
+  `Bay ${Math.min(p.bay + 1, POUR_BAYS)}/${POUR_BAYS}${p.bags > 0 ? ` · ${p.bags.toFixed(1)} bags` : ""} · ${Math.round((p.bay + p.within) / POUR_BAYS * 100)}% poured`;

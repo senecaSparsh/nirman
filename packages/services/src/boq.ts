@@ -353,6 +353,44 @@ export async function createWbsNode(input: CreateWbsNodeInput) {
   });
 }
 
+/**
+ * CLP demand generation — a completed WBS milestone makes every linked
+ * PENDING buyer installment DUE ("first slab cast → 10% payment").
+ * PARTIAL / PAID items already carry payments and are left alone.
+ * Shared by every path that can complete a milestone, so a slab certified
+ * through the measurement book raises demands exactly like a manual edit.
+ */
+export async function raiseClpDemands(
+  tx: Prisma.TransactionClient,
+  wbsNodeId: string,
+  milestoneName: string,
+  userId?: string,
+): Promise<number> {
+  const clpItems = await tx.paymentScheduleItem.findMany({
+    where: { wbsNodeId, status: "PENDING" },
+    include: { paymentSchedule: { select: { assetSaleId: true } } },
+  });
+  if (clpItems.length === 0) return 0;
+  await tx.paymentScheduleItem.updateMany({
+    where: { id: { in: clpItems.map((i) => i.id) } },
+    data: { status: "DUE" },
+  });
+  if (userId) {
+    await logAction(tx, {
+      userId,
+      action: "CLP_DEMAND_GENERATED",
+      entityType: "WbsNode",
+      entityId: wbsNodeId,
+      after: {
+        milestone: milestoneName,
+        itemsTriggered: clpItems.length,
+        saleIds: [...new Set(clpItems.map((i) => i.paymentSchedule.assetSaleId))],
+      },
+    });
+  }
+  return clpItems.length;
+}
+
 export async function updateWbsNode(
   id: string,
   patch: Partial<CreateWbsNodeInput> & {
@@ -406,30 +444,7 @@ export async function updateWbsNode(
       (patch.actualEnd !== undefined && patch.actualEnd != null) ||
       (patch.progressPct !== undefined && new Decimal(patch.progressPct).gte(100));
     if (milestoneCompleted) {
-      const clpItems = await tx.paymentScheduleItem.findMany({
-        where: { wbsNodeId: id, status: "PENDING" },
-        include: { paymentSchedule: { select: { assetSaleId: true } } },
-      });
-      if (clpItems.length > 0) {
-        await tx.paymentScheduleItem.updateMany({
-          where: { id: { in: clpItems.map((i) => i.id) } },
-          data: { status: "DUE" },
-        });
-        // Audit-log the CLP demand generation
-        if (patch.userId) {
-          await logAction(tx, {
-            userId: patch.userId,
-            action: "CLP_DEMAND_GENERATED",
-            entityType: "WbsNode",
-            entityId: id,
-            after: {
-              milestone: updated.name,
-              itemsTriggered: clpItems.length,
-              saleIds: [...new Set(clpItems.map((i) => i.paymentSchedule.assetSaleId))],
-            },
-          });
-        }
-      }
+      await raiseClpDemands(tx, id, updated.name, patch.userId);
     }
 
     if (patch.userId) {
@@ -797,10 +812,16 @@ export async function approveMbEntry(id: string, approvedById: string, actorRole
           .times(100)
           .toDecimalPlaces(2);
         const cappedProgress = progressPct.gt(100) ? new Decimal(100) : progressPct;
-        await tx.wbsNode.update({
+        const node = await tx.wbsNode.update({
           where: { id: entry.wbsNodeId },
           data: { progressPct: cappedProgress.toString() },
         });
+        // Certified completion is a completed milestone — raise the buyers'
+        // construction-linked demands now, not when someone clicks "Check
+        // Milestones".
+        if (cappedProgress.gte(100)) {
+          await raiseClpDemands(tx, entry.wbsNodeId, node?.name ?? entry.wbsNodeId, approvedById);
+        }
       }
     }
 

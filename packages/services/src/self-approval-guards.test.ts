@@ -527,6 +527,55 @@ describe("approveMbEntry — self-approval guard", () => {
   });
 });
 
+describe("approveMbEntry — construction-linked demands", () => {
+  const entry = {
+    id: "mb-1",
+    status: "VERIFIED",
+    measuredById: "user-2",
+    mbNumber: "MB-240101-0001",
+    wbsNodeId: "wbs-slab-1",
+    boqItemId: "boq-1",
+  };
+  const setup = (approvedQty: number) => {
+    const tx = makeMockTx({
+      measurementBookEntry: {
+        findFirst: vi.fn().mockResolvedValue(entry),
+        aggregate: vi.fn().mockResolvedValue({ _sum: { measuredQty: approvedQty } }),
+      },
+      boqItem: { findUnique: vi.fn().mockResolvedValue({ id: "boq-1", estimatedQty: 100 }) },
+      wbsNode: { update: vi.fn().mockResolvedValue({ id: "wbs-slab-1", name: "First slab" }) },
+      paymentScheduleItem: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: "psi-1", paymentSchedule: { assetSaleId: "sale-1" } },
+          { id: "psi-2", paymentSchedule: { assetSaleId: "sale-2" } },
+        ]),
+      },
+    });
+    runWithTx(tx);
+    return tx as unknown as {
+      paymentScheduleItem: { findMany: ReturnType<typeof vi.fn>; updateMany: ReturnType<typeof vi.fn> };
+    };
+  };
+
+  it("certifying the milestone to 100% makes the buyers' PENDING installments DUE", async () => {
+    const tx = setup(100);
+    await approveMbEntry("mb-1", "user-1");
+    expect(tx.paymentScheduleItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { wbsNodeId: "wbs-slab-1", status: "PENDING" } }),
+    );
+    expect(tx.paymentScheduleItem.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["psi-1", "psi-2"] } },
+      data: { status: "DUE" },
+    });
+  });
+
+  it("partial certification raises no demand", async () => {
+    const tx = setup(60);
+    await approveMbEntry("mb-1", "user-1");
+    expect(tx.paymentScheduleItem.updateMany).not.toHaveBeenCalled();
+  });
+});
+
 describe("rejectMbEntry — self-rejection guard", () => {
   it("throws 403 when rejecter is the measurer", async () => {
     const tx = makeMockTx({

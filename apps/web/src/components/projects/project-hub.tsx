@@ -15,7 +15,8 @@ import type { ProjectFormValues } from "@/components/projects/project-form-dialo
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { SitePourFigure } from "@/components/figures/site-pour/figure";
+import { SitePourLive } from "@/components/projects/site-pour-live";
+import type { SiteProgress } from "@/lib/site-pour";
 import { DataTable } from "@/components/ui/data-table";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
@@ -131,7 +132,7 @@ export type ProjectHubData = {
     progressPct: number;
     parentNodeName: string | null;
   }[];
-  sitePour?: { progress: number; bagsUsed: number } | null;
+  sitePour?: SiteProgress | null;
   workOrders: {
     id: string;
     woNumber: string;
@@ -633,9 +634,9 @@ function OverviewTab({ data }: { data: ProjectHubData }) {
               real WBS position, cement-bag readout from issued stock. */}
           {data.sitePour && (
             <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
-              <SitePourFigure
-                progress={data.sitePour.progress}
-                bagsUsed={data.sitePour.bagsUsed}
+              <SitePourLive
+                projectId={project.id}
+                initial={data.sitePour}
                 title={`${project.name} — site progress`}
                 className="[&_.iso-plate]:border-0 [&_.iso-figure]:m-0 [&_.iso-plate]:rounded-none [&_.iso-plate]:py-6"
               />

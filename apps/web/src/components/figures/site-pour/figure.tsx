@@ -10,13 +10,15 @@ import { FIG_H, FIG_W, POUR_REST, pourForProgress, readoutOf } from "./view";
  * readout counts cement bags — progress you can watch, the same thing the
  * DPR reports in words.
  */
-export function SitePourFigure({ className, progress, bagsUsed, title }: {
+export function SitePourFigure({ className, progress, bagsUsed, title, hint }: {
   className?: string;
   /** 0–1 — real pour progress; the band eases to it once, then holds. */
   progress?: number;
   /** Cement bags actually issued — drives the readout when given. */
   bagsUsed?: number;
   title?: string;
+  /** What produced the progress — e.g. "Engineer-certified measurement". */
+  hint?: string;
 }) {
   const rest = progress != null ? pourForProgress(progress) : POUR_REST;
   return (
@@ -24,7 +26,7 @@ export function SitePourFigure({ className, progress, bagsUsed, title }: {
       <Plate
         fig="Fig 1"
         title={title ?? "The pour, live"}
-        hint={progress != null ? "Progress from your DPRs" : "The wet band advances on its own"}
+        hint={hint ?? (progress != null ? "Progress from your DPRs" : "The wet band advances on its own")}
         readout={readoutOf({ ...rest, bags: bagsUsed ?? 9.8 })}
         keys={[
           { mark: "lit", label: "Fresh concrete, this shift" },

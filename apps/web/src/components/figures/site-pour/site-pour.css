@@ -25,3 +25,9 @@
 .site-pour .set-pour .iso-top {
   fill: #e2e2dc;
 }
+/* The hint yields to the readout on narrow cards — truncate, never collide. */
+.site-pour .iso-plate-corner[data-corner="hint"] {
+  max-width: 46%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

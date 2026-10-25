@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import type { AreaUnit, BuiltUnitStatus, BuiltUnitType, LandParcelStatus } from "@nirman/db";
 import { projectEscrowLedgerBalance, projectPnl } from "@nirman/services";
 import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { loadSiteProgress } from "@/lib/site-pour-server";
 import { PERM } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 import { ProjectHub, type ProjectHubData } from "@/components/projects/project-hub";
@@ -590,28 +591,9 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
   const soldUnits = unitRows.filter((u) => u.saleId != null).length;
   const openPOCount = poRows.filter((p) => ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"].includes(p.status)).length;
 
-  // ── Site-pour figure data — the slab progress + cement that actually
-  // went to this project. WBS progressPct average is the pour's truth;
-  // cement issued (bag-weighted) feeds the readout. ──────────────────────
-  const wbsAvg = wbsNodeRows.length
-    ? wbsNodeRows.reduce((s, n) => s + n.progressPct, 0) / wbsNodeRows.length
-    : null;
-  const projectLocationIds = project.stockLocations.map((l) => l.id);
-  const cementIssued = projectLocationIds.length
-    ? await prisma.stockMovement.aggregate({
-        _sum: { qty: true },
-        where: {
-          movementType: "ISSUE_TO_PROJECT",
-          toLocationId: { in: projectLocationIds },
-          material: {
-            OR: [
-              { name: { contains: "cement", mode: "insensitive" } },
-              { category: { name: { contains: "cement", mode: "insensitive" } } },
-            ],
-          },
-        },
-      })
-    : { _sum: { qty: null } };
+  // Site-progress card — same loader the live poll uses, over the full
+  // project record (the lists above are truncated for display).
+  const siteProgress = await loadSiteProgress(id);
 
   const hubData: ProjectHubData = {
     project: {
@@ -685,12 +667,7 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
     boqItems: boqItemRows,
     wbsNodes: wbsNodeRows,
     workOrders: workOrderRows,
-    sitePour: wbsAvg != null || (cementIssued._sum.qty && Number(cementIssued._sum.qty) > 0)
-      ? {
-          progress: Math.min(Math.max((wbsAvg ?? 0) / 100, 0), 1),
-          bagsUsed: cementIssued._sum.qty ? Number(cementIssued._sum.qty) : 0,
-        }
-      : null,
+    sitePour: siteProgress,
     mbEntries: mbEntryRows,
     dprs: dprRows,
     variance: {
