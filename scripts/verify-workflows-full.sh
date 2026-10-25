@@ -19,7 +19,6 @@ LOC_WH="cmv0q8a4h006avlt72rifonze"               # central warehouse
 MAT="cmv0qadjq006qvlt7o4zo7eae"                  # seeded material
 EMP="cmtv3x4v1000kvlp0cx46kvi3"                  # Sanjeev Kumar (subordinate)
 BOQ="cmv15bmor0009vle2gapxtrbj"                  # seeded BOQ item
-PARCEL="cmv2i9h8h0016vlwazg46wudx"               # seeded land parcel
 
 PASS=0; FAIL=0; SKIP=0
 req() { curl -s -b "$JAR" -H "Content-Type: application/json" --max-time 40 -X "$1" "$BASE/api/$2" -d "$3"; }
@@ -35,6 +34,42 @@ expect_count() { # label sql
   n=$(P "$2"); [ "${n:-0}" -gt 0 ] && { PASS=$((PASS+1)); echo "  PASS $1 ($n)"; } || { FAIL=$((FAIL+1)); echo "  FAIL $1"; }
 }
 uid() { echo "vfy$(date +%s)$RANDOM"; }
+
+# ── SRG fixture provisioning ──────────────────────────────────────────────
+# The transactional seed builds its demo under "My Company"; these checks
+# exercise SRG REALCON, so provision the minimum C-owned entities first.
+CUST=$(P "SELECT id FROM \"Customer\" WHERE \"companyId\"='$C' LIMIT 1")
+[ -z "$CUST" ] && { CUST=$(uid); P "INSERT INTO \"Customer\" (id,\"companyId\",name,\"updatedAt\",\"createdAt\") VALUES ('$CUST','$C','wf-customer',now(),now())"; }
+PARCEL=$(P "SELECT lp.id FROM \"LandParcel\" lp JOIN \"LandPurchase\" l ON l.id=lp.\"landPurchaseId\" WHERE l.\"companyId\"='$C' AND lp.\"deletedAt\" IS NULL LIMIT 1")
+if [ -z "$PARCEL" ]; then
+  LPX=$(uid); PARCEL=$(uid)
+  P "INSERT INTO \"LandPurchase\" (id,\"companyId\",\"sellerName\",\"totalArea\",\"totalCost\",\"createdAt\") VALUES ('$LPX','$C','wf-seller',1000,500000,now())"
+  P "INSERT INTO \"LandParcel\" (id,\"landPurchaseId\",number,area,\"updatedAt\",\"createdAt\") VALUES ('$PARCEL','$LPX','P-WF-1',500,now(),now())"
+fi
+SALE0=$(P "SELECT id FROM \"AssetSale\" WHERE \"companyId\"='$C' AND status='ACTIVE' LIMIT 1")
+[ -z "$SALE0" ] && { SALE0=$(uid); P "INSERT INTO \"AssetSale\" (id,\"saleNumber\",\"assetType\",\"customerId\",\"companyId\",\"salePrice\",status,\"updatedAt\",\"createdAt\") VALUES ('$SALE0','WF-SALE-$RANDOM','LAND','$CUST','$C',500000,'ACTIVE',now(),now())"; }
+# Fixture stock for the material-sale/issue/transfer tests — a PERSISTENT
+# baseline (like CUST/PARCEL above): top each location's movement-log net back
+# up to 500, then post a Dr 1300 / Cr 3000 JE for the exact physical-vs-GL gap.
+# Without the JE, service-posted issues/sales credit 1300 against stock that
+# never had a GL debit (net-credit account-signs + inventory-gl failures).
+# The JE is marked 'vfy-opening-stock%' — repair-books-dev exempts it from
+# fixture cleanup so the baseline stays intact across runs.
+MAC=$(P "SELECT coalesce((SELECT \"movingAvgCost\" FROM \"StockLocationItem\" WHERE \"materialId\"='$MAT' AND qty<>0 LIMIT 1), 10)::numeric(14,2)")
+for L in "$LOC_SITE" "$LOC_WH"; do
+  NET=$(P "SELECT coalesce(sum(CASE WHEN \"toLocationId\"='$L' THEN qty WHEN \"fromLocationId\"='$L' THEN -qty END),0)::int FROM \"StockMovement\" WHERE \"materialId\"='$MAT' AND (\"toLocationId\"='$L' OR \"fromLocationId\"='$L')")
+  if [ "${NET:-0}" -lt 500 ]; then
+    ADD=$((500-NET)); SMX=$(uid)
+    BALV=$(python3 -c "print(round(500*float('$MAC'),2))")
+    P "INSERT INTO \"StockMovement\" (id,\"materialId\",\"movementType\",\"toLocationId\",qty,\"unitCost\",\"balanceAfter\",\"balanceValueAfter\",\"refType\",\"refId\",timestamp) VALUES ('$SMX','$MAT','OPENING_BALANCE','$L',$ADD,$MAC,500,$BALV,'FIXTURE','vfy-opening-stock',now())"
+    P "INSERT INTO \"StockLocationItem\" (id,\"locationId\",\"materialId\",qty,\"movingAvgCost\",\"updatedAt\") VALUES ('$(uid)','$L','$MAT',500,$MAC,now())
+       ON CONFLICT (\"locationId\",\"materialId\") DO UPDATE SET qty=500,\"movingAvgCost\"=$MAC,\"updatedAt\"=now()" 2>/dev/null || \
+    P "UPDATE \"StockLocationItem\" SET qty=500,\"movingAvgCost\"=$MAC,\"updatedAt\"=now() WHERE \"locationId\"='$L' AND \"materialId\"='$MAT'"
+  fi
+done
+# Note: the balancing Dr 1300 / Cr 3000 opening JE for this fixture stock is
+# posted by repair-books-dev.sh §3c after cleanup — it computes the exact
+# physical-vs-GL residual so the books end each run precisely reconciled.
 
 echo "════════ 1. DPR approval chain (SUBMITTED→SUB_ADMIN→ADMIN) ════════"
 DPR=$(uid); DAY=$((RANDOM % 30000 + 30))
@@ -251,7 +286,7 @@ fi
 
 echo "════════ 23. Material sale return (credit note) ════════"
 CUST=$(P "SELECT id FROM \"Customer\" WHERE \"companyId\"='$C' LIMIT 1")
-MS=$(req POST "material-sales" "{\"customerId\":\"$CUST\",\"lines\":[{\"materialId\":\"mat-test-02\",\"locationId\":\"$LOC_SITE\",\"qty\":5,\"unitPrice\":250,\"gstRate\":18}]}")
+MS=$(req POST "material-sales" "{\"customerId\":\"$CUST\",\"notes\":\"wf verify\",\"lines\":[{\"materialId\":\"$MAT\",\"locationId\":\"$LOC_SITE\",\"qty\":5,\"unitPrice\":250,\"gstRate\":18}]}")
 MSID=$(echo "$MS" | grep -oE '"id":"[^"]+"' | head -1 | cut -d'"' -f4)
 MSL=$(P "SELECT id FROM \"MaterialSaleLine\" WHERE \"materialSaleId\"='$MSID' LIMIT 1")
 r=$(req POST "material-sales/$MSID/returns" "{\"lines\":[{\"materialSaleLineId\":\"$MSL\",\"qty\":2,\"reason\":\"defective\"}]}")
@@ -259,7 +294,8 @@ RT=$(echo "$r" | grep -oE '"id":"[^"]+"' | head -1 | cut -d'"' -f4)
 [ -n "$RT" ] && { PASS=$((PASS+1)); echo "  PASS sale return $RT"; expect_count "return stock" "SELECT count(*) FROM \"StockMovement\" WHERE \"refId\"='$RT'"; } || { FAIL=$((FAIL+1)); echo "  FAIL sale return: $r"; }
 
 echo "════════ 24. Cheque clear/bounce ════════"
-CHQ=$(uid); SALECH=$(P "SELECT id FROM \"AssetSale\" WHERE \"companyId\"='$C' AND status != 'CANCELLED' ORDER BY \"createdAt\" DESC LIMIT 1")
+CHQ=$(uid); SALECH=$(uid)
+P "INSERT INTO \"AssetSale\" (id,\"saleNumber\",\"assetType\",\"customerId\",\"companyId\",\"salePrice\",status,\"updatedAt\",\"createdAt\") VALUES ('$SALECH','WF-SALE-CHQ-$RANDOM','LAND','$CUST','$C',500000,'ACTIVE',now(),now())"
 P "INSERT INTO \"AssetSalePayment\" (id,\"assetSaleId\",amount,mode,\"chequeNo\",\"chequeStatus\",status,\"paymentDate\") VALUES ('$CHQ','$SALECH',1000,'CHEQUE','CHQ-1','PENDING','ACTIVE',now())"
 r=$(req POST "sales/payments/$CHQ/cheque" '{"action":"clear"}')
 echo "$r" | grep -qE '"ok":true' && { PASS=$((PASS+1)); echo "  PASS cheque clear"; } || { FAIL=$((FAIL+1)); echo "  FAIL cheque clear: $r"; }
@@ -297,7 +333,7 @@ req POST "leaves/$LVR" '{"approve":false,"rejectedReason":"staffing"}' >/dev/nul
 expect "leave reject" LeaveRequest "$LVR" status REJECTED
 r=$(req PATCH "work-orders/$WO2" '{"action":"release-retention"}')
 echo "$r" | grep -qE '"error"|"ok"' && { PASS=$((PASS+1)); echo "  PASS retention attempt (guarded)"; } || { FAIL=$((FAIL+1)); echo "  FAIL retention: $r"; }
-SALEU=$(P "SELECT id FROM \"AssetSale\" WHERE status='ACTIVE' AND \"companyId\"='$C' LIMIT 1")
+SALEU=$(uid); P "INSERT INTO \"AssetSale\" (id,\"saleNumber\",\"assetType\",\"customerId\",\"companyId\",\"salePrice\",status,\"updatedAt\",\"createdAt\") VALUES ('$SALEU','WF-SALE-UPD-$RANDOM','LAND','$CUST','$C',500000,'ACTIVE',now(),now())"
 [ -n "$SALEU" ] && { r=$(req PATCH "sales/$SALEU" '{"action":"update","notes":"wf verify note"}'); echo "$r" | grep -qE '"ok"|"error"' && { PASS=$((PASS+1)); echo "  PASS sale update"; } || { FAIL=$((FAIL+1)); echo "  FAIL update: $r"; }; }
 r=$(req PATCH "sales/$SALEU" '{"action":"resendConfirmation"}')
 echo "$r" | grep -qE '"ok"|"error"' && { PASS=$((PASS+1)); echo "  PASS resend attempt"; } || { FAIL=$((FAIL+1)); echo "  FAIL resend: $r"; }
@@ -324,7 +360,7 @@ echo "$r" | grep -qi "stale" && { PASS=$((PASS+1)); echo "  PASS stale-count gua
 
 echo "════════ 28d. Sale-return proportional GL ════════"
 P "INSERT INTO \"StockLocationItem\" (id,\"locationId\",\"materialId\",qty,\"movingAvgCost\",\"updatedAt\") VALUES ('vfygr$RANDOM','$LOC_SITE','$MAT',50,10,now()) ON CONFLICT (\"locationId\",\"materialId\") DO UPDATE SET qty=\"StockLocationItem\".qty+50"
-MS=$(curl -s -b /tmp/nirman-cookies.txt -H Content-Type:application/json -X POST "$BASE/api/material-sales" -d "{\"customerId\":\"$CUST\",\"lines\":[{\"materialId\":\"$MAT\",\"locationId\":\"$LOC_SITE\",\"qty\":10,\"unitPrice\":100,\"gstRate\":18}]}" | grep -oE '"id":"[^"]+"' | head -1 | cut -d'"' -f4)
+MS=$(curl -s -b /tmp/nirman-cookies.txt -H Content-Type:application/json -X POST "$BASE/api/material-sales" -d "{\"customerId\":\"$CUST\",\"notes\":\"wf verify\",\"lines\":[{\"materialId\":\"$MAT\",\"locationId\":\"$LOC_SITE\",\"qty\":10,\"unitPrice\":100,\"gstRate\":18}]}" | grep -oE '"id":"[^"]+"' | head -1 | cut -d'"' -f4)
 MSL=$(P "SELECT id FROM \"MaterialSaleLine\" WHERE \"materialSaleId\"='$MS' LIMIT 1")
 RT=$(curl -s -b /tmp/nirman-cookies.txt -H Content-Type:application/json -X POST "$BASE/api/material-sales/$MS/returns" -d "{\"lines\":[{\"materialSaleLineId\":\"$MSL\",\"qty\":3}]}" | grep -oE '"id":"[^"]+"' | head -1 | cut -d'"' -f4)
 net=$(P "SELECT coalesce(sum(case when jl.\"debit\"::numeric>0 then -jl.\"debit\"::numeric else jl.\"credit\"::numeric end),0)::int FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE a.code='4000' AND je.\"sourceId\" IN ('$MS','$RT')")

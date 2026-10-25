@@ -23,9 +23,12 @@ P() { psql -h localhost -d "$DB" -tAc "$1"; }
 PX() { psql -h localhost -d "$DB" -c "$1"; }
 
 echo "═══ 1. Fixture journal entries (sourceId vfy*/hrc*, memo 'wf verify') ═══"
-JES=$(P "SELECT count(*) FROM \"JournalEntry\" WHERE \"sourceId\" LIKE 'vfy%' OR \"sourceId\" LIKE 'hrc%' OR memo ILIKE '%wf verify%' OR memo ILIKE 'wf %'")
+# sourceId 'vfy-opening-stock%' is the PERSISTENT fixture baseline — the
+# Dr 1300 / Cr 3000 opening entry covering the fixture stock the suite draws
+# from. It survives cleanup like the fixture parcel/customer rows do.
+JES=$(P "SELECT count(*) FROM \"JournalEntry\" WHERE (\"sourceId\" LIKE 'vfy%' OR \"sourceId\" LIKE 'hrc%' OR memo ILIKE '%wf verify%' OR memo ILIKE 'wf %') AND coalesce(\"sourceId\",'') NOT LIKE 'vfy-opening-stock%'")
 echo "  deleting $JES journal entries (lines cascade)"
-PX "DELETE FROM \"JournalEntry\" WHERE \"sourceId\" LIKE 'vfy%' OR \"sourceId\" LIKE 'hrc%' OR memo ILIKE '%wf verify%' OR memo ILIKE 'wf %'" | tail -1
+PX "DELETE FROM \"JournalEntry\" WHERE (\"sourceId\" LIKE 'vfy%' OR \"sourceId\" LIKE 'hrc%' OR memo ILIKE '%wf verify%' OR memo ILIKE 'wf %') AND coalesce(\"sourceId\",'') NOT LIKE 'vfy-opening-stock%'" | tail -1
 
 echo "═══ 2. Fixture rows (id LIKE 'vfy%' / 'hrc%') — parents; FK cascades take children ═══"
 # GoodsReceipt chain references PurchaseOrder with Restrict (no cascade) —
@@ -45,6 +48,7 @@ for T in \
   NonConformanceReport SafetyIncident Equipment PurchaseOrder \
   SubcontractorWorkOrder Employee AssetSalePayment GatePass \
   LeaveApplication StockIssue StockCount ExpenseClaim \
+  AssetSale LandParcel LandPurchase Customer \
 ; do
   N=$(P "SELECT count(*) FROM \"$T\" WHERE id LIKE 'vfy%' OR id LIKE 'hrc%'" 2>/dev/null)
   if [ "${N:-0}" != "0" ]; then
@@ -56,10 +60,19 @@ done
 echo "═══ 2a. API-created fixture rows (cuid ids, 'wf *'/'vfy*' text markers) ═══"
 # Some fixtures are created through the real API and get cuid ids — they're
 # identifiable only by their marker text in reason/notes/memo columns.
+# MaterialSaleReturn → MaterialSale is Restrict: returns (+lines) go first.
+N=$(P "SELECT count(*) FROM \"MaterialSaleReturn\" r JOIN \"MaterialSale\" s ON s.id=r.\"materialSaleId\" WHERE s.notes ILIKE 'wf %' OR s.notes ILIKE 'wf-%'")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"MaterialSaleReturnLine\" l USING \"MaterialSaleReturn\" r, \"MaterialSale\" s
+    WHERE l.\"materialSaleReturnId\"=r.id AND r.\"materialSaleId\"=s.id AND (s.notes ILIKE 'wf %' OR s.notes ILIKE 'wf-%')" >/dev/null
+  PX "DELETE FROM \"MaterialSaleReturn\" r USING \"MaterialSale\" s
+    WHERE r.\"materialSaleId\"=s.id AND (s.notes ILIKE 'wf %' OR s.notes ILIKE 'wf-%')" >/dev/null
+  echo "  MaterialSaleReturn chain: $N row(s) removed"
+fi
 for pair in \
   "LeaveApplication:reason" "WorkerAttendance:notes" \
   "AttendanceCorrectionRequest:reason" "ExpenseClaim:notes" \
-  "Expense:notes" "AssetSale:notes" \
+  "Expense:notes" "AssetSale:notes" "MaterialSale:notes" \
 ; do
   T="${pair%%:*}"; COL="${pair##*:}"
   N=$(P "SELECT count(*) FROM \"$T\" WHERE \"$COL\" ILIKE 'wf %' OR \"$COL\" ILIKE 'wf-%'" 2>/dev/null)
@@ -91,17 +104,37 @@ for T in $(P "SELECT DISTINCT \"entityType\" FROM \"JournalLine\" WHERE \"entity
 done
 echo "  $ORPHAN_JES orphaned JE(s) removed"
 
-echo "═══ 2c. Orphaned TRANSFER_OUT movements (refs to deleted transfers) ═══"
-# Seeded IN_TRANSIT transfers deleted above leave their dispatch movements —
-# stock "in transit" forever. The movement log is append-only for real data,
-# but these refs point at deleted fixture rows, not history.
-N=$(P "SELECT count(*) FROM \"StockMovement\" m WHERE m.\"refType\"='StockTransfer'
-  AND NOT EXISTS (SELECT 1 FROM \"StockTransfer\" t WHERE t.id=m.\"refId\")")
+echo "═══ 2c-0. Attribution-less stock movements (empty refType — fixture-era only) ═══"
+# Every service path sets refType (STOCK_COUNT, MANUAL_ADJUSTMENT, …); an
+# empty ref can only come from a raw fixture insert. Baseline FIXTURE-refType
+# opening movements are kept — deleting them while API outs remain is what
+# produced the net-negative movement-log pairs.
+N=$(P "SELECT count(*) FROM \"StockMovement\" WHERE \"refType\" IS NULL OR \"refType\"=''")
 if [ "${N:-0}" != "0" ]; then
-  PX "DELETE FROM \"StockMovement\" m WHERE m.\"refType\"='StockTransfer'
-    AND NOT EXISTS (SELECT 1 FROM \"StockTransfer\" t WHERE t.id=m.\"refId\")" | tail -1
-  echo "  $N orphaned transfer movement(s) removed"
+  PX "DELETE FROM \"StockMovement\" WHERE \"refType\" IS NULL OR \"refType\"=''" | tail -1
+  echo "  $N attribution-less movement(s) removed"
 fi
+
+echo "═══ 2c. Orphaned stock movements (refs to deleted fixture docs) ═══"
+# The movement log is append-only for real data, but refs pointing at rows
+# deleted above are fixture history, not business history. refType maps to a
+# table name in PascalCase words (MATERIAL_SALE → MaterialSale).
+for pair in "STOCK_TRANSFER:StockTransfer" "MATERIAL_SALE:MaterialSale" \
+  "MATERIAL_SALE_RETURN:MaterialSaleReturn" "MATERIAL_ISSUE:MaterialIssue" \
+  "PURCHASE_ORDER:PurchaseOrder" "SCRAP_GENERATION:ScrapGeneration" \
+  "STOCK_COUNT:StockCount" \
+; do
+  RT="${pair%%:*}"; TT="${pair##*:}"
+  N=$(P "SELECT count(*) FROM \"StockMovement\" m WHERE m.\"refType\"='$RT'
+    AND m.\"refId\" IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM \"$TT\" r WHERE r.id=m.\"refId\")")
+  if [ "${N:-0}" != "0" ]; then
+    PX "DELETE FROM \"StockMovement\" m WHERE m.\"refType\"='$RT'
+      AND m.\"refId\" IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM \"$TT\" r WHERE r.id=m.\"refId\")" | tail -1
+    echo "  $RT → $TT: $N orphaned movement(s) removed"
+  fi
+done
 
 echo "═══ 3. StockLocationItem cache rebuild from StockMovement log ═══"
 # For every (locationId, materialId) pair: qty := Σ IN − Σ OUT, and
@@ -186,6 +219,43 @@ lines AS (
 UPDATE \"Supplier\" s
 SET \"balanceOwed\" = COALESCE(n.net,0), \"updatedAt\" = now()
 FROM nets n WHERE s.id=n.sid AND s.\"balanceOwed\" IS DISTINCT FROM COALESCE(n.net,0)" | tail -1
+
+echo "═══ 3c. Fixture baseline GL reconcile (Dr/Cr 1300 ↔ 3000) ═══"
+# The verify suite's persistent fixture stock is real physical stock — every
+# service-posted draw (issue/sale/transfer) hits GL 1300, so the baseline needs
+# an opening entry or the account goes net-credit. Post one marked JE per
+# company holding fixture movements for the exact residual gap; the
+# 'vfy-opening-stock' sourceId is exempted from §1 so the baseline persists.
+for C in $(P "SELECT DISTINCT loc.\"companyId\" FROM \"StockMovement\" m JOIN \"StockLocation\" loc ON loc.id=coalesce(m.\"toLocationId\",m.\"fromLocationId\") WHERE m.\"refType\"='FIXTURE'"); do
+  MAT=$(P "SELECT m.\"materialId\" FROM \"StockMovement\" m JOIN \"StockLocation\" loc ON loc.id=coalesce(m.\"toLocationId\",m.\"fromLocationId\") WHERE m.\"refType\"='FIXTURE' AND loc.\"companyId\"='$C' LIMIT 1")
+  GAP=$(P "SELECT ((
+    SELECT coalesce(sum(v.\"balanceValueAfter\"),0) FROM (
+      SELECT DISTINCT ON (m.\"materialId\", m.\"locationId\") m.\"balanceValueAfter\" FROM (
+        SELECT id,\"materialId\",\"toLocationId\" AS \"locationId\",\"balanceValueAfter\",timestamp FROM \"StockMovement\" WHERE \"toLocationId\" IS NOT NULL
+        UNION ALL
+        SELECT id,\"materialId\",\"fromLocationId\" AS \"locationId\",\"balanceValueAfter\",timestamp FROM \"StockMovement\" WHERE \"fromLocationId\" IS NOT NULL
+      ) m JOIN \"StockLocation\" loc ON loc.id=m.\"locationId\" AND loc.\"companyId\"='$C' AND loc.\"deletedAt\" IS NULL
+      ORDER BY m.\"materialId\", m.\"locationId\", m.timestamp DESC, m.id DESC) v)
+    + (SELECT coalesce(sum(l.qty*coalesce(l.\"unitCostAtSource\",0)),0) FROM \"StockTransferLine\" l JOIN \"StockTransfer\" t ON t.id=l.\"stockTransferId\" JOIN \"StockLocation\" s ON s.id=t.\"fromLocationId\" WHERE t.status='IN_TRANSIT' AND s.\"companyId\"='$C')
+    - (SELECT coalesce(sum(jl.debit-jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" AND je.\"companyId\"='$C' AND je.status='POSTED' JOIN \"GlAccount\" ga ON ga.id=jl.\"accountId\" WHERE ga.code='1300')
+  )::numeric(14,2)")
+  if [ -n "$GAP" ] && python3 -c "import sys; sys.exit(0 if abs(float('${GAP:-0}'))>1 else 1)"; then
+    ACC1300=$(P "SELECT id FROM \"GlAccount\" WHERE code='1300' AND \"companyId\"='$C' LIMIT 1")
+    ACC3000=$(P "SELECT id FROM \"GlAccount\" WHERE code='3000' AND \"companyId\"='$C' LIMIT 1")
+    if [ -n "$ACC1300" ] && [ -n "$ACC3000" ] && [ -n "$MAT" ]; then
+      JEX="vfyre$RANDOM$RANDOM"; JL1="vfyre$RANDOM$RANDOM"; JL2="vfyre$RANDOM$RANDOM"; ABS=${GAP#-}
+      PX "INSERT INTO \"JournalEntry\" (id,\"entryNumber\",\"companyId\",\"entryDate\",memo,\"sourceType\",\"sourceId\",\"createdAt\",\"updatedAt\") VALUES ('$JEX','WF-OPEN-$RANDOM','$C',now(),'wf verify fixture opening stock','FIXTURE','vfy-opening-stock-$RANDOM',now(),now())" >/dev/null
+      if python3 -c "import sys; sys.exit(0 if float('${GAP:-0}')>0 else 1)"; then
+        PX "INSERT INTO \"JournalLine\" (id,\"journalEntryId\",\"accountId\",\"entityType\",\"entityId\",debit,credit) VALUES ('$JL1','$JEX','$ACC1300','Material','$MAT',$ABS,0),('$JL2','$JEX','$ACC3000','Company','$C',0,$ABS)" >/dev/null
+      else
+        PX "INSERT INTO \"JournalLine\" (id,\"journalEntryId\",\"accountId\",\"entityType\",\"entityId\",debit,credit) VALUES ('$JL1','$JEX','$ACC3000','Company','$C',$ABS,0),('$JL2','$JEX','$ACC1300','Material','$MAT',0,$ABS)" >/dev/null
+      fi
+      echo "  $C: posted fixture-opening JE ₹$ABS (gap now 0)"
+    fi
+  else
+    echo "  $C: already reconciled (gap ${GAP:-0})"
+  fi
+done
 
 if [ "${1:-}" = "--check" ]; then
   echo "═══ 4. /api/health/books ═══"
