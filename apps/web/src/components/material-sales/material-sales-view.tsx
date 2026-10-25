@@ -804,7 +804,7 @@ export function MaterialSalesView({
 
           <div>
             <Label>Party name (override)</Label>
-            <Input aria-label="F Party Name" value={fPartyName} onChange={(e) => setFPartyName(e.target.value)} placeholder="Walk-in / cash customer name on invoice (optional)" />
+            <Input aria-label="Party Name Override" value={fPartyName} onChange={(e) => setFPartyName(e.target.value)} placeholder="Walk-in / cash customer name on invoice (optional)" />
             <p className="text-caption text-muted-foreground mt-0.5">Overrides the customer name on the printed invoice — for walk-in sales without a CRM record.</p>
           </div>
 
@@ -869,7 +869,7 @@ export function MaterialSalesView({
           </div>
           <div>
             <Label>Notes</Label>
-            <Textarea aria-label="F Notes" value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={2} />
+            <Textarea aria-label="Notes" value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={2} />
           </div>
 
           <VehicleCaptureSection value={fVehicle} onChange={setFVehicle} showEwayBill />
@@ -1261,7 +1261,7 @@ function MaterialSaleReturnDialog({
                     <td className="p-2 font-medium">{l.materialName}</td>
                     <td className="p-2 text-right tnum">{l.qty} {l.materialUnit}</td>
                     <td className="p-2">
-                      <Input aria-label="Return Lines"
+                      <Input aria-label="Return Qty"
                         type="number"
                         step="0.001"
                         min="0"
@@ -1276,7 +1276,7 @@ function MaterialSaleReturnDialog({
                       />
                     </td>
                     <td className="p-2">
-                      <Input aria-label="Rl"
+                      <Input aria-label="Return Reason"
                         value={rl?.reason ?? ""}
                         onChange={(e) => setReturnLines((prev) => ({
                           ...prev,
