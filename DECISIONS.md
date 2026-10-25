@@ -3029,6 +3029,33 @@ Round 120 — books-health fixture hygiene (repair-books-dev.sh)
 - Deleted: 275 orphan JEs, 79 fixture AssetSalePayments (the sale
   overpayment FAIL cleared), 23 hrc employees, 141 stock-cache rows
   corrected, Apex balanceOwed +57K (was stale after doc deletions).
+
+Round 122 — fixture-baseline design: the repeatability fix (commit c6ad4f51)
+
+- Root cause of the recurring post-suite books failures: fixture opening
+  stock was deleted each cleanup while API-posted outs (issues, sales,
+  transfers) survived — every run regenerated net-negative movement logs,
+  a credit-side 1300, and inventory-gl FAILs.
+- Fix — treat fixture opening stock as a PERSISTENT baseline (like the
+  fixture customer/parcel rows):
+  - verify-workflows-full.sh tops each location's movement-log net back to
+    500 units at the live MAC (never deleted);
+  - repair-books-dev §3c posts a marked 'vfy-opening-stock' Dr 1300 /
+    Cr 3000 JE for the exact physical-vs-GL residual per company —
+    computed AFTER all sweeps so each cycle ends precisely reconciled
+    (intra-run drift gets absorbed, e.g. ₹20 residual → JE);
+  - §1 exempts the baseline JE from fixture deletes;
+  - §2c-0 now deletes only attribution-less movements (empty refType —
+    impossible via service paths, which all set refType);
+  - the orphan-movement sweep covers all refType→table pairs incl.
+    STOCK_TRANSFER (was 'StockTransfer' — never matched) and guards
+    NULL refIds;
+  - material-sale fixtures carry notes 'wf verify' → docs, return chain
+    (Restrict-ordered), movements, and JEs all swept.
+- JournalEntry inserts need entryNumber + updatedAt (NOT NULL, no
+  default) — silent-fail lesson: P() swallows psql errors.
+- Result, repeatable: seed → books 20/20 → suite 83/83 → cleanup →
+  books 20/20. Verified twice consecutively.
 - Next: wire repair into a `pnpm books:repair` script; on prod this file
   must NEVER run (dev/staging only — guard at top).
 
