@@ -1,0 +1,81 @@
+name: Deploy production
+
+# Manual production deploy — mirrors scripts/deploy-prod.sh for environments
+# where SSH/Coolify are unreachable from the local machine (egress filtering).
+# Triggers Coolify's deploy API from a GitHub runner (unrestricted egress),
+# then watches for the container swap via a canary route.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      VPS_HOST: 82.41.67.77
+      HEALTH_URL: https://${{ secrets.PROD_DOMAIN }}/api/health
+      CANARY_URL: https://${{ secrets.PROD_DOMAIN }}/api/projects/__canary__/site-pour
+    steps:
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/devin_nirman
+          chmod 600 ~/.ssh/devin_nirman
+          ssh-keyscan -t ed25519,rsa "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Disk-space guard
+        run: |
+          FREE_MB=$(ssh -o ConnectTimeout=10 -o BatchMode=yes -i ~/.ssh/devin_nirman \
+            root@"$VPS_HOST" 'df -m / | tail -1 | awk "{print \$4}"' 2>/dev/null || echo "")
+          if [ -z "$FREE_MB" ]; then
+            echo "::warning::SSH to VPS unreachable — skipping disk check. Coolify builds are zero-downtime: a failed build keeps the old container serving."
+          elif [ "$FREE_MB" -lt 4096 ]; then
+            echo "::notice::Disk at ${FREE_MB}MB free — pruning unused images + build cache"
+            ssh -o BatchMode=yes -i ~/.ssh/devin_nirman root@"$VPS_HOST" \
+              'docker image prune -a -f >/dev/null 2>&1; docker builder prune -f >/dev/null 2>&1' || true
+          else
+            echo "Disk OK: ${FREE_MB}MB free"
+          fi
+
+      - name: Trigger Coolify deploy
+        id: trigger
+        run: |
+          RESP=$(curl -sS -m 15 \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            -H "Accept: application/json" -H "Content-Type: application/json" \
+            -X POST "${{ secrets.COOLIFY_URL }}/api/v1/deploy" \
+            -d "{\"uuid\":\"${{ secrets.COOLIFY_APP_UUID }}\",\"force\":false}" \
+            -w '\n%{http_code}' 2>&1) || { echo "::error::Coolify API unreachable: $RESP"; exit 1; }
+          HTTP_CODE=$(echo "$RESP" | tail -1)
+          BODY=$(echo "$RESP" | sed '$d')
+          echo "HTTP $HTTP_CODE"
+          echo "$BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Deploy trigger failed (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+
+      - name: Wait for container swap (canary route)
+        run: |
+          # The site-pour route doesn't exist in the old build — the router
+          # returns the app 404 (text/html). New code returns application/json.
+          ELAPSED=0
+          while [ $ELAPSED -lt 1080 ]; do
+            sleep 20
+            ELAPSED=$((ELAPSED + 20))
+            TYPE=$(curl -skS -m 10 -o /dev/null -w '%{content_type}' "$CANARY_URL" 2>/dev/null || echo "")
+            if echo "$TYPE" | grep -q 'application/json'; then
+              echo "New code live after ${ELAPSED}s (canary type=$TYPE)"
+              exit 0
+            fi
+            [ $((ELAPSED % 120)) -eq 0 ] && echo "  ...building (${ELAPSED}s, type=$TYPE)"
+          done
+          echo "::error::Canary still returns HTML after 18min — build may have failed"
+          exit 1
+
+      - name: Verify health
+        run: |
+          curl -skS -m 10 -f "$HEALTH_URL" || { echo "::error::Health check failed post-swap"; exit 1; }
+          echo ""
+          echo "Deploy complete and healthy."
