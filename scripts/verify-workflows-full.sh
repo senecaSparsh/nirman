@@ -379,4 +379,14 @@ else
 fi
 
 echo; echo "════════ RESULT: $PASS passed, $FAIL failed, $SKIP skipped ════════"
+
+# Fixture hygiene — the SQL seeds above bypass the service layer (no JEs, no
+# cache sync), which makes /api/health/books flag drift. Clean up the vfy*
+# rows + orphaned JEs + repair caches so the books stay readable.
+# Set KEEP_FIXTURES=1 to leave them for post-run inspection.
+if [ "${KEEP_FIXTURES:-0}" != "1" ] && [ -x "$(dirname "$0")/repair-books-dev.sh" ]; then
+  echo "════════ fixture cleanup (repair-books-dev) ════════"
+  "$(dirname "$0")/repair-books-dev.sh" || echo "  (cleanup failed — run ./scripts/repair-books-dev.sh manually)"
+fi
+
 [ "$FAIL" -eq 0 ]

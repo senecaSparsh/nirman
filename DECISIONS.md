@@ -3031,3 +3031,31 @@ Round 120 — books-health fixture hygiene (repair-books-dev.sh)
   corrected, Apex balanceOwed +57K (was stale after doc deletions).
 - Next: wire repair into a `pnpm books:repair` script; on prod this file
   must NEVER run (dev/staging only — guard at top).
+
+Round 120b — verify-suite self-cleaning + residual book findings
+
+- verify-workflows-full.sh now auto-runs repair-books-dev.sh at suite end
+  (KEEP_FIXTURES=1 to skip). repair script extended: API-created fixture
+  rows carry 'wf ' text markers in reason/notes columns — sweeps
+  LeaveApplication, WorkerAttendance, AttendanceCorrectionRequest,
+  ExpenseClaim, Expense, AssetSale by marker text (cuid ids).
+- Latest suite: 82/83 (1 flake — a random leave date collided with a
+  pre-existing approved leave on the test employee; the fixture leaves
+  themselves are now cleaned by marker).
+- books-health after full repair: 16 PASS / 3 FAIL / 1 WARN. All three
+  FAILs are now named residuals (not noise):
+  1. Stock Ledger: WIRE-BIND@Central Store pair — movement log says −211,
+     cache says +2189. Cause: pre-service seed wrote the cache qty without
+     an OPENING_BALANCE movement. Fix requires a service-path
+     opening-balance write (fabricating the log is out of scope).
+  2. GL Inventory vs Stock: same pair + 16 genuinely-live IN_TRANSIT
+     transfers (₹1,925 operational, correctly flagged as info).
+  3. WIP apex −254K + orphan −25K: seeded apex ProjectCosts (93 rows,
+     ₹7.8M) were written without JEs — net unposted share resolves to
+     −254K after capitalization. The −25K orphan is a real MANUAL
+     writeoff JE lacking entity linkage. Both need per-item judgement —
+     auto-posting corrective JEs would fabricate cash spend.
+- Service-layer verdict confirmed clean: addProjectCost posts WIP JEs
+  transactionally; every divergence traces to seed/script writes that
+  bypassed services, never to app paths. The real fix for residuals =
+  re-seed demo data through service paths (bigger build — next).

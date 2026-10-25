@@ -53,6 +53,22 @@ for T in \
   fi
 done
 
+echo "═══ 2a. API-created fixture rows (cuid ids, 'wf *'/'vfy*' text markers) ═══"
+# Some fixtures are created through the real API and get cuid ids — they're
+# identifiable only by their marker text in reason/notes/memo columns.
+for pair in \
+  "LeaveApplication:reason" "WorkerAttendance:notes" \
+  "AttendanceCorrectionRequest:reason" "ExpenseClaim:notes" \
+  "Expense:notes" "AssetSale:notes" \
+; do
+  T="${pair%%:*}"; COL="${pair##*:}"
+  N=$(P "SELECT count(*) FROM \"$T\" WHERE \"$COL\" ILIKE 'wf %' OR \"$COL\" ILIKE 'wf-%'" 2>/dev/null)
+  if [ "${N:-0}" != "0" ]; then
+    PX "DELETE FROM \"$T\" WHERE \"$COL\" ILIKE 'wf %' OR \"$COL\" ILIKE 'wf-%'" 2>&1 | tail -1
+    echo "  $T.$COL: $N fixture row(s) removed"
+  fi
+done
+
 echo "═══ 2b. Orphaned journal entries — JE lines pointing at rows deleted above ═══"
 # API-created children of fixture parents (cuid ids, e.g. RaBills on vfy
 # work-orders) cascade-deleted with their parent — but the JEs they posted
