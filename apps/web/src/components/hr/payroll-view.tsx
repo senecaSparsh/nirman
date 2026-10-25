@@ -714,11 +714,18 @@ function GeneratePayrollDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ month, year }),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        toast.success(`Payroll generated for ${MONTHS[month]} ${year}`);
+        const warnings: string[] = data.warnings ?? [];
+        if (warnings.length > 0) {
+          toast.warning(`Payroll generated for ${MONTHS[month]} ${year} — review the draft`, {
+            description: warnings.join("\n"),
+          });
+        } else {
+          toast.success(`Payroll generated for ${MONTHS[month]} ${year}`);
+        }
         onGenerated();
       } else {
-        const data = await res.json().catch(() => ({}));
         toast.error(data.error ?? "Failed to generate payroll");
       }
     } finally {

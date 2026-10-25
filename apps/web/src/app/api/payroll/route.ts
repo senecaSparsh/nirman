@@ -107,7 +107,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     revalidatePath("/hr/payroll");
     revalidatePath("/m/hr");
-    return json({ ok: true, id: period?.id }, { status: 201 });
+    return json({ ok: true, id: period?.id, warnings: period?.payrollWarnings ?? [] }, { status: 201 });
   } catch (err: unknown) {
     // HrError carries the right status — a state conflict like "already PAID"
     // is 409, not a malformed-request 400. Preserve it so clients can tell

@@ -1676,6 +1676,7 @@ export async function generatePayroll(input: GeneratePayrollInput) {
     let totalDeductions = new Decimal(0);
     let totalNet = new Decimal(0);
     const zeroGrossEmployees: string[] = [];
+    const noDeductionEmployees: string[] = [];
 
     for (const emp of employees) {
       const attendances = attendancesByEmployee.get(emp.id) ?? [];
@@ -1731,6 +1732,14 @@ export async function generatePayroll(input: GeneratePayrollInput) {
         { basicAmount, daysWorked: adjustedDaysWorked, wageType: emp.wageType, workingDays },
       );
 
+      // No deduction components configured → nothing statutory (PF/ESI/PT/TDS)
+      // can ever reach the payslip. Legal for contractors, but a covered
+      // employee whose salary structure was never set up silently skips
+      // statutory deduction — flag it so the draft gets a second look.
+      if (!(componentsByEmployee.get(emp.id) ?? []).some((c) => c.isDeduction)) {
+        noDeductionEmployees.push(emp.name);
+      }
+
       // Salary-advance recovery — auto-deducted until the advance settles.
       for (const adv of advancesByEmployee.get(emp.id) ?? []) {
         lineComponents.push({
@@ -1753,20 +1762,24 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       // Advance recovery + statutory + fixed-component deductions are each
       // valid alone, but stacked they can exceed what the worker earned
       // (₹1.5K wage − ₹4K recovery = negative net; a ₹0-worked month with a
-      // fixed "tools deduction" is the same hole). Clamp DEDUCTIONS rows
-      // FIFO against (gross − statutory): configured components keep
-      // priority, the late-deduction row next, advance recovery last — an
-      // advance that doesn't fit just stays outstanding for next month.
+      // fixed "tools deduction" is the same hole). Statutory percentage rows
+      // self-scale with the wage, but FIXED statutory amounts don't — PT
+      // ₹200 still deducted on a ₹0-gross line would push net negative.
+      // Every deduction row clamps FIFO against remaining gross, statutory
+      // buckets first (first claim), then general deductions — configured
+      // components keep priority, the late-deduction row next, advance
+      // recovery last: an advance that doesn't fit stays outstanding.
       const firstBuckets = sumComponentBuckets(lineComponents);
       const grossBefore = computeGrossPay(basicAmount, overtimeAmount, firstBuckets.allowance, firstBuckets.bonus);
-      const statutory = firstBuckets.pf.plus(firstBuckets.esi).plus(firstBuckets.professionTax).plus(firstBuckets.tax);
-      let headroom = grossBefore.minus(statutory);
-      if (headroom.lt(0)) headroom = new Decimal(0);
-      for (const c of lineComponents) {
-        if (c.bucket !== "DEDUCTIONS") continue;
+      let headroom = grossBefore.lt(0) ? new Decimal(0) : grossBefore;
+      const deductionOrder = [...lineComponents].sort(
+        (a, b) => (a.bucket === "DEDUCTIONS" ? 1 : 0) - (b.bucket === "DEDUCTIONS" ? 1 : 0),
+      );
+      for (const c of deductionOrder) {
+        if (!c.isDeduction) continue;
         const amt = new Decimal(c.amount);
         if (amt.lte(headroom)) { headroom = headroom.minus(amt); continue; }
-        const capped = headroom.lt(0) ? new Decimal(0) : headroom;
+        const capped = headroom;
         c.amount = capped;
         c.rate = capped;
         c.notes = `${c.notes ?? ""} — capped at available wages (₹${amt.minus(capped)} ${c.advanceId ? "deferred to next month" : "not deducted this period"})`.trim();
@@ -1834,7 +1847,7 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       entityId: period.id,
       after: { month: input.month, year: input.year, employees: employees.length, totalNet: totalNet.toString(), zeroGrossEmployees },
     });
-    return { period: updated, zeroGrossEmployees };
+    return { period: updated, zeroGrossEmployees, noDeductionEmployees };
   });
 
   // Flag ₹0-earners AFTER the tx commits — emitting inside the Serializable
@@ -1854,7 +1867,16 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       timestamp: new Date(),
     });
   }
-  return result.period;
+
+  // Surface setup gaps on the period itself so the generate endpoint can warn
+  // the person running payroll — the notification above is for everyone else.
+  const payrollWarnings: string[] = [];
+  if (result.noDeductionEmployees.length > 0) {
+    payrollWarnings.push(
+      `${result.noDeductionEmployees.length} employee${result.noDeductionEmployees.length === 1 ? "" : "s"} have no deduction components — no PF/ESI/PT will be deducted. Check their salary structure: ${result.noDeductionEmployees.slice(0, 5).join(", ")}`,
+    );
+  }
+  return Object.assign(result.period, { payrollWarnings });
 }
 
 export interface AdjustPayrollLineInput {
