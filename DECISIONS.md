@@ -2933,3 +2933,29 @@ Round 117 — Friendly errors for non-technical users (18f60d5e)
   green (13). Audited already-good: error/404 pages, shared
   EmptyState (280 sites, role-aware contactHint), data-table
   fallbacks — all plain language.
+
+Round 118 — Deep-link param audit + suggestion datalists (transcript sweep)
+
+- Transcript requirement extracted from history files: "wherever there is
+  search or input fields we need to show suggestions or existing." New
+  SuggestionList component + COMMON_TRADES/COMMON_DESIGNATIONS/
+  COMMON_DEPARTMENTS datalists wired into trade/designation/department
+  fields across employee quick-create, employees view, create-account
+  dialog, mobile employee dialog, subcontractor forms (desktop+mobile).
+  UnderlineInput gained a `list` prop passthrough. Prevents spelling
+  variants that corrupt group-by and payroll reports.
+- Deep-link param audit — every `?param=` link verified to a consumer:
+  FIXED: `/suppliers?tab=ratings` → repointed to /vendor-ratings;
+  `/sales?filter=outstanding` → `/sales?pay=OUTSTANDING` + new filter
+  option (pending+partial); `/work-orders?projectId=` accepted alongside
+  `project`; `/units?project=` filters the units table; `?project=` now
+  seeds the project selector in WbsView, MbView, BoqProjectView and
+  filters the PO tab + land tables. Verified already-working: every
+  `?tab=`, `?unit=`/`?action=`, `?po=`, `?sale=`, `?req=`, `?wo=`,
+  `?id=`, all ~15 mobile prefill params.
+- Transcript complaint re-verified: indents auto-submit on create,
+  approve/reject hidden from creator; expense claims auto-submit
+  (`submitOnSave` default true desktop, `submit:true` mobile); leaves
+  auto-approve when self-service.
+- API auth sweep: all 446 routes guarded (requireUser/requirePerm/
+  webhook signatures); earlier false-positive list resolved.
