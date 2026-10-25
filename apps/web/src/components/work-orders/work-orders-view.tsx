@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useFetch } from "@/lib/use-fetch";
+import { usePermissions } from "@/lib/permissions";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
@@ -72,6 +73,8 @@ type WorkOrderDetail = WorkOrder & {
     status: "DRAFT" | "SUBMITTED" | "APPROVED" | "PAID" | "REJECTED";
     grossAmount: number;
     netPayable: number;
+    createdById?: string | null;
+    submittedById?: string | null;
   }>;
 };
 
@@ -86,6 +89,8 @@ type RaBill = {
   periodFrom: string;
   periodTo: string;
   workOrder: { workOrderNumber: string; workTitle: string; subcontractor: { name: string } };
+  createdById?: string | null;
+  submittedById?: string | null;
 };
 
 const STATUS_CONFIG: Record<WorkOrder["status"], { label: string; color: string; dot: string }> = {
@@ -118,6 +123,8 @@ type RaBillDetailData = {
   rejectReason: string | null;
   approvedBy: { id: string; name: string } | null;
   approvedAt: string | null;
+  createdById?: string | null;
+  submittedById?: string | null;
   workOrder: {
     id: string;
     workOrderNumber: string;
@@ -654,6 +661,12 @@ function WorkOrderDetailDialog({
     wo ? `/api/work-orders/${wo.id}` : null,
   );
 
+  // Self-payment is forbidden server-side (SoD) — never offer the button to
+  // the bill's creator/submitter, it would only 403.
+  const { userId: currentUserId } = usePermissions();
+  const canPayBill = (b: { createdById?: string | null; submittedById?: string | null }) =>
+    !currentUserId || (b.createdById !== currentUserId && b.submittedById !== currentUserId);
+
   if (!wo) return null;
 
   const cfg = STATUS_CONFIG[wo.status];
@@ -863,7 +876,7 @@ function WorkOrderDetailDialog({
                     <ShieldCheck className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {canCreate && permissions.canPay && rb.status === "APPROVED" && (
+                {canCreate && permissions.canPay && rb.status === "APPROVED" && canPayBill(rb) && (
                   <button disabled={actionLoading} onClick={() => onRaBillAction(rb.id, "pay", onRefresh)} className="p-1 text-muted-foreground hover:text-indigo-600 disabled:opacity-50" title="Mark paid">
                     <Banknote className="h-3.5 w-3.5" />
                   </button>
@@ -1459,11 +1472,11 @@ function WorkOrderDialog({
             return (
               <div key={idx} className="space-y-1">
                 <div className="grid grid-cols-[1fr_120px_auto] gap-2">
-                  <Select aria-label="Advance Recovery %" value={line.boqItemId} onChange={(e) => onBoqSelect(idx, e.target.value)}>
+                  <Select aria-label={`BOQ item ${idx + 1}`} value={line.boqItemId} onChange={(e) => onBoqSelect(idx, e.target.value)}>
                     <option value="">— Select BOQ item —</option>
                     {boqItems.map((b) => <option key={b.id} value={b.id}>{b.serialNo} — {b.description}</option>)}
                   </Select>
-                  <Input aria-label="Line" type="number" step="0.01" placeholder="Rate ₹" value={line.agreedRate} onChange={(e) => setLine(idx, "agreedRate", e.target.value)} />
+                  <Input aria-label={`Agreed rate ${idx + 1}`} type="number" step="0.01" placeholder="Rate ₹" value={line.agreedRate} onChange={(e) => setLine(idx, "agreedRate", e.target.value)} />
                   {lines.length > 1 && (
                     <button aria-label="Clear" type="button" onClick={() => removeLine(idx)} className="text-muted-foreground hover:text-destructive">
                       <XCircle className="h-4 w-4" />
@@ -1529,6 +1542,12 @@ function RaBillDetailDialog({
   const { data: detail, loading } = useFetch<RaBillDetailData | null>(
     raBillId ? `/api/ra-bills/${raBillId}` : null,
   );
+
+  // Same SoD guard as the server: the creator/submitter can't pay — hide the
+  // affordance instead of letting it 403.
+  const { userId: currentUserId } = usePermissions();
+  const selfBilled = !!currentUserId && !!detail &&
+    (detail.createdById === currentUserId || detail.submittedById === currentUserId);
 
   return (
     <Dialog
@@ -1724,14 +1743,14 @@ function RaBillDetailDialog({
                   <Button size="sm" disabled={actionLoading} onClick={() => { setActionLoading(true); onAction("approve"); }}>
                     <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Approve
                   </Button>
-                  {canCreate && permissions.canPay && (
+                  {canCreate && permissions.canPay && !selfBilled && (
                     <Button size="sm" disabled={actionLoading} onClick={() => { setActionLoading(true); onAction("approve"); setPayOpen(true); }}>
                       <Banknote className="mr-1 h-3.5 w-3.5" /> Approve & Pay
                     </Button>
                   )}
                 </>
               )}
-              {canCreate && permissions.canPay && detail.status === "APPROVED" && (
+              {canCreate && permissions.canPay && detail.status === "APPROVED" && !selfBilled && (
                 <Button size="sm" disabled={actionLoading} onClick={() => setPayOpen(true)}>
                   <Banknote className="mr-1 h-3.5 w-3.5" /> Mark as Paid
                 </Button>
@@ -1798,7 +1817,7 @@ function RaBillDetailDialog({
             </select>
           </Field>
           <Field label="Payment reference (optional)">
-            <input aria-label="Ayment Reference"
+            <input aria-label="Payment Reference"
               value={paymentReference}
               onChange={(e) => setPaymentReference(e.target.value)}
               placeholder="e.g. UTR, cheque no, transaction ID…"

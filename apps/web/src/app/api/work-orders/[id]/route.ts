@@ -16,7 +16,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       project: { select: { id: true, name: true } },
       phase: { select: { id: true, name: true } },
       lines: { include: { boqItem: { select: { id: true, serialNo: true, description: true, unit: true, estimatedQty: true, rate: true } } } },
-      raBills: { orderBy: { billDate: "desc" }, select: { id: true, raBillNumber: true, billDate: true, status: true, grossAmount: true, netPayable: true } },
+      raBills: { orderBy: { billDate: "desc" }, select: { id: true, raBillNumber: true, billDate: true, status: true, grossAmount: true, netPayable: true, createdById: true, submittedById: true } },
     },
   });
   if (!wo) return json({ error: "Work order not found" }, { status: 404 });
