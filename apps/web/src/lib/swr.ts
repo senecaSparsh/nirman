@@ -5,7 +5,7 @@ export const swrFetcher = async (url: string) => {
   const r = await fetch(url, { credentials: "include" });
   if (!r.ok) {
     // Don't try to parse 204 No Content or empty bodies
-    let msg = `HTTP ${r.status}`;
+    let msg = "Something went wrong. Please try again.";
     if (r.status !== 204) {
       try {
         const body = await r.json();

@@ -95,7 +95,7 @@ export function useOptimisticAction({
         const data = await res.json().catch(() => null);
 
         if (!res.ok) {
-          const msg = errorMessage ?? (data?.error ?? data?.message ?? `HTTP ${res.status}`);
+          const msg = errorMessage ?? (data?.error ?? data?.message ?? "Something went wrong. Please try again.");
           throw new Error(msg);
         }
 

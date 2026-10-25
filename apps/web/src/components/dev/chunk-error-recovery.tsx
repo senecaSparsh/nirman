@@ -38,6 +38,7 @@
  */
 
 import { useEffect } from "react";
+import { installFriendlyFetch } from "@/lib/friendly-fetch";
 
 const RELOAD_FLAG = "__nirman_chunk_error_reloaded";
 const RELOAD_FLAG_TS = "__nirman_chunk_error_reloaded_ts";
@@ -95,6 +96,7 @@ function markReloaded() {
 export function ChunkErrorRecovery() {
   useEffect(() => {
     if (typeof window === "undefined") return;
+    installFriendlyFetch();
 
     // If we already auto-reloaded recently, don't loop. Set a timer to
     // clear the flag so future errors can recover.

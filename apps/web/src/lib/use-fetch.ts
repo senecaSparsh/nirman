@@ -184,7 +184,7 @@ export function useFetch<T = unknown>(
 
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        const msg = body?.error ?? body?.message ?? `HTTP ${res.status}`;
+        const msg = body?.error ?? body?.message ?? "Something went wrong. Please try again.";
         throw new Error(msg);
       }
 

@@ -152,7 +152,7 @@ export async function fetchWithCache(
   // Network fetch
   const res = await fetch(url, { ...options, credentials: "include" });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(data?.error ?? "Something went wrong. Please try again.");
 
   if (localFirst) {
     setCachedData(url, data);

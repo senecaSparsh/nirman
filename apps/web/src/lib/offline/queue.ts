@@ -405,7 +405,7 @@ async function syncQueueInner(
       } else {
         const body = await res.json().catch(() => null);
         op.status = "FAILED";
-        op.error = (body && (body.error || body.message)) || `HTTP ${res.status}`;
+        op.error = (body && (body.error || body.message)) || "Something went wrong. Please try again.";
         failed += 1;
       }
     } catch (err: unknown) {
