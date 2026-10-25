@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
+import { COMMON_TRADES, SuggestionList } from "@/components/suggestion-list";
 
 /**
  * Quick inline create for an Employee (worker). Minimal fields — the full
@@ -90,7 +91,8 @@ export function EmployeeQuickCreateDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="eq-trade">Trade</Label>
-            <Input id="eq-trade" value={form.trade} onChange={(e) => set("trade", e.target.value)} placeholder="Masonry, Electrical…" />
+            <Input id="eq-trade" list="suggest-trades" value={form.trade} onChange={(e) => set("trade", e.target.value)} placeholder="Masonry, Electrical…" />
+            <SuggestionList id="suggest-trades" options={COMMON_TRADES} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="eq-phone">Phone</Label>

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { COMMON_DESIGNATIONS, COMMON_TRADES, SuggestionList } from "@/components/suggestion-list";
 import { MobileDepartmentSelect } from "@/components/mobile/selectors";
 
 interface ProjectOption {
@@ -154,7 +155,9 @@ export function MobileNewEmployeeForm({
             onChange={setTrade}
             placeholder="e.g. Mason"
             enterKeyHint="next"
+            list="suggest-trades"
           />
+          <SuggestionList id="suggest-trades" options={COMMON_TRADES} />
         </div>
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <UnderlineInput
@@ -163,7 +166,9 @@ export function MobileNewEmployeeForm({
             onChange={setDesignation}
             placeholder="e.g. Supervisor"
             enterKeyHint="next"
+            list="suggest-designations"
           />
+          <SuggestionList id="suggest-designations" options={COMMON_DESIGNATIONS} />
           <EnumSelect
             label="Hierarchy"
             value={hierarchyLevel}

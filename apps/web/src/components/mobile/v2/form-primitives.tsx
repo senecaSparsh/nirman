@@ -262,6 +262,7 @@ export function UnderlineInput({
   enterKeyHint,
   autoComplete,
   id,
+  list,
 }: {
   label: string;
   value: string;
@@ -280,6 +281,8 @@ export function UnderlineInput({
   enterKeyHint?: "enter" | "done" | "go" | "next" | "previous" | "search" | "send";
   autoComplete?: string;
   id?: string;
+  /** id of a <datalist> to attach as suggestions. */
+  list?: string;
 }) {
   return (
     <div id={id}>
@@ -301,6 +304,7 @@ export function UnderlineInput({
         maxLength={maxLength}
         enterKeyHint={enterKeyHint}
         autoComplete={autoComplete}
+        list={list}
         className={`w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors ${mono ? "font-mono" : ""}`}
         style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
       />

@@ -6,6 +6,7 @@ import { Plus, Pencil, Trash2, Users, UsersRound, Phone, Briefcase, SearchX, Map
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
+import { COMMON_DESIGNATIONS, SuggestionList } from "@/components/suggestion-list";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/page";
@@ -734,7 +735,8 @@ function EmployeeFormDialog({
             </div>
             <div>
               <Label>Designation</Label>
-              <Input aria-label="Site Engineer" value={form.designation} onChange={(e) => set("designation", e.target.value)} placeholder="Site Engineer…" />
+              <Input aria-label="Site Engineer" list="suggest-designations" value={form.designation} onChange={(e) => set("designation", e.target.value)} placeholder="Site Engineer…" />
+              <SuggestionList id="suggest-designations" options={COMMON_DESIGNATIONS} />
             </div>
             <div className="col-span-2">
               <Label>Hierarchy Level</Label>
