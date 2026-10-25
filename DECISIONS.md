@@ -2959,3 +2959,42 @@ Round 118 — Deep-link param audit + suggestion datalists (transcript sweep)
   auto-approve when self-service.
 - API auth sweep: all 446 routes guarded (requireUser/requirePerm/
   webhook signatures); earlier false-positive list resolved.
+
+Round 119 — Client transcript fidelity audit (Gopalpur 3 walkthrough + Alpha Road 1-5)
+
+- Read `Gopalpur 3_transcript.txt` (635 lines, live UI walkthrough — the
+  owner navigating the built app with the dev) + re-verified the distilled
+  owner requirements (Alpha Road 1-5, Amoria Cafe →
+  `docs/source-material/USER_SESSION_BUSINESS_LOGIC.md`).
+- Result: every requirement in the 23-gap ledger is implemented, and every
+  confusion point the owner hit during the walkthrough has since been built:
+
+  | Owner asked (walkthrough)                          | Built                                             |
+  | -------------------------------------------------- | ------------------------------------------------- |
+  | Leads visible next to customers                    | /m/leads + CRM tab                                |
+  | Subdivided plots show as units                     | units view + ?project= deep-link                  |
+  | "Requisition"→ call it "Indent"                    | nav tab labeled "Indents"                         |
+  | Indent → quotation → PO muscle-memory order        | TABS=[indents,quotations,pos]                     |
+  | Create duplicate units ×N (100 shops)              | createBuiltUnits batch + duplicateRow auto-number |
+  | Dedupe leads by name+phone                         | /api/leads/dedup find+merge                       |
+  | Bank SMS → auto payment                            | sms-parser + BankSms + matchPayment               |
+  | Call recordings → text notes on lead               | Call.transcriptText/transcriptStatus              |
+  | Rent-free/fit-out period                           | Tenancy.rentFreeDays                              |
+  | Informal tenancy draft before registered agreement | tenancy draft + print                             |
+  | "Where did my indent go?" post-submit              | toast + "View Indent"/"View Queue" actions        |
+  | ATS gets its own registry number                   | covered in lifecycle docs                         |
+  | NOCs on land too                                   | LegalDocument appliesTo LAND/BOTH                 |
+
+- Alpha Road requirements all covered: land lifecycle
+  (BOOKED→BBA_SIGNED→REGISTERED→COMPLETED, partialRegistryAllowed,
+  possession fields), CLP/TLP/DPP slab-linked payments w/ WBS-milestone
+  triggers + cron WhatsApp/email dunning, HSN/SAC 48,752-code dataset,
+  lastRate on requisition lines, comparative-quote engine desktop+mobile,
+  broker/commission, cheque photos, polymorphic attachments, borneBy
+  client/seller toggles, 5-code attendance + late→half-day + per-employee
+  PL quota + auto-salary, hierarchyLevel H1-6, GPS + traffic-light
+  (dprApproved/geoFence) attendance.
+- Open items from walkthrough not yet shipped (future-scope):
+  true bank-API linking for auto-pull (SMS/statement covers intent today),
+  "raw chat" recording access alongside AI transcripts (Call.rawUrl exists?),
+  AI outbound calls (owner skeptical re: spam — not pursued).
