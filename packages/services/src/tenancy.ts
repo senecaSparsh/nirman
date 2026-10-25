@@ -502,11 +502,13 @@ export async function terminateTenancy(tenancyId: string, companyId: string, use
     if (t.status !== "ACTIVE" && t.status !== "PENDING") {
       throw new ServiceError(`Cannot terminate tenancy in status ${t.status}`);
     }
-    // Release the asset back to AVAILABLE
+    // Release the asset back to AVAILABLE. updateMany tolerates a dangling
+    // asset id (e.g. parcel deleted outside the tenancy flow) — releasing a
+    // missing asset is a no-op, not a crash.
     if (t.assetType === "LAND" && t.landParcelId) {
-      await tx.landParcel.update({ where: { id: t.landParcelId }, data: { status: "AVAILABLE" } });
+      await tx.landParcel.updateMany({ where: { id: t.landParcelId }, data: { status: "AVAILABLE" } });
     } else if (t.builtUnitId) {
-      await tx.builtUnit.update({ where: { id: t.builtUnitId }, data: { status: "AVAILABLE" } });
+      await tx.builtUnit.updateMany({ where: { id: t.builtUnitId }, data: { status: "AVAILABLE" } });
     }
     const updated = await tx.tenancy.update({ where: { id: t.id }, data: { status: "TERMINATED" } });
 
@@ -933,11 +935,12 @@ export async function changeTenant(input: ChangeTenantInput) {
       if (!customer) throw new ServiceError("New customer not found or deleted", 404);
     }
 
-    // Terminate the old tenancy
+    // Terminate the old tenancy. updateMany tolerates a dangling asset id —
+    // releasing a missing asset is a no-op, not a crash.
     if (t.assetType === "LAND" && t.landParcelId) {
-      await tx.landParcel.update({ where: { id: t.landParcelId }, data: { status: "AVAILABLE" } });
+      await tx.landParcel.updateMany({ where: { id: t.landParcelId }, data: { status: "AVAILABLE" } });
     } else if (t.builtUnitId) {
-      await tx.builtUnit.update({ where: { id: t.builtUnitId }, data: { status: "AVAILABLE" } });
+      await tx.builtUnit.updateMany({ where: { id: t.builtUnitId }, data: { status: "AVAILABLE" } });
     }
     await tx.tenancy.update({ where: { id: t.id }, data: { status: "TERMINATED" } });
     // Same as terminateTenancy — drop the old tenancy's uncollected schedule.
