@@ -107,11 +107,69 @@ if [ "${N:-0}" != "0" ]; then
   echo "  ProjectCost chain-fixture: $N row(s) removed"
 fi
 
-# Chain-script unit fixtures: isu*/wcu*/wcp* id prefixes (issue/wip chains).
-N=$(P "SELECT count(*) FROM \"BuiltUnit\" WHERE id LIKE 'isu%' OR id LIKE 'wcu%' OR id LIKE 'wcp%'")
+# Chain-script unit fixtures: isu*/wcu*/wcp*/is-pu* id prefixes (issue/wip chains).
+N=$(P "SELECT count(*) FROM \"BuiltUnit\" WHERE id LIKE 'isu%' OR id LIKE 'wcu%' OR id LIKE 'wcp%' OR id LIKE 'is-pu%' OR \"unitNumber\" ILIKE 'IS-PLANNED-%'")
 if [ "${N:-0}" != "0" ]; then
-  PX "DELETE FROM \"BuiltUnit\" WHERE id LIKE 'isu%' OR id LIKE 'wcu%' OR id LIKE 'wcp%'" | tail -1
+  PX "DELETE FROM \"BuiltUnit\" WHERE id LIKE 'isu%' OR id LIKE 'wcu%' OR id LIKE 'wcp%' OR id LIKE 'is-pu%' OR \"unitNumber\" ILIKE 'IS-PLANNED-%'" | tail -1
   echo "  BuiltUnit chain-fixture: $N row(s) removed"
+fi
+
+# Issue-chain scaffolding: verify-issue-chain.sh seeds a synthetic ON_HOLD
+# project (isoh*) + department (isd* / 'is-dept-office') per run. Guarded to
+# rows with no dependents so a real row with an accidental prefix survives.
+N=$(P "SELECT count(*) FROM \"Project\" p WHERE p.id LIKE 'isoh%' AND NOT EXISTS (
+  SELECT 1 FROM \"DailyProgressReport\" d WHERE d.\"projectId\"=p.id
+) AND NOT EXISTS (SELECT 1 FROM \"Expense\" e WHERE e.\"projectId\"=p.id)
+  AND NOT EXISTS (SELECT 1 FROM \"BoqItem\" b WHERE b.\"projectId\"=p.id)
+  AND NOT EXISTS (SELECT 1 FROM \"BuiltUnit\" u WHERE u.\"projectId\"=p.id)
+  AND NOT EXISTS (SELECT 1 FROM \"WbsNode\" w WHERE w.\"projectId\"=p.id)
+  AND NOT EXISTS (SELECT 1 FROM \"MaterialRequisition\" r WHERE r.\"projectId\"=p.id)
+  AND NOT EXISTS (SELECT 1 FROM \"AssetSale\" s WHERE s.\"projectId\"=p.id)")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"Project\" p WHERE p.id LIKE 'isoh%' AND NOT EXISTS (
+    SELECT 1 FROM \"DailyProgressReport\" d WHERE d.\"projectId\"=p.id
+  ) AND NOT EXISTS (SELECT 1 FROM \"Expense\" e WHERE e.\"projectId\"=p.id)
+    AND NOT EXISTS (SELECT 1 FROM \"BoqItem\" b WHERE b.\"projectId\"=p.id)
+    AND NOT EXISTS (SELECT 1 FROM \"BuiltUnit\" u WHERE u.\"projectId\"=p.id)
+    AND NOT EXISTS (SELECT 1 FROM \"WbsNode\" w WHERE w.\"projectId\"=p.id)
+    AND NOT EXISTS (SELECT 1 FROM \"MaterialRequisition\" r WHERE r.\"projectId\"=p.id)
+    AND NOT EXISTS (SELECT 1 FROM \"AssetSale\" s WHERE s.\"projectId\"=p.id)" | tail -1
+  echo "  Project issue-chain: $N empty shell(s) removed"
+fi
+N=$(P "SELECT count(*) FROM \"Department\" d WHERE (d.id LIKE 'isd%' OR d.name ILIKE 'is-dept-%')
+  AND NOT EXISTS (SELECT 1 FROM \"Employee\" e WHERE e.\"departmentId\"=d.id)")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"Department\" d WHERE (d.id LIKE 'isd%' OR d.name ILIKE 'is-dept-%')
+    AND NOT EXISTS (SELECT 1 FROM \"Employee\" e WHERE e.\"departmentId\"=d.id)" | tail -1
+  echo "  Department issue-chain: $N empty shell(s) removed"
+fi
+
+# Land-purchase-chain projects (wlp-*): land purchases carry payments/parcels/
+# docs that all CASCADE from LandPurchase — delete them first (their FK to
+# Project is SET NULL, so deleting the project first would orphan them).
+N=$(P "SELECT count(*) FROM \"LandPurchase\" WHERE \"projectId\" LIKE 'wlp-%'")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"LandPurchase\" WHERE \"projectId\" LIKE 'wlp-%'" | tail -1
+  echo "  LandPurchase wlp-chain: $N row(s) removed"
+fi
+
+# Payroll-GL-chain fixtures (verify-payroll-gl-chain.sh): glce* employees run
+# through real payroll — cascade removes attendance/advances/payroll lines;
+# their JEs fall to the §2b orphan sweep. glcp* projects carry a handful of
+# fixture attendance rows (SET NULL) — delete those first, then the projects.
+N=$(P "SELECT count(*) FROM \"Employee\" WHERE id LIKE 'glce%'")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"Employee\" WHERE id LIKE 'glce%'" | tail -1
+  echo "  Employee glc-chain: $N row(s) removed"
+fi
+PX "DELETE FROM \"WorkerAttendance\" WHERE \"projectId\" LIKE 'glcp%' OR \"projectId\" LIKE 'wlp-%'" >/dev/null
+PX "DELETE FROM \"ProjectCost\" WHERE \"projectId\" LIKE 'glcp%' OR \"projectId\" LIKE 'wlp-%'" >/dev/null
+N=$(P "SELECT count(*) FROM \"Project\" p WHERE (p.id LIKE 'glcp%' OR p.id LIKE 'wlp-%')
+  AND NOT EXISTS (SELECT 1 FROM \"EscrowWithdrawal\" w WHERE w.\"projectId\"=p.id)")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"Project\" p WHERE (p.id LIKE 'glcp%' OR p.id LIKE 'wlp-%')
+    AND NOT EXISTS (SELECT 1 FROM \"EscrowWithdrawal\" w WHERE w.\"projectId\"=p.id)" | tail -1
+  echo "  Project glc/wlp-chain: $N fixture row(s) removed"
 fi
 
 echo "═══ 2b. Orphaned journal entries — JE lines pointing at rows deleted above ═══"
