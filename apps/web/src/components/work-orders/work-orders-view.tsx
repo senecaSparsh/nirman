@@ -1437,7 +1437,7 @@ function WorkOrderDialog({
           <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="Scope description…" />
         </Field>
         <div className="grid gap-3 sm:grid-cols-4">
-          <Field label="Retention %">
+          <Field label="Retention %" hint="Held back from each bill as security until defect liability ends">
             <Input aria-label="Retention Pct" type="number" step="0.01" value={form.retentionPct} onChange={(e) => set("retentionPct", e.target.value)} />
           </Field>
           <Field label="TDS Category">
@@ -1452,10 +1452,10 @@ function WorkOrderDialog({
               </p>
             )}
           </Field>
-          <Field label="Advance Amount">
+          <Field label="Advance Amount" hint="Upfront payment to the subcontractor">
             <Input aria-label="Advance Amount" type="number" step="0.01" value={form.advanceAmount} onChange={(e) => set("advanceAmount", e.target.value)} />
           </Field>
-          <Field label="Advance Recovery %">
+          <Field label="Advance Recovery %" hint="% of each bill used to repay the advance">
             <Input aria-label="Advance Recovery Pct" type="number" step="0.01" value={form.advanceRecoveryPct} onChange={(e) => set("advanceRecoveryPct", e.target.value)} />
           </Field>
         </div>
