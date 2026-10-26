@@ -2,10 +2,12 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, toNum, scopeWhere, getEffectivePermissions } from "@/lib/server";
+import { getCompany, getCurrentUser, toNum, scopeWhere, getEffectivePermissions, getActingRole } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatDate, formatCurrencyCompact } from "@/lib/utils";
-import { notCreatedBy, notRequestedBy, notSubmittedByUser } from "@/lib/approval-queue";
+import { notCreatedBy, notRequestedBy, notSubmittedBy, notSubmittedByUser } from "@/lib/approval-queue";
+import { actionableGatePassWhere } from "@/lib/approval-actionable";
+import { canAutoApprove, canWaiveSelfApproval } from "@nirman/services";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import {
   ClipboardList,
@@ -16,6 +18,10 @@ import {
   Hammer,
   AlertCircle,
   ArrowRight,
+  ShieldCheck,
+  Receipt,
+  IndianRupee,
+  UserCheck,
 } from "lucide-react";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
@@ -54,6 +60,14 @@ async function MobilePendingListContent() {
   const canSeePayroll = __effPerms.includes(PERM.PAYROLL_VIEW) || __effPerms.includes(PERM.PAYROLL_MANAGE);
   const canApprovePo = __effPerms.includes(PERM.PO_APPROVE);
   const canApproveReq = __effPerms.includes(PERM.REQUISITION_APPROVE);
+  // Remaining actionable types — parity with /hr/pending and the sidebar
+  // badge (gate passes, RA bills, expenses, claims, advances, punch-fix).
+  const canApproveExpense = __effPerms.includes(PERM.EXPENSE_APPROVE);
+  const canApproveRaBill = __effPerms.includes(PERM.RA_APPROVE);
+  const __acting = await getActingRole();
+  const selfNotSubmitted = !currentUser || canWaiveSelfApproval(__acting) ? {} : notSubmittedBy(userId);
+  const selfNotCreated = !currentUser || canAutoApprove(__acting) ? {} : notCreatedBy(userId);
+  const gatePassWhere = await actionableGatePassWhere(company.id);
 
   if (!__effPerms.includes(PERM.HR_VIEW)) {
     return (
@@ -71,6 +85,12 @@ async function MobilePendingListContent() {
     pendingRequisitions,
     overdueTasks,
     pendingTasks,
+    pendingGatePasses,
+    pendingRaBills,
+    pendingExpenses,
+    pendingClaims,
+    pendingAdvances,
+    pendingCorrections,
   ] = await Promise.all([
     canApproveDpr ? prisma.dailyProgressReport.findMany({
       where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: approvableDprStatuses }, ...notSubmittedByUser(userId), date: { lte: new Date() } },
@@ -133,11 +153,68 @@ async function MobilePendingListContent() {
       take: 15,
       include: { assignedTo: { select: { name: true } } },
     }),
+    // Gate passes pending approval — same actionable where as the badge.
+    gatePassWhere
+      ? prisma.gatePass.findMany({
+          where: gatePassWhere,
+          orderBy: { createdAt: "desc" },
+          take: 15,
+          include: {
+            project: { select: { name: true } },
+            submittedBy: { select: { name: true } },
+          },
+        })
+      : Promise.resolve([]),
+    canApproveRaBill
+      ? prisma.raBill.findMany({
+          where: { ...(await scopeWhere("RaBill")), companyId: company.id, status: "SUBMITTED", ...selfNotSubmitted, ...selfNotCreated },
+          orderBy: { createdAt: "desc" },
+          take: 15,
+          include: {
+            project: { select: { name: true } },
+            workOrder: { select: { workOrderNumber: true, subcontractor: { select: { name: true } } } },
+          },
+        })
+      : Promise.resolve([]),
+    canApproveExpense
+      ? prisma.expense.findMany({
+          where: { ...(await scopeWhere("Expense")), companyId: company.id, status: "PENDING", ...selfNotSubmitted },
+          orderBy: { createdAt: "desc" },
+          take: 15,
+          include: { project: { select: { name: true } } },
+        })
+      : Promise.resolve([]),
+    canApproveExpense
+      ? prisma.expenseClaim.findMany({
+          where: { ...(await scopeWhere("ExpenseClaim", {})), companyId: company.id, status: "SUBMITTED", ...selfNotSubmitted },
+          orderBy: { createdAt: "desc" },
+          take: 15,
+          include: { claimant: { select: { name: true } } },
+        })
+      : Promise.resolve([]),
+    canManageLeave
+      ? prisma.employeeAdvance.findMany({
+          where: { ...(await scopeWhere("EmployeeAdvance")), companyId: company.id, status: "REQUESTED" },
+          orderBy: { createdAt: "desc" },
+          take: 15,
+          include: { employee: { select: { name: true } } },
+        })
+      : Promise.resolve([]),
+    canManageLeave
+      ? prisma.attendanceCorrectionRequest.findMany({
+          where: { ...(await scopeWhere("AttendanceCorrectionRequest")), companyId: company.id, status: "REQUESTED" },
+          orderBy: { createdAt: "desc" },
+          take: 15,
+          include: { employee: { select: { name: true } } },
+        })
+      : Promise.resolve([]),
   ]);
 
   const totalCount =
     pendingDprs.length + pendingLeaves.length + draftPayrolls.length +
     pendingPurchaseOrders.length + pendingRequisitions.length +
+    pendingGatePasses.length + pendingRaBills.length + pendingExpenses.length +
+    pendingClaims.length + pendingAdvances.length + pendingCorrections.length +
     overdueTasks.length + pendingTasks.length;
 
   return (
@@ -284,6 +361,132 @@ async function MobilePendingListContent() {
               subtitle={`${r.project?.name ?? "No project"} · ${r.requestedBy?.name ?? "Unknown"}`}
               meta={formatDate(r.createdAt)}
               href={`/m/procurement/${r.id}`}
+              tone="signal"
+            />
+          ))}
+        </MobilePendingSection>
+      )}
+
+      {/* Gate passes pending approval */}
+      {pendingGatePasses.length > 0 && (
+        <MobilePendingSection
+          title="Gate Passes Pending Approval"
+          icon={<ShieldCheck className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />}
+          count={pendingGatePasses.length}
+          tone="signal"
+        >
+          {pendingGatePasses.map((g) => (
+            <PendingRow
+              key={g.id}
+              title={g.gatePassNumber}
+              subtitle={`${g.project?.name ?? "No project"} · ${g.category.replaceAll("_", " ").toLowerCase()}`}
+              meta={g.submittedBy?.name ?? "Unassigned"}
+              href="/m/approvals"
+              tone="signal"
+            />
+          ))}
+        </MobilePendingSection>
+      )}
+
+      {/* RA bills pending approval */}
+      {pendingRaBills.length > 0 && (
+        <MobilePendingSection
+          title="RA Bills Pending Approval"
+          icon={<FileText className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />}
+          count={pendingRaBills.length}
+          tone="signal"
+        >
+          {pendingRaBills.map((b) => (
+            <PendingRow
+              key={b.id}
+              title={b.raBillNumber}
+              subtitle={`${b.workOrder?.subcontractor?.name ?? "Subcontractor"} · ${b.project?.name ?? "No project"}`}
+              meta={formatCurrencyCompact(toNum(b.netPayable))}
+              href="/m/approvals"
+              tone="signal"
+            />
+          ))}
+        </MobilePendingSection>
+      )}
+
+      {/* Expenses pending approval */}
+      {pendingExpenses.length > 0 && (
+        <MobilePendingSection
+          title="Expenses Pending Approval"
+          icon={<Wallet className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />}
+          count={pendingExpenses.length}
+          tone="signal"
+        >
+          {pendingExpenses.map((e) => (
+            <PendingRow
+              key={e.id}
+              title={e.category.replaceAll("_", " ").toLowerCase()}
+              subtitle={e.project?.name ?? "No project"}
+              meta={formatCurrencyCompact(toNum(e.amount))}
+              href="/m/approvals"
+              tone="signal"
+            />
+          ))}
+        </MobilePendingSection>
+      )}
+
+      {/* Expense claims pending approval */}
+      {pendingClaims.length > 0 && (
+        <MobilePendingSection
+          title="Expense Claims Pending"
+          icon={<Receipt className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />}
+          count={pendingClaims.length}
+          tone="signal"
+        >
+          {pendingClaims.map((c) => (
+            <PendingRow
+              key={c.id}
+              title={c.description?.slice(0, 60) || "Expense claim"}
+              subtitle={`Submitted by ${c.claimant?.name ?? "Unknown"}`}
+              meta={formatDate(c.createdAt)}
+              href="/m/approvals"
+              tone="signal"
+            />
+          ))}
+        </MobilePendingSection>
+      )}
+
+      {/* Advance requests */}
+      {pendingAdvances.length > 0 && (
+        <MobilePendingSection
+          title="Advance Requests"
+          icon={<IndianRupee className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />}
+          count={pendingAdvances.length}
+          tone="signal"
+        >
+          {pendingAdvances.map((a) => (
+            <PendingRow
+              key={a.id}
+              title={a.employee?.name ?? "Unknown employee"}
+              subtitle="Salary advance requested"
+              meta={formatCurrencyCompact(toNum(a.amount))}
+              href="/m/approvals"
+              tone="signal"
+            />
+          ))}
+        </MobilePendingSection>
+      )}
+
+      {/* Punch-fix requests */}
+      {pendingCorrections.length > 0 && (
+        <MobilePendingSection
+          title="Punch-fix Requests"
+          icon={<UserCheck className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />}
+          count={pendingCorrections.length}
+          tone="signal"
+        >
+          {pendingCorrections.map((c) => (
+            <PendingRow
+              key={c.id}
+              title={c.employee?.name ?? "Unknown employee"}
+              subtitle={c.reason?.slice(0, 60) || "Attendance correction"}
+              meta={formatDate(c.date)}
+              href="/m/approvals"
               tone="signal"
             />
           ))}
