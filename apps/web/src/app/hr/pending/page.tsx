@@ -435,7 +435,7 @@ async function PendingListContent() {
             title: b.raBillNumber,
             subtitle: `${b.workOrder?.subcontractor?.name ?? "Subcontractor"} · ${b.project?.name ?? "No project"}`,
             meta: formatCurrency(toNum(b.netPayable)),
-            href: "/work-orders",
+            href: "/approvals",
             tone: "warning" as const,
           }))}
         />
@@ -453,7 +453,7 @@ async function PendingListContent() {
             title: e.category.replaceAll("_", " ").toLowerCase(),
             subtitle: e.project?.name ?? "No project",
             meta: formatCurrency(toNum(e.amount)),
-            href: "/finance?tab=expenses",
+            href: "/approvals",
             tone: "warning" as const,
           }))}
         />
@@ -471,7 +471,7 @@ async function PendingListContent() {
             title: c.description?.slice(0, 60) || "Expense claim",
             subtitle: `Submitted by ${c.submittedBy?.name ?? "Unknown"}`,
             meta: formatDate(c.createdAt),
-            href: "/finance?tab=claims",
+            href: "/approvals",
             tone: "warning" as const,
           }))}
         />
