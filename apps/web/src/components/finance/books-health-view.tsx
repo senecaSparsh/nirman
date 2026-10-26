@@ -266,7 +266,9 @@ function CheckCard({ check, onActionDone }: { check: CheckRow; onActionDone?: ()
               <ChevronDown
                 className={cn("size-3.5 transition-transform", expanded && "rotate-180")}
               />
-              {check.details.length} divergent item{check.details.length > 1 ? "s" : ""}
+              {check.status === "PASS"
+                ? `View breakdown (${check.details.length})`
+                : `${check.details.length} divergent item${check.details.length > 1 ? "s" : ""}`}
             </button>
             {expanded && (
               <div className="mt-2 overflow-x-auto">
@@ -292,7 +294,11 @@ function CheckCard({ check, onActionDone }: { check: CheckRow; onActionDone?: ()
                         <td
                           className={cn(
                             "py-1.5 text-right tnum font-medium",
-                            d.delta < 0 ? "text-danger" : "text-warning",
+                            Number(d.delta) < 0
+                              ? "text-danger"
+                              : Number(d.delta) > 0
+                                ? "text-warning"
+                                : "text-muted-foreground",
                           )}
                         >
                           {d.delta > 0 ? "+" : ""}

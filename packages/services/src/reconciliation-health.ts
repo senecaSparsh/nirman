@@ -388,14 +388,28 @@ export async function reconcileInventoryGl(
     new Decimal(0),
   );
 
+  const delta = stockValue.plus(inTransitValue).minus(glBalance);
+  const status = statusForDelta(delta, tolerance, "1");
+
   const details: ReconciliationDetail[] = [];
+  if (status !== "PASS" || inTransitQty.gt(0)) {
+    // The residual the in-transit note doesn't explain — emitted whenever the
+    // check isn't clean so detail deltas sum back to the headline delta.
+    details.push({
+      id: "on-hand",
+      label: "On-hand stock across all locations",
+      expected: glBalance.toFixed(2),
+      actual: stockValue.toFixed(2),
+      delta: stockValue.minus(glBalance).toFixed(2),
+    });
+  }
   if (inTransitQty.gt(0)) {
     details.push({
       id: "in-transit",
       label: "In-transit stock (dispatched, not yet received)",
-      expected: "0",
-      actual: inTransitValue.toString(),
-      delta: "0",
+      expected: "0.00",
+      actual: inTransitValue.toFixed(2),
+      delta: inTransitValue.toFixed(2),
     });
   }
 
