@@ -358,13 +358,20 @@ export function QuickActionsBar({
     }
   }
 
-  // 3 columns when the row count divides evenly by 3 but leaves a straggler
-  // row in 4 (e.g. 6 items → 3+3 instead of 4+2; 9 → 3+3+3 vs 4+4+1).
-  const gridCols =
-    activeTab.columns === 3 ||
-    (orderedActions.length % 3 === 0 && orderedActions.length % 4 !== 0)
-      ? "grid-cols-3"
-      : "grid-cols-4";
+  // Pick the column count whose last row is fullest — a lone leftover
+  // tile (4+4+1) reads as broken next to a balanced grid. 1–4 tiles get
+  // an exact-width row; beyond that prefer whichever of 3/4 columns
+  // leaves the fuller last row (5→3+2, 6→3+3, 7→4+3, 9→3+3+3, 10→4+4+2).
+  const pickCols = (count: number) => {
+    if (activeTab.columns === 3) return "grid-cols-3";
+    if (count <= 4) return { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-4" }[Math.max(count, 1)]!;
+    const lastRow4 = count % 4 || 4;
+    const lastRow3 = count % 3 || 3;
+    return lastRow3 > lastRow4 ? "grid-cols-3" : "grid-cols-4";
+  };
+  const gridCols = pickCols(orderedActions.length);
+  // Edit mode adds the "+ Add" tile, so it sizes its own count.
+  const editGridCols = pickCols(editActions.length + 1);
 
   return (
     // data-tour="quick-actions": the product tour's step 1 spotlights this
@@ -410,7 +417,7 @@ export function QuickActionsBar({
           onDragEnd={onDragEnd}
         >
           <SortableContext items={editActions.map((a) => a.key)} strategy={rectSortingStrategy}>
-            <div className={`grid ${gridCols} gap-1.5 mb-2`}>
+            <div className={`grid ${editGridCols} gap-1.5 mb-2`}>
               {editActions.map((action) => (
                 <SortableTile
                   key={action.key}
