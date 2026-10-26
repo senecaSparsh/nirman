@@ -114,8 +114,8 @@ const employeeColumns: Column<EmployeeRow>[] = [
           {initials(e.name)}
         </span>
         <div className="min-w-0">
-          <div className="font-medium text-foreground"><EmployeeName id={e.id} name={e.name} /></div>
-          {e.designation && <div className="text-caption text-muted-foreground">{e.designation}</div>}
+          <div className="whitespace-nowrap font-medium text-foreground"><EmployeeName id={e.id} name={e.name} /></div>
+          {e.designation && <div className="whitespace-nowrap text-caption text-muted-foreground">{e.designation}</div>}
         </div>
       </div>
     ),
