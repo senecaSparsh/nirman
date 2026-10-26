@@ -263,10 +263,16 @@ export async function approveRequisition(reqId: string, approvedById?: string, a
       include: {
         project: { select: { companyId: true } },
         department: { select: { companyId: true } },
+        _count: { select: { lines: true } },
       },
     });
     if (!req) throw new ServiceError("Indent not found", 404);
     if (req.status !== "SUBMITTED") throw new ServiceError(`Cannot approve indent in status ${req.status}`);
+    // An indent with no material lines is meaningless to approve — mirrors
+    // the submit-time guard for rows that predate it.
+    if (req._count.lines === 0) {
+      throw new ServiceError("Indent has no material lines — add lines before approving");
+    }
     // Prevent self-approval — the requester or submitter cannot approve their
     // own requisition, unless they're a tier-1 role (OWNER/ADMIN) where no
     // higher approver exists.

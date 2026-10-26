@@ -93,6 +93,7 @@ describe("approveRequisition — self-approval guard", () => {
           requestedById: "user-1",
           project: { companyId: "c1" },
           department: null,
+          _count: { lines: 1 },
         }),
       },
     });
@@ -111,6 +112,7 @@ describe("approveRequisition — self-approval guard", () => {
           requestedById: "user-2",
           project: { companyId: "c1" },
           department: null,
+          _count: { lines: 1 },
         }),
       },
     });
@@ -129,6 +131,7 @@ describe("approveRequisition — self-approval guard", () => {
           requestedById: "user-1",
           project: { companyId: "c1" },
           department: null,
+          _count: { lines: 1 },
         }),
       },
     });
@@ -158,6 +161,7 @@ describe("approveRequisition — self-approval guard", () => {
             requestedById: "user-1",
             project: { companyId: "c1" },
             department: null,
+            _count: { lines: 1 },
           }),
         },
       });
@@ -177,6 +181,7 @@ describe("approveRequisition — self-approval guard", () => {
           requestedById: "user-1",
           project: { companyId: "c1" },
           department: null,
+          _count: { lines: 1 },
         }),
       },
     });
@@ -197,6 +202,7 @@ describe("approveRequisition — self-approval guard", () => {
             requestedById: "user-1",
             project: { companyId: "c1" },
             department: null,
+            _count: { lines: 1 },
           }),
         },
       });
@@ -228,6 +234,7 @@ describe("rejectRequisition — self-rejection guard", () => {
           requestedById: "user-1",
           project: { companyId: "c1" },
           department: null,
+          _count: { lines: 1 },
         }),
       },
     });
@@ -246,6 +253,7 @@ describe("rejectRequisition — self-rejection guard", () => {
           requestedById: "user-2",
           project: { companyId: "c1" },
           department: null,
+          _count: { lines: 1 },
         }),
       },
     });
