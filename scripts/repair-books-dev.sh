@@ -73,12 +73,28 @@ for pair in \
   "LeaveApplication:reason" "WorkerAttendance:notes" \
   "AttendanceCorrectionRequest:reason" "ExpenseClaim:notes" \
   "Expense:notes" "AssetSale:notes" "MaterialSale:notes" \
+  "MeasurementBookEntry:description" "WbsNode:name" "BuiltUnit:unitNumber" \
 ; do
   T="${pair%%:*}"; COL="${pair##*:}"
   N=$(P "SELECT count(*) FROM \"$T\" WHERE \"$COL\" ILIKE 'wf %' OR \"$COL\" ILIKE 'wf-%'" 2>/dev/null)
   if [ "${N:-0}" != "0" ]; then
     PX "DELETE FROM \"$T\" WHERE \"$COL\" ILIKE 'wf %' OR \"$COL\" ILIKE 'wf-%'" 2>&1 | tail -1
     echo "  $T.$COL: $N fixture row(s) removed"
+  fi
+done
+
+# clp-chain BOQ items sit under Restrict FKs (MeasurementBookEntry above must
+# go first; WO lines / RaBill lines shouldn't exist but guard anyway so a
+# referenced item is skipped loudly rather than failing the whole run).
+for pair in "description:wf clp verify" "serialNo:WF-CLP"; do
+  COL="${pair%%:*}"
+  N=$(P "SELECT count(*) FROM \"BoqItem\" b WHERE b.\"$COL\" ILIKE '${pair##*:}%'")
+  if [ "${N:-0}" != "0" ]; then
+    PX "DELETE FROM \"BoqItem\" b WHERE b.\"$COL\" ILIKE '${pair##*:}%'
+      AND NOT EXISTS (SELECT 1 FROM \"MeasurementBookEntry\" m WHERE m.\"boqItemId\"=b.id)
+      AND NOT EXISTS (SELECT 1 FROM \"SubcontractorWorkOrderLine\" w WHERE w.\"boqItemId\"=b.id)
+      AND NOT EXISTS (SELECT 1 FROM \"RaBillLine\" r WHERE r.\"boqItemId\"=b.id)" 2>&1 | tail -1
+    echo "  BoqItem.$COL: $N fixture row(s) removed (unguarded refs skipped)"
   fi
 done
 
