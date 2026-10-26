@@ -24,7 +24,7 @@ export async function MbContent() {
   const projects = await prisma.project.findMany({
     take: 200,
     where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
-    orderBy: { name: "asc" },
+    orderBy: [{ mbEntries: { _count: "desc" } }, { name: "asc" }],
     select: { id: true, name: true, type: true, status: true },
   });
 

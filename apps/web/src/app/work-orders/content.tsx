@@ -26,7 +26,9 @@ export async function WoContent() {
   const { rows: projects, capped } = applyCap(await prisma.project.findMany({
     take: 201,
     where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
-    orderBy: { name: "asc" },
+    // Projects with work orders first — the picker defaults to [0], so an
+    // empty project must never outrank one with data.
+    orderBy: [{ subcontractorWorkOrders: { _count: "desc" } }, { name: "asc" }],
     select: { id: true, name: true, type: true, status: true },
   }));
   const cappedLabels = capped ? ["projects"] : [];
