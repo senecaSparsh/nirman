@@ -80,7 +80,9 @@ export type LowStockRow = {
   categoryName: string;
   unit: string;
   totalQty: number;
-  minStock: number;
+  reorderPoint: number;
+  minStock: number | null;
+  critical: boolean;
   shortfall: number;
   standardCost: number;
 };

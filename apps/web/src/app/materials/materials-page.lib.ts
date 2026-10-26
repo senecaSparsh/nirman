@@ -78,7 +78,7 @@ export function mapMaterialRow(m: RawMaterial): MaterialRow {
     description: m.description,
     totalQty,
     totalValue,
-    lowStock: m.minStock != null && totalQty < toNum(m.minStock),
+    lowStock: m.reorderPoint != null && totalQty <= toNum(m.reorderPoint),
   };
 }
 
@@ -94,8 +94,9 @@ export function mapCategoryRow(c: RawCategory): MaterialCategory {
 }
 
 /**
- * Build the low-stock rows from raw materials that have a minStock set.
- * Filters to only those actually below min, sorted by shortfall (desc).
+ * Build the low-stock rows from raw materials that have a reorderPoint set —
+ * matching `lowStockAlerts` (stock <= reorderPoint; minStock is the stricter
+ * "critical" floor). Sorted by shortfall (desc).
  */
 export function buildLowStockRows(
   materials: Array<{
@@ -104,6 +105,7 @@ export function buildLowStockRows(
     name: string;
     category: { name: string };
     unit: string;
+    reorderPoint: unknown;
     minStock: unknown;
     standardCost: unknown;
     stockItems: Array<{ qty: unknown }>;
@@ -112,7 +114,8 @@ export function buildLowStockRows(
   return materials
     .map((m) => {
       const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
-      const minStock = toNum(m.minStock);
+      const reorderPoint = toNum(m.reorderPoint);
+      const minStock = m.minStock == null ? null : toNum(m.minStock);
       return {
         id: m.id,
         code: m.code,
@@ -120,12 +123,14 @@ export function buildLowStockRows(
         categoryName: m.category.name,
         unit: m.unit,
         totalQty,
+        reorderPoint,
         minStock,
-        shortfall: minStock - totalQty,
+        critical: minStock != null && totalQty <= minStock,
+        shortfall: reorderPoint - totalQty,
         standardCost: toNum(m.standardCost),
       };
     })
-    .filter((r) => toNum(r.totalQty) < toNum(r.minStock))
+    .filter((r) => r.totalQty <= r.reorderPoint)
     .sort((a, b) => b.shortfall - a.shortfall);
 }
 

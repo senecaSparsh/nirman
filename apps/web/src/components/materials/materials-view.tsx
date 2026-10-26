@@ -476,11 +476,16 @@ function LowStockTab({ lowStock }: { lowStock: LowStockRow[] }) {
       render: (r) => <span className="tnum text-muted-foreground">{formatNumber(r.totalQty, 0)} {r.unit}</span>,
     },
     {
-      key: "minStock",
-      label: "Min",
+      key: "reorderPoint",
+      label: "Reorder at",
       align: "right",
       sortable: true,
-      render: (r) => <span className="tnum text-muted-foreground">{formatNumber(r.minStock, 0)} {r.unit}</span>,
+      render: (r) => (
+        <span className="tnum text-muted-foreground">
+          {formatNumber(r.reorderPoint, 0)} {r.unit}
+          {r.critical && <span className="ml-1 text-micro font-semibold text-danger">critical</span>}
+        </span>
+      ),
     },
     {
       key: "shortfall",
@@ -507,7 +512,7 @@ function LowStockTab({ lowStock }: { lowStock: LowStockRow[] }) {
         <EmptyState
           icon={<AlertTriangle className="h-5 w-5" />}
           title="No low-stock alerts"
-          description="Materials dropping below their minimum stock threshold will appear here."
+          description="Materials at or below their reorder point will appear here — raise an indent before the site runs out."
         />
       ) : (
         /*

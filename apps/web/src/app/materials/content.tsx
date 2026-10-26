@@ -55,7 +55,7 @@ export async function MaterialsContent() {
     }).then(capQ("materials")),
     prisma.material.findMany({
       take: LIST_CAP + 1,
-      where: { companyId: company.id, deletedAt: null, minStock: { not: null } },
+      where: { companyId: company.id, deletedAt: null, reorderPoint: { not: null } },
       include: {
         category: { select: { name: true } },
         stockItems: {
@@ -74,7 +74,7 @@ export async function MaterialsContent() {
 
   // Header stats need complete aggregates — both lists above are capped.
   // Stock value (qty × movingAvgCost) can't be expressed in prisma.aggregate,
-  // and low-stock needs a per-material SUM(qty) < minStock comparison, so both
+  // and low-stock needs a per-material SUM(qty) <= reorderPoint comparison, so both
   // run as raw SQL with the same location scoping the list queries use.
   const scope = await getUserScope();
   let locScope: Prisma.Sql;
@@ -105,14 +105,14 @@ export async function MaterialsContent() {
     prisma.$queryRaw<{ n: number }[]>(Prisma.sql`
       SELECT COUNT(*)::int AS n FROM "Material" m
       WHERE m."companyId" = ${company.id} AND m."deletedAt" IS NULL
-        AND m."minStock" IS NOT NULL
+        AND m."reorderPoint" IS NOT NULL
         AND COALESCE((
           SELECT SUM(si.qty) FROM "StockLocationItem" si
           JOIN "StockLocation" l ON l.id = si."locationId"
           WHERE si."materialId" = m.id
             AND l."companyId" = ${company.id} AND l."deletedAt" IS NULL
             ${locScope}
-        ), 0) < m."minStock"
+        ), 0) <= m."reorderPoint"
     `),
   ]);
 
@@ -148,7 +148,7 @@ export async function MaterialsContent() {
       description: m.description,
       totalQty,
       totalValue,
-      lowStock: m.minStock != null && totalQty < toNum(m.minStock),
+      lowStock: m.reorderPoint != null && totalQty <= toNum(m.reorderPoint),
     };
   });
 
@@ -163,7 +163,8 @@ export async function MaterialsContent() {
   const lowStockRows: LowStockRow[] = lowStockMaterials
     .map((m) => {
       const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
-      const minStock = toNum(m.minStock);
+      const reorderPoint = toNum(m.reorderPoint);
+      const minStock = m.minStock == null ? null : toNum(m.minStock);
       return {
         id: m.id,
         code: m.code,
@@ -171,12 +172,14 @@ export async function MaterialsContent() {
         categoryName: m.category.name,
         unit: m.unit,
         totalQty,
+        reorderPoint,
         minStock,
-        shortfall: minStock - totalQty,
+        critical: minStock != null && totalQty <= minStock,
+        shortfall: reorderPoint - totalQty,
         standardCost: toNum(m.standardCost),
       };
     })
-    .filter((r) => toNum(r.totalQty) < toNum(r.minStock))
+    .filter((r) => r.totalQty <= r.reorderPoint)
     .sort((a, b) => b.shortfall - a.shortfall);
 
   const stockValue = toNum(stockAgg[0]?.stock_value);
@@ -189,7 +192,7 @@ export async function MaterialsContent() {
         stats={[
           { label: "Materials", value: materialCount, hint: "Total material items in the catalogue, including those with zero stock." },
           { label: "Stock value", value: formatCurrency(stockValue), hint: "Total value of on-hand stock for this company, valued at moving average cost." },
-          { label: "Low stock", value: lowStockAgg[0]?.n ?? 0, hint: "Materials whose current stock has fallen below their minimum stock level." },
+          { label: "Low stock", value: lowStockAgg[0]?.n ?? 0, hint: "Materials at or below their reorder point — time to raise an indent." },
         ]}
       />
       {cappedLabels.length > 0 && (

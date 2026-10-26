@@ -27,8 +27,8 @@ describe("mapMaterialRow", () => {
     hsnCode: "25232900",
     gstRate: 28,
     standardCost: 350,
-    minStock: 100,
-    reorderPoint: 50,
+    minStock: 50,
+    reorderPoint: 100,
     economicOrderQty: 200,
     volumetricDensity: null,
     bulkDiscountPct: 5,
@@ -80,18 +80,18 @@ describe("mapMaterialRow", () => {
     expect(row.reorderPoint).toBeNull();
   });
 
-  it("detects low stock when totalQty < minStock", () => {
+  it("detects low stock when totalQty <= reorderPoint", () => {
     const row = mapMaterialRow(rawMaterial);
-    expect(row.lowStock).toBe(true); // 80 < 100
+    expect(row.lowStock).toBe(true); // 80 <= 100
   });
 
-  it("does not flag low stock when totalQty >= minStock", () => {
+  it("does not flag low stock when totalQty > reorderPoint", () => {
     const row = mapMaterialRow({ ...rawMaterial, stockItems: [{ qty: 150, movingAvgCost: 340 }] });
-    expect(row.lowStock).toBe(false); // 150 >= 100
+    expect(row.lowStock).toBe(false); // 150 > 100
   });
 
-  it("does not flag low stock when minStock is null", () => {
-    const row = mapMaterialRow({ ...rawMaterial, minStock: null });
+  it("does not flag low stock when reorderPoint is null", () => {
+    const row = mapMaterialRow({ ...rawMaterial, reorderPoint: null });
     expect(row.lowStock).toBe(false);
   });
 
@@ -138,9 +138,10 @@ describe("buildLowStockRows", () => {
       name: "Material A",
       category: { name: "Cat A" },
       unit: "BAG",
-      minStock: 100,
+      reorderPoint: 100,
+      minStock: 40,
       standardCost: 350,
-      stockItems: [{ qty: 50 }], // shortfall = 50
+      stockItems: [{ qty: 50 }], // shortfall = 50; 50 > 40 → not critical
     },
     {
       id: "m2",
@@ -148,9 +149,10 @@ describe("buildLowStockRows", () => {
       name: "Material B",
       category: { name: "Cat B" },
       unit: "KG",
-      minStock: 200,
+      reorderPoint: 200,
+      minStock: 120,
       standardCost: 50,
-      stockItems: [{ qty: 100 }], // shortfall = 100
+      stockItems: [{ qty: 100 }], // shortfall = 100; 100 <= 120 → critical
     },
     {
       id: "m3",
@@ -158,13 +160,14 @@ describe("buildLowStockRows", () => {
       name: "Material C",
       category: { name: "Cat C" },
       unit: "L",
-      minStock: 50,
+      reorderPoint: 50,
+      minStock: 10,
       standardCost: 100,
-      stockItems: [{ qty: 60 }], // NOT low stock (60 >= 50)
+      stockItems: [{ qty: 60 }], // NOT low stock (60 > 50)
     },
   ];
 
-  it("filters to only materials below minStock", () => {
+  it("filters to only materials at/below reorderPoint", () => {
     const rows = buildLowStockRows(materials);
     expect(rows).toHaveLength(2);
     expect(rows.map((r) => r.id)).toEqual(["m2", "m1"]); // sorted by shortfall desc
@@ -177,10 +180,16 @@ describe("buildLowStockRows", () => {
     expect(rows[1]!.id).toBe("m1"); // shortfall 50
   });
 
+  it("marks critical when at/below minStock floor", () => {
+    const rows = buildLowStockRows(materials);
+    expect(rows.find((r) => r.id === "m2")?.critical).toBe(true);
+    expect(rows.find((r) => r.id === "m1")?.critical).toBe(false);
+  });
+
   it("computes shortfall correctly", () => {
     const rows = buildLowStockRows(materials);
     const m1 = rows.find((r) => r.id === "m1");
-    expect(m1?.shortfall).toBe(50); // 100 - 50
+    expect(m1?.shortfall).toBe(50); // reorderPoint 100 - qty 50
   });
 
   it("computes totalQty from stock items", () => {
@@ -197,7 +206,8 @@ describe("buildLowStockRows", () => {
         name: "Material A",
         category: { name: "Cat A" },
         unit: "BAG",
-        minStock: 10,
+        reorderPoint: 10,
+        minStock: 5,
         standardCost: 100,
         stockItems: [{ qty: 50 }],
       },
@@ -213,7 +223,8 @@ describe("buildLowStockRows", () => {
         name: "Material A",
         category: { name: "Cat A" },
         unit: "BAG",
-        minStock: 100,
+        reorderPoint: 100,
+        minStock: 30,
         standardCost: 100,
         stockItems: [{ qty: 20 }, { qty: 30 }, { qty: 10 }], // total = 60
       },
