@@ -59,7 +59,10 @@ async function MaterialSalesContent() {
         },
         returns: {
           where: { status: "COMPLETED" },
-          select: { totalAmount: true },
+          select: {
+            totalAmount: true,
+            lines: { select: { qty: true, unitPrice: true, unitCost: true } },
+          },
         },
       },
     }),
@@ -106,7 +109,12 @@ async function MaterialSalesContent() {
     stockMap.set(`${si.locationId}|${si.materialId}`, { qty: toNum(si.qty), mac: toNum(si.movingAvgCost) });
   }
 
-  const saleRows = sales.map((s) => ({
+  const saleRows = sales.map((s) => {
+    const returnedProfit = s.returns.reduce(
+      (sum, r) => sum + r.lines.reduce((ls, l) => ls + toNum(l.qty) * (toNum(l.unitPrice) - toNum(l.unitCost)), 0),
+      0,
+    );
+    return {
     id: s.id,
     saleNumber: s.saleNumber,
     customerId: s.customerId,
@@ -119,7 +127,7 @@ async function MaterialSalesContent() {
     gstTotal: toNum(s.gstTotal),
     totalAmount: toNum(s.totalAmount),
     totalCost: toNum(s.totalCost),
-    grossProfit: toNum(s.grossProfit),
+    grossProfit: ((net) => (Math.abs(net) < 0.5 ? 0 : net))(toNum(s.grossProfit) - returnedProfit),
     scrapSubtotal: toNum(s.scrapSubtotal),
     returnedTotal: s.returns.reduce((sum, r) => sum + toNum(r.totalAmount), 0),
     partyName: s.partyName,
@@ -166,7 +174,8 @@ async function MaterialSalesContent() {
       gstAmount: toNum(l.gstAmount),
       lineTotal: toNum(l.lineTotal),
     })),
-  }));
+    };
+  });
 
   const activeSales = saleRows.filter((s) => s.status !== "CANCELLED");
   const totalRevenue = activeSales.reduce((s, r) => s + r.totalAmount - r.returnedTotal, 0);
@@ -180,7 +189,7 @@ async function MaterialSalesContent() {
         stats={[
           { label: "Sales", value: activeSales.length, hint: "Active material sales (excluding cancelled)." },
           { label: "Revenue", value: formatCurrency(totalRevenue), hint: "Net revenue across active material sales (after returns)." },
-          { label: "Gross Profit", value: formatCurrency(totalProfit), tone: totalProfit >= 0 ? "success" : "danger", hint: "Gross profit over moving-average material cost." },
+          { label: "Gross Profit", value: formatCurrency(totalProfit), tone: totalProfit >= 0 ? "success" : "danger", hint: "Net profit over moving-average material cost (after returns)." },
         ]}
       />
       <DepartmentActivityFeed department="sales" />
