@@ -60,3 +60,6 @@ packages/*/reports/
 .freebuff/
 # local dev axe-core injection file — never deployed
 apps/web/public/axe.min.js
+
+# local UX/design audit screenshots — evidence artifacts, not source
+audit/
