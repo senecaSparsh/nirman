@@ -322,6 +322,10 @@ s=$(P "SELECT status FROM \"Equipment\" WHERE id='$EQM'")
 { [ "$s" = "AVAILABLE" ] || echo "$r" | grep -q '"error"'; } && { PASS=$((PASS+1)); echo "  PASS equip maintenance ($s)"; } || { FAIL=$((FAIL+1)); echo "  FAIL maint: $r"; }
 
 echo "════════ 27. Leave approve (unlocked period) ════════"
+# Prior runs leave APPROVED wf-leaves on $EMP — a new random window can overlap
+# them and the overlap guard then correctly rejects this run's leave. Clear
+# them first so each run starts clean (final repair sweep also deletes them).
+P "DELETE FROM \"LeaveRequest\" WHERE \"employeeId\"='$EMP' AND reason='wf'"
 LV=$(uid); LDOFF=$((RANDOM % 400 + 400)); P "INSERT INTO \"LeaveRequest\" (id,\"companyId\",\"employeeId\",type,\"startDate\",\"endDate\",days,status,reason,\"updatedAt\",\"createdAt\") VALUES ('$LV','$C','$EMP','UNPAID',now()+interval '$LDOFF days',now()+interval '$((LDOFF+2)) days',3,'PENDING','wf',now(),now())"
 r=$(req POST "leaves/$LV" '{"approve":true}')
 s=$(P "SELECT status FROM \"LeaveRequest\" WHERE id='$LV'")

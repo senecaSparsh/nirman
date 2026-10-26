@@ -70,15 +70,15 @@ if [ "${N:-0}" != "0" ]; then
   echo "  MaterialSaleReturn chain: $N row(s) removed"
 fi
 for pair in \
-  "LeaveApplication:reason" "WorkerAttendance:notes" \
+  "LeaveRequest:reason" "WorkerAttendance:notes" \
   "AttendanceCorrectionRequest:reason" "ExpenseClaim:notes" \
   "Expense:notes" "AssetSale:notes" "MaterialSale:notes" \
   "MeasurementBookEntry:description" "WbsNode:name" "BuiltUnit:unitNumber" \
 ; do
   T="${pair%%:*}"; COL="${pair##*:}"
-  N=$(P "SELECT count(*) FROM \"$T\" WHERE \"$COL\" ILIKE 'wf %' OR \"$COL\" ILIKE 'wf-%'" 2>/dev/null)
+  N=$(P "SELECT count(*) FROM \"$T\" WHERE \"$COL\"='wf' OR \"$COL\" ILIKE 'wf %' OR \"$COL\" ILIKE 'wf-%'" 2>/dev/null)
   if [ "${N:-0}" != "0" ]; then
-    PX "DELETE FROM \"$T\" WHERE \"$COL\" ILIKE 'wf %' OR \"$COL\" ILIKE 'wf-%'" 2>&1 | tail -1
+    PX "DELETE FROM \"$T\" WHERE \"$COL\"='wf' OR \"$COL\" ILIKE 'wf %' OR \"$COL\" ILIKE 'wf-%'" 2>&1 | tail -1
     echo "  $T.$COL: $N fixture row(s) removed"
   fi
 done
