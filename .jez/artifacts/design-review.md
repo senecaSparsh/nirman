@@ -43,6 +43,13 @@ Consistently professional — this is well past "developer-designed". Uniform ca
 - **Mobile Attendance** — one prominent "Check in now" CTA + centered empty state. `/m/attendance`
 - **Reports hub** — lifecycle-grouped cards, each with plain-language "what it answers" copy. `/reports`
 - **Inventory Value report** — symmetric bar+donut pair at equal heights, aligned exports, share-% column. `/reports/inventory-value`
+- **GRN / Field Receiving** — offline-mode banner + cash-purchase escape path in empty state. `/field`
+- **Petty Cash (Finance)** — forecast banner, outstanding-dues alert with dual CTAs, uniform float cards with Spend/Top Up pairs. `/finance?tab=petty-cash`
+- **Transfers tab** — route arrows "Central → Site", status badges, uniform rows. `/stock?tab=transfers`
+- **BOQ empty state** — explains the section→subsection→line-item build path + Add Section CTA. `/boq`
+- **Mobile Stock** — status-colored card borders (amber low / red out / green ok), per-location breakdown. `/m/stock`
+- **Offline Queue** — Online status chip + explains what lands here. `/m/queue`
+- **Mobile approval action flow** — tap row → inline detail (dates/duration/reason) → Approve/Reject/Snooze; service rejections surface as toasts (verified: overlap guard error displayed verbatim). `/m/approvals`
 
 ## What Looks Good
 
