@@ -20,6 +20,12 @@ Consistently professional — this is well past "developer-designed". Uniform ca
 - **Change Orders: unlabeled line-item inputs** at `/change-orders` dialog — 5 crammed inputs, description truncated to "Descript", qty/rate showed bare "0" placeholders. Added a labeled column header on the same grid template + rebalanced widths. (commit `1056ed2f`)
 - **DPR table: 3-line date wrap** at `/dprs` — the narrow DATE column split "Oct 24, 2026" across three lines; every row tripled in height. `whitespace-nowrap` keeps dates single-line. (commit `575cb815`)
 - **Employees table: name column squeezed** at `/hr/employees` — 11 columns overflow the viewport; auto-layout shrank NAME to min-content (~90px) so "Anurag Garg / Civil Head" wrapped 3–4 lines. Nowrap on name+designation lets the column hold its declared 200px; rows are uniform height. (commit `680bbf4b`)
+- **Equipment: double-negative depreciation label** at `/equipment` — rows where currentValue exceeded acquisitionCost rendered "-110% down". Label is now sign-aware ("N% up" / "at cost"). (commit `d0f9d28a`)
+- **Rentals: TOTAL row contradicted KPI** at `/rentals` — footer summed all rows' monthlyRent (₹1.60L incl. a cancelled tenancy) while the header KPI counted ACTIVE only (₹1.20L). Added a `sumValue` column option to DataTable so cancelled rows display their historical rent but contribute 0. (commit `eb734a16`)
+
+### Backend integrity (found via UI)
+
+- **Empty indents were submittable** — mobile approvals showed "0 lines" indents; `submitRequisition` validated status but never counted lines. Transaction now refuses `_count.lines === 0`; four zero-line seed rows cleaned. Tests in `requisition-submit.test.ts`. (commit `4cda300e`)
 
 ## Findings — Verified OK (not defects)
 
@@ -30,6 +36,13 @@ Consistently professional — this is well past "developer-designed". Uniform ca
 - **Mobile DPR list** — date-grouped cards with approval-chain progress + manpower gauges; symmetric.
 - **Field dashboard DPR-lock banner** — explains _why_ locked + path forward + Snooze. Best-in-class UX.
 - **Project detail** — 7-cell KPI strip + RERA escrow card + tabbed sections; dense but disciplined.
+- **Gate Passes** — 4-stat strip, single-line dates, vehicle/destination alignment. `/gate-passes`
+- **Vendors** — dues color-coded (red owed / muted settled), stale "yesterday" flagged. `/suppliers`
+- **Equipment** — status-grouped sections with aggregate subtotals in group headers; depreciation % sub-labels. `/equipment`
+- **My Tasks** — uniform task cards, consistent Start/Complete button pair. `/my-tasks`
+- **Mobile Attendance** — one prominent "Check in now" CTA + centered empty state. `/m/attendance`
+- **Reports hub** — lifecycle-grouped cards, each with plain-language "what it answers" copy. `/reports`
+- **Inventory Value report** — symmetric bar+donut pair at equal heights, aligned exports, share-% column. `/reports/inventory-value`
 
 ## What Looks Good
 
@@ -46,6 +59,10 @@ Consistently professional — this is well past "developer-designed". Uniform ca
 1. Today Cash Position card fills its height symmetrically with Profitability.
 2. Mobile quick-action grids never strand a lone tile.
 3. Table text no longer wraps mid-phrase (DPR dates, employee names) — uniform row heights.
+
+## Defect class to watch
+
+Every fix this session shares one root cause: **content squeezed below its natural width** — auto-layout shrinking table columns to min-content (dates, names), `table-fixed` colgroups exceeding their container (WO scope), grids stranding lone tiles (quick actions). Guard pattern: any `table-fixed` + `<colgroup>` or overflow-hidden cell needs `min-w-*` (horizontal scroll) or `truncate`/nowrap discipline. The second recurring class: **a number on one surface disagreeing with the same number elsewhere** — Low Stock tab vs Today (minStock vs reorderPoint), Rentals TOTAL vs KPI (all-rows vs active-only). Cross-check aggregates against their source predicates.
 
 ## Remaining Nitpicks (Low — deferred)
 
