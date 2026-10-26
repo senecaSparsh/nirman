@@ -55,11 +55,11 @@ async function ProfitReportContent() {
   const SALARIES_EXPENSE = "6100";
 
   // Initialize monthly buckets
-  const monthlyMap = new Map<string, { label: string; revenue: number; cogs: number; operating: number; salaries: number }>();
+  const monthlyMap = new Map<string, { label: string; sort: number; revenue: number; cogs: number; operating: number; salaries: number }>();
   for (let i = 11; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${d.getMonth()}`;
-    monthlyMap.set(key, { label: `${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`, revenue: 0, cogs: 0, operating: 0, salaries: 0 });
+    monthlyMap.set(key, { label: `${MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`, sort: d.getFullYear() * 12 + d.getMonth(), revenue: 0, cogs: 0, operating: 0, salaries: 0 });
   }
 
   for (const entry of entries) {

@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { BarSeries, AreaSeries } from "./charts";
 
-export type MonthlyGstRow = { label: string; inputGst: number; outputGst: number; netGst: number };
+export type MonthlyGstRow = { label: string; sort: number; inputGst: number; outputGst: number; netGst: number };
 export type TransactionRow = {
   number: string;
   date: string;
@@ -61,6 +61,7 @@ export function GstReport({
       key: "label",
       label: "Month",
       sortable: true,
+      sortValue: (m) => m.sort,
       render: (m) => <span className="font-medium text-foreground">{m.label}</span>,
       exportValue: (m) => m.label,
     },

@@ -9,6 +9,7 @@ import { AreaSeries, BarSeries } from "./charts";
 
 export type MonthlyProfitRow = {
   label: string;
+  sort: number;
   revenue: number;
   cogs: number;
   operating: number;
@@ -51,6 +52,7 @@ export function ProfitReport({
       key: "label",
       label: "Month",
       sortable: true,
+      sortValue: (m) => m.sort,
       render: (m) => <span className="font-medium text-foreground">{m.label}</span>,
       exportValue: (m) => m.label,
     },

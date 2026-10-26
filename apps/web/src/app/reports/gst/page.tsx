@@ -80,12 +80,12 @@ async function GstReportContent({
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   // Build a month bucket for every month in the selected range
-  const monthlyMap = new Map<string, { label: string; inputGst: number; outputGst: number }>();
+  const monthlyMap = new Map<string, { label: string; sort: number; inputGst: number; outputGst: number }>();
   const cursor = new Date(fromDate.getFullYear(), fromDate.getMonth(), 1);
   const endMonth = new Date(toDate.getFullYear(), toDate.getMonth(), 1);
   while (cursor <= endMonth) {
     const key = `${cursor.getFullYear()}-${cursor.getMonth()}`;
-    monthlyMap.set(key, { label: `${MONTHS[cursor.getMonth()]} ${String(cursor.getFullYear()).slice(2)}`, inputGst: 0, outputGst: 0 });
+    monthlyMap.set(key, { label: `${MONTHS[cursor.getMonth()]} ${String(cursor.getFullYear()).slice(2)}`, sort: cursor.getFullYear() * 12 + cursor.getMonth(), inputGst: 0, outputGst: 0 });
     cursor.setMonth(cursor.getMonth() + 1);
   }
 
