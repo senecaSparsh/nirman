@@ -206,11 +206,17 @@ export async function submitRequisition(reqId: string, userId?: string) {
       include: {
         project: { select: { companyId: true } },
         department: { select: { companyId: true } },
+        _count: { select: { lines: true } },
       },
     });
     if (!req) throw new ServiceError("Indent not found", 404);
     if (req.status !== "DRAFT" && req.status !== "REJECTED") {
       throw new ServiceError(`Cannot submit indent in status ${req.status}`);
+    }
+    // An empty indent must never reach the approval queue — drafts can lose
+    // their lines via PATCH updates or non-schema creation paths.
+    if (req._count.lines === 0) {
+      throw new ServiceError("Cannot submit an indent with no line items", 400);
     }
     const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
     if (!reqCompanyId) throw new ServiceError("Indent has no project or department", 400);
