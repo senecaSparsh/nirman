@@ -57,7 +57,7 @@ export function OwnerFinancialDashboard({
           </CardToolbar>
         </CardHeader>
         <CardContent className="flex flex-1 flex-col justify-between space-y-4">
-          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border [&>*]:bg-card">
+          <div className="grid flex-1 grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border [&>*]:bg-card [&>*]:flex [&>*]:flex-col [&>*]:justify-center">
             <CashStat
               label="Cash / Bank"
               value={cashPosition.cashBalance}
