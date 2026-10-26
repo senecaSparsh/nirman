@@ -108,6 +108,33 @@ if [ "${N:-0}" != "0" ]; then
   echo "  ProjectCost chain-fixture: $N row(s) removed"
 fi
 
+# Subcontractor-WO chain fixtures: chain-runner.mjs ('chain verify: *'),
+# verify-ra-bill-chain.sh ('ra chain verify' / WO-RA-*), and ad-hoc
+# 'Attribution probe' WOs. MB entries on these WOs have no inbound FKs and go
+# first; the WO delete cascades WO lines + RA bills + RA bill lines and
+# SetNulls any stray MB links.
+N=$(P "SELECT count(*) FROM \"MeasurementBookEntry\" m JOIN \"SubcontractorWorkOrder\" w ON w.id=m.\"workOrderId\" WHERE w.\"workTitle\" ILIKE 'chain verify%' OR w.\"workTitle\" LIKE 'Attribution probe%' OR w.\"workTitle\" LIKE 'ra chain verify%'")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"MeasurementBookEntry\" WHERE \"workOrderId\" IN (
+    SELECT id FROM \"SubcontractorWorkOrder\" WHERE \"workTitle\" ILIKE 'chain verify%' OR \"workTitle\" LIKE 'Attribution probe%' OR \"workTitle\" LIKE 'ra chain verify%')" | tail -1
+  echo "  MeasurementBookEntry WO-chain: $N row(s) removed"
+fi
+N=$(P "SELECT count(*) FROM \"SubcontractorWorkOrder\" WHERE \"workTitle\" ILIKE 'chain verify%' OR \"workTitle\" LIKE 'Attribution probe%' OR \"workTitle\" LIKE 'ra chain verify%' OR \"workOrderNumber\" LIKE 'WO-RA-%'")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"SubcontractorWorkOrder\" WHERE \"workTitle\" ILIKE 'chain verify%' OR \"workTitle\" LIKE 'Attribution probe%' OR \"workTitle\" LIKE 'ra chain verify%' OR \"workOrderNumber\" LIKE 'WO-RA-%'" | tail -1
+  echo "  SubcontractorWorkOrder chain-fixture: $N row(s) removed (+ cascaded RA bills/lines)"
+fi
+# verify-ra-bill-chain.sh RA-VFY-* BOQ items — Restrict-FK guarded like the
+# clp block above.
+N=$(P "SELECT count(*) FROM \"BoqItem\" b WHERE b.\"serialNo\" LIKE 'RA-VFY-%'")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"BoqItem\" b WHERE b.\"serialNo\" LIKE 'RA-VFY-%'
+    AND NOT EXISTS (SELECT 1 FROM \"MeasurementBookEntry\" m WHERE m.\"boqItemId\"=b.id)
+    AND NOT EXISTS (SELECT 1 FROM \"SubcontractorWorkOrderLine\" w WHERE w.\"boqItemId\"=b.id)
+    AND NOT EXISTS (SELECT 1 FROM \"RaBillLine\" r WHERE r.\"boqItemId\"=b.id)" 2>&1 | tail -1
+  echo "  BoqItem RA-VFY: $N fixture row(s) removed (unguarded refs skipped)"
+fi
+
 # Chain-script unit fixtures: isu*/wcu*/wcp*/is-pu* id prefixes (issue/wip chains).
 N=$(P "SELECT count(*) FROM \"BuiltUnit\" WHERE id LIKE 'isu%' OR id LIKE 'wcu%' OR id LIKE 'wcp%' OR id LIKE 'is-pu%' OR \"unitNumber\" ILIKE 'IS-PLANNED-%'")
 if [ "${N:-0}" != "0" ]; then
