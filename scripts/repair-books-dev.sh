@@ -74,7 +74,7 @@ for pair in \
   "AttendanceCorrectionRequest:reason" "ExpenseClaim:notes" \
   "Expense:notes" "AssetSale:notes" "MaterialSale:notes" \
   "MeasurementBookEntry:description" "WbsNode:name" "BuiltUnit:unitNumber" \
-  "Task:title" \
+  "Task:title" "Tenancy:tenantName" \
 ; do
   T="${pair%%:*}"; COL="${pair##*:}"
   N=$(P "SELECT count(*) FROM \"$T\" WHERE \"$COL\"='wf' OR \"$COL\" ILIKE 'wf %' OR \"$COL\" ILIKE 'wf-%'" 2>/dev/null)
@@ -83,6 +83,14 @@ for pair in \
     echo "  $T.$COL: $N fixture row(s) removed"
   fi
 done
+
+# verify-workflows-full.sh tenancy chain leaves 'tenant-a'/'tenant-b' rows
+# (activate→schedule→escalate→terminate + changeTenant). RentalPayment cascades.
+N=$(P "SELECT count(*) FROM \"Tenancy\" WHERE \"tenantName\" IN ('tenant-a','tenant-b')")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"Tenancy\" WHERE \"tenantName\" IN ('tenant-a','tenant-b')" | tail -1
+  echo "  Tenancy tenant-a/b: $N fixture row(s) removed"
+fi
 
 # clp-chain BOQ items sit under Restrict FKs (MeasurementBookEntry above must
 # go first; WO lines / RaBill lines shouldn't exist but guard anyway so a
