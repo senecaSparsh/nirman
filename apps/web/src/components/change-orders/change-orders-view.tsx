@@ -379,8 +379,16 @@ function NewChangeOrderDialog({
             </Button>
           </div>
           <div className="space-y-2">
+            <div className="grid grid-cols-[1.4fr_64px_64px_52px_88px_20px] gap-2 text-micro text-muted-foreground">
+              <span>Description</span>
+              <span>Old Qty</span>
+              <span>New Qty</span>
+              <span>Unit</span>
+              <span>Rate ₹</span>
+              <span />
+            </div>
             {lines.map((l, i) => (
-              <div key={l.id} className="grid grid-cols-[1fr_80px_80px_60px_100px_32px] gap-2 items-center">
+              <div key={l.id} className="grid grid-cols-[1.4fr_64px_64px_52px_88px_20px] gap-2 items-center">
                 <Input aria-label="Description"
                   value={l.description}
                   onChange={(e) => updateLine(i, { description: e.target.value })}
