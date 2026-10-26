@@ -56,7 +56,7 @@ export function ProfitCenterView({ projects }: { projects: Project[] }) {
             <Metric
               label="Total Cost"
               value={formatCurrency(pc.totalCost)}
-              sub={`${formatCurrency(pc.costPerSqft)}/sqft`}
+              sub={pc.costPerSqft > 0 ? `${formatCurrency(pc.costPerSqft)}/sqft` : undefined}
             />
             <Metric
               label="Gross Profit"
@@ -66,8 +66,8 @@ export function ProfitCenterView({ projects }: { projects: Project[] }) {
             />
             <Metric
               label="Revenue / sqft"
-              value={formatCurrency(pc.revenuePerSqft)}
-              sub={`${pc.totalSellableArea.toFixed(0)} sqft sellable`}
+              value={pc.revenuePerSqft > 0 ? formatCurrency(pc.revenuePerSqft) : "—"}
+              sub={pc.totalSellableArea > 0 ? `${pc.totalSellableArea.toFixed(0)} sqft sellable` : "No sellable area set"}
             />
           </MetricGrid>
 

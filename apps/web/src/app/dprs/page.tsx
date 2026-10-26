@@ -101,9 +101,9 @@ async function DprsContent() {
     materialLineCount: d._count.materialLines,
     laborLineCount: d._count.laborLines,
     totalProjectCost: d.project?.totalProjectCost ? toNum(d.project.totalProjectCost) : null,
-    costPerSqft: d.project?.costPerSqft ? toNum(d.project.costPerSqft) : null,
+    costPerSqft: d.project?.costPerSqft && toNum(d.project.costPerSqft) > 0 ? toNum(d.project.costPerSqft) : null,
     projectBudget: d.project?.totalBudget ? toNum(d.project.totalBudget) : null,
-    totalSellableArea: d.project?.totalSellableArea ? toNum(d.project.totalSellableArea) : null}));
+    totalSellableArea: d.project?.totalSellableArea && toNum(d.project.totalSellableArea) > 0 ? toNum(d.project.totalSellableArea) : null}));
 
   return (
     <>
