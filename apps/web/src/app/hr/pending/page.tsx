@@ -1,9 +1,11 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
-import { prisma } from "@nirman/db";
-import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { prisma, type DprApprovalStatus } from "@nirman/db";
+import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions, getActingRole, getScopedRolePermissions } from "@/lib/server";
 import { actionableApprovals, actionableGatePassWhere } from "@/lib/approval-actionable";
+import { canAutoApprove, canWaiveSelfApproval } from "@nirman/services";
+import { notCreatedBy, notSubmittedBy } from "@/lib/approval-queue";
 import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -21,6 +23,9 @@ import {
   AlertCircle,
   ArrowRight,
   ShieldCheck,
+  Receipt,
+  IndianRupee,
+  UserCheck,
 } from "lucide-react";
 
 export const metadata = { title: "Pending List · Nirman" };
@@ -51,10 +56,23 @@ async function PendingListContent() {
     return <NoAccess what="the pending list" permission={PERM.HR_VIEW} />;
   }
 
-  const _canApproveDpr = __effPerms.includes(PERM.DPR_APPROVE_SUB_ADMIN) || __effPerms.includes(PERM.DPR_APPROVE_ADMIN);
-  const _canApprovePo = __effPerms.includes(PERM.PO_APPROVE);
-  const _canApproveRequisition = __effPerms.includes(PERM.REQUISITION_APPROVE);
-  const _canManagePayroll = __effPerms.includes(PERM.PAYROLL_MANAGE);
+  // The sidebar badge sums actionableApprovalCounts (10 types) — every type it
+  // counts must render here or an approver sees a number they can't reach
+  // (badge ⊆ page). Scoped perms + self-approval mirrors match the badge.
+  const __scopedPerms = await getScopedRolePermissions();
+  const __allPerms = new Set([...__effPerms, ...__scopedPerms]);
+  const __user = await getCurrentUser();
+  const __acting = await getActingRole();
+  const __selfNotSubmitted = !__user || canWaiveSelfApproval(__acting) ? {} : notSubmittedBy(__user.id);
+  const __selfNotCreated = !__user || canAutoApprove(__acting) ? {} : notCreatedBy(__user.id);
+  const _canApproveExpense = __allPerms.has(PERM.EXPENSE_APPROVE);
+  const _canApproveRaBill = __allPerms.has(PERM.RA_APPROVE);
+  const _canManageHr = __allPerms.has(PERM.HR_MANAGE);
+  // Badge splits DPR tiers: sub-admins act on SUBMITTED, admins on
+  // SUB_ADMIN_APPROVED — show only the statuses this user can advance.
+  const __dprStatuses: DprApprovalStatus[] = [];
+  if (__allPerms.has(PERM.DPR_APPROVE_SUB_ADMIN)) __dprStatuses.push("SUBMITTED");
+  if (__allPerms.has(PERM.DPR_APPROVE_ADMIN)) __dprStatuses.push("SUB_ADMIN_APPROVED");
 
   const now = new Date();
   const gatePassWhere = await actionableGatePassWhere(company.id);
@@ -72,30 +90,49 @@ async function PendingListContent() {
     overdueCount,
     pendingTasks,
     pendingTaskCount,
+    pendingRaBills,
+    raBillCount,
+    pendingExpenses,
+    expenseCount,
+    pendingClaims,
+    claimCount,
+    pendingAdvances,
+    advanceCount,
+    pendingCorrections,
+    correctionCount,
   ] = await Promise.all([
-    // DPRs awaiting approval
-    prisma.dailyProgressReport.findMany({
-      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] }, date: { lte: now } },
-      orderBy: { date: "desc" },
-      take: 20,
-      include: {
-        project: { select: { id: true, name: true } },
-        submittedBy: { select: { id: true, name: true } },
-      },
-    }),
-    prisma.dailyProgressReport.count({
-      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] } },
-    }),
-    // Leave requests pending
-    prisma.leaveRequest.findMany({
-      where: {...await scopeWhere("LeaveRequest"),  companyId: company.id, status: "PENDING" },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      include: { employee: { select: { id: true, name: true } } },
-    }),
-    prisma.leaveRequest.count({
-      where: {...await scopeWhere("LeaveRequest"),  companyId: company.id, status: "PENDING" },
-    }),
+    // DPRs awaiting approval — only the tier this user can act on, and not
+    // their own submissions (same split as the badge).
+    __dprStatuses.length > 0
+      ? prisma.dailyProgressReport.findMany({
+          where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: __dprStatuses }, ...__selfNotSubmitted },
+          orderBy: { date: "desc" },
+          take: 20,
+          include: {
+            project: { select: { id: true, name: true } },
+            submittedBy: { select: { id: true, name: true } },
+          },
+        })
+      : [],
+    __dprStatuses.length > 0
+      ? prisma.dailyProgressReport.count({
+          where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: __dprStatuses }, ...__selfNotSubmitted },
+        })
+      : 0,
+    // Leave requests pending — HR_MANAGE only, same as the badge.
+    _canManageHr
+      ? prisma.leaveRequest.findMany({
+          where: {...await scopeWhere("LeaveRequest"),  companyId: company.id, status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          include: { employee: { select: { id: true, name: true } } },
+        })
+      : [],
+    _canManageHr
+      ? prisma.leaveRequest.count({
+          where: {...await scopeWhere("LeaveRequest"),  companyId: company.id, status: "PENDING" },
+        })
+      : 0,
     // Draft payroll periods
     prisma.payrollPeriod.findMany({
       where: { companyId: company.id, status: "DRAFT", year: { lte: new Date().getFullYear() + 1 } },
@@ -158,9 +195,78 @@ async function PendingListContent() {
         dueDate: { gte: now },
       },
     }),
+    // Remaining badge types (badge ⊆ page) — each mirrors its
+    // actionableApprovalCounts where-clause exactly.
+    _canApproveRaBill
+      ? prisma.raBill.findMany({
+          where: { ...(await scopeWhere("RaBill")), companyId: company.id, status: "SUBMITTED", ...__selfNotSubmitted, ...__selfNotCreated },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          include: { project: { select: { id: true, name: true } }, workOrder: { select: { subcontractor: { select: { name: true } } } } },
+        })
+      : [],
+    _canApproveRaBill
+      ? prisma.raBill.count({
+          where: { ...(await scopeWhere("RaBill")), companyId: company.id, status: "SUBMITTED", ...__selfNotSubmitted, ...__selfNotCreated },
+        })
+      : 0,
+    _canApproveExpense
+      ? prisma.expense.findMany({
+          where: { ...(await scopeWhere("Expense")), companyId: company.id, status: "PENDING", ...__selfNotSubmitted },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          include: { project: { select: { id: true, name: true } } },
+        })
+      : [],
+    _canApproveExpense
+      ? prisma.expense.count({
+          where: { ...(await scopeWhere("Expense")), companyId: company.id, status: "PENDING", ...__selfNotSubmitted },
+        })
+      : 0,
+    _canApproveExpense
+      ? prisma.expenseClaim.findMany({
+          where: { ...(await scopeWhere("ExpenseClaim", {})), companyId: company.id, status: "SUBMITTED", ...__selfNotSubmitted },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          include: { submittedBy: { select: { id: true, name: true } } },
+        })
+      : [],
+    _canApproveExpense
+      ? prisma.expenseClaim.count({
+          where: { ...(await scopeWhere("ExpenseClaim", {})), companyId: company.id, status: "SUBMITTED", ...__selfNotSubmitted },
+        })
+      : 0,
+    _canManageHr
+      ? prisma.employeeAdvance.findMany({
+          where: { ...(await scopeWhere("EmployeeAdvance")), companyId: company.id, status: "REQUESTED" },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          include: { employee: { select: { id: true, name: true } } },
+        })
+      : [],
+    _canManageHr
+      ? prisma.employeeAdvance.count({
+          where: { ...(await scopeWhere("EmployeeAdvance")), companyId: company.id, status: "REQUESTED" },
+        })
+      : 0,
+    _canManageHr
+      ? prisma.attendanceCorrectionRequest.findMany({
+          where: { ...(await scopeWhere("AttendanceCorrectionRequest")), companyId: company.id, status: "REQUESTED" },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          include: { employee: { select: { id: true, name: true } } },
+        })
+      : [],
+    _canManageHr
+      ? prisma.attendanceCorrectionRequest.count({
+          where: { ...(await scopeWhere("AttendanceCorrectionRequest")), companyId: company.id, status: "REQUESTED" },
+        })
+      : 0,
   ]);
 
-  const awaitingApproval = dprCount + leaveCount + approvals.pos.length + approvals.reqs.length + gatePassCount;
+  const awaitingApproval =
+    dprCount + leaveCount + approvals.pos.length + approvals.reqs.length + gatePassCount +
+    raBillCount + expenseCount + claimCount + advanceCount + correctionCount;
   const totalCount = awaitingApproval + payrollCount + overdueCount + pendingTaskCount;
 
   return (
@@ -312,6 +418,96 @@ async function PendingListContent() {
             subtitle: `${g.project?.name ?? "No project"} · ${g.category.replaceAll("_", " ").toLowerCase()}`,
             meta: g.submittedBy?.name ?? "Unassigned",
             href: "/gate-passes",
+            tone: "warning" as const,
+          }))}
+        />
+      )}
+
+      {/* RA bills pending approval */}
+      {raBillCount > 0 && (
+        <PendingSection
+          title="RA Bills Pending Approval"
+          icon={<FileText className="h-4 w-4 text-warning" />}
+          tone="warning"
+          count={raBillCount}
+          items={pendingRaBills.map((b) => ({
+            id: b.id,
+            title: b.raBillNumber,
+            subtitle: `${b.workOrder?.subcontractor?.name ?? "Subcontractor"} · ${b.project?.name ?? "No project"}`,
+            meta: formatCurrency(toNum(b.netPayable)),
+            href: "/work-orders",
+            tone: "warning" as const,
+          }))}
+        />
+      )}
+
+      {/* Expenses pending approval */}
+      {expenseCount > 0 && (
+        <PendingSection
+          title="Expenses Pending Approval"
+          icon={<Wallet className="h-4 w-4 text-warning" />}
+          tone="warning"
+          count={expenseCount}
+          items={pendingExpenses.map((e) => ({
+            id: e.id,
+            title: e.category.replaceAll("_", " ").toLowerCase(),
+            subtitle: e.project?.name ?? "No project",
+            meta: formatCurrency(toNum(e.amount)),
+            href: "/finance?tab=expenses",
+            tone: "warning" as const,
+          }))}
+        />
+      )}
+
+      {/* Expense claims pending approval */}
+      {claimCount > 0 && (
+        <PendingSection
+          title="Expense Claims Pending Approval"
+          icon={<Receipt className="h-4 w-4 text-warning" />}
+          tone="warning"
+          count={claimCount}
+          items={pendingClaims.map((c) => ({
+            id: c.id,
+            title: c.description?.slice(0, 60) || "Expense claim",
+            subtitle: `Submitted by ${c.submittedBy?.name ?? "Unknown"}`,
+            meta: formatDate(c.createdAt),
+            href: "/finance?tab=claims",
+            tone: "warning" as const,
+          }))}
+        />
+      )}
+
+      {/* Advance requests pending */}
+      {advanceCount > 0 && (
+        <PendingSection
+          title="Advance Requests"
+          icon={<IndianRupee className="h-4 w-4 text-warning" />}
+          tone="warning"
+          count={advanceCount}
+          items={pendingAdvances.map((a) => ({
+            id: a.id,
+            title: a.employee?.name ?? "Unknown employee",
+            subtitle: "Salary advance requested",
+            meta: formatCurrency(toNum(a.amount)),
+            href: "/approvals",
+            tone: "warning" as const,
+          }))}
+        />
+      )}
+
+      {/* Attendance correction requests pending */}
+      {correctionCount > 0 && (
+        <PendingSection
+          title="Punch-fix Requests"
+          icon={<UserCheck className="h-4 w-4 text-warning" />}
+          tone="warning"
+          count={correctionCount}
+          items={pendingCorrections.map((c) => ({
+            id: c.id,
+            title: c.employee?.name ?? "Unknown employee",
+            subtitle: c.reason?.slice(0, 60) || "Attendance correction",
+            meta: formatDate(c.date),
+            href: "/approvals",
             tone: "warning" as const,
           }))}
         />
