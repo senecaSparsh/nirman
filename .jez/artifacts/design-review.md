@@ -16,6 +16,8 @@ Consistently professional — this is well past "developer-designed". Uniform ca
 
 ### Medium
 
+- **WO detail: scope-table header collision** at `/work-orders` dialog — `table-fixed` + colgroup (sum 540px) inside a ~450px dialog collapsed the Description column to zero; its header text overflowed into "BOQ RATE"/"AGREED". `min-w-[620px]` makes the table scroll horizontally instead. (commit `e809e272`)
+- **Change Orders: unlabeled line-item inputs** at `/change-orders` dialog — 5 crammed inputs, description truncated to "Descript", qty/rate showed bare "0" placeholders. Added a labeled column header on the same grid template + rebalanced widths. (commit `1056ed2f`)
 - **DPR table: 3-line date wrap** at `/dprs` — the narrow DATE column split "Oct 24, 2026" across three lines; every row tripled in height. `whitespace-nowrap` keeps dates single-line. (commit `575cb815`)
 - **Employees table: name column squeezed** at `/hr/employees` — 11 columns overflow the viewport; auto-layout shrank NAME to min-content (~90px) so "Anurag Garg / Civil Head" wrapped 3–4 lines. Nowrap on name+designation lets the column hold its declared 200px; rows are uniform height. (commit `680bbf4b`)
 
@@ -24,6 +26,10 @@ Consistently professional — this is well past "developer-designed". Uniform ca
 - **Diagonal watermark on HR/Finance pages** — "Vardaan Kumar · 26 Oct 2026" tiled pattern is an intentional screenshot deterrent on sensitive data (wages, gov IDs). Consistent and subtle.
 - **Mobile orbit navigator** — radial module menu is symmetric by construction.
 - **Empty states** — centered, icon + title + next-step copy + CTA everywhere checked (Work Orders, Measurement Book, lease alerts).
+- **Site Ops grid** at `/m/site` — 5 tiles now render 3+2 via the fixed column picker (verified live).
+- **Mobile DPR list** — date-grouped cards with approval-chain progress + manpower gauges; symmetric.
+- **Field dashboard DPR-lock banner** — explains _why_ locked + path forward + Snooze. Best-in-class UX.
+- **Project detail** — 7-cell KPI strip + RERA escrow card + tabbed sections; dense but disciplined.
 
 ## What Looks Good
 
