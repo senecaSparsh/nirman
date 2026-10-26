@@ -48,7 +48,7 @@ for T in \
   NonConformanceReport SafetyIncident Equipment PurchaseOrder \
   SubcontractorWorkOrder Employee AssetSalePayment GatePass \
   LeaveApplication StockIssue StockCount ExpenseClaim \
-  AssetSale LandParcel LandPurchase Customer \
+  AssetSale LandParcel LandPurchase Customer PayrollPeriod \
 ; do
   N=$(P "SELECT count(*) FROM \"$T\" WHERE id LIKE 'vfy%' OR id LIKE 'hrc%'" 2>/dev/null)
   if [ "${N:-0}" != "0" ]; then

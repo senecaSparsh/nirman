@@ -65,10 +65,13 @@ const MARKABLE_STATUSES = (Object.keys(STATUS_CONFIG) as AttendanceStatus[]).fil
 
 /** Attendance summary stats bar. */
 function AttendanceStatsBar({ employees, getStatus, isMarked }: { employees: { id: string }[]; getStatus: (id: string) => AttendanceStatus; isMarked: (id: string) => boolean }) {
-  const present = employees.filter((e) => getStatus(e.id) === "PRESENT" || getStatus(e.id) === "OVERTIME").length;
-  const absent = employees.filter((e) => getStatus(e.id) === "ABSENT").length;
-  const halfDay = employees.filter((e) => getStatus(e.id) === "HALF_DAY").length;
-  const leave = employees.filter((e) => getStatus(e.id) === "LEAVE").length;
+  // Count only marked rows (clicked this session or saved) — unmarked rows
+  // render the PRESENT default for editing convenience but aren't real
+  // marks, same convention as the rate below.
+  const present = employees.filter((e) => isMarked(e.id) && (getStatus(e.id) === "PRESENT" || getStatus(e.id) === "OVERTIME")).length;
+  const absent = employees.filter((e) => isMarked(e.id) && getStatus(e.id) === "ABSENT").length;
+  const halfDay = employees.filter((e) => isMarked(e.id) && getStatus(e.id) === "HALF_DAY").length;
+  const leave = employees.filter((e) => isMarked(e.id) && getStatus(e.id) === "LEAVE").length;
   const total = employees.length;
   const unmarked = employees.filter((e) => !isMarked(e.id)).length;
   // Rate is computed over *marked* workers only — unmarked rows are the
