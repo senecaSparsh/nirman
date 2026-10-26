@@ -113,10 +113,10 @@ fi
 # 'Attribution probe' WOs. MB entries on these WOs have no inbound FKs and go
 # first; the WO delete cascades WO lines + RA bills + RA bill lines and
 # SetNulls any stray MB links.
-N=$(P "SELECT count(*) FROM \"MeasurementBookEntry\" m JOIN \"SubcontractorWorkOrder\" w ON w.id=m.\"workOrderId\" WHERE w.\"workTitle\" ILIKE 'chain verify%' OR w.\"workTitle\" LIKE 'Attribution probe%' OR w.\"workTitle\" LIKE 'ra chain verify%'")
+N=$(P "SELECT count(*) FROM \"MeasurementBookEntry\" m LEFT JOIN \"SubcontractorWorkOrder\" w ON w.id=m.\"workOrderId\" WHERE m.description ILIKE 'chain verify%' OR m.description ILIKE 'WO-% probe%' OR w.\"workTitle\" ILIKE 'chain verify%' OR w.\"workTitle\" LIKE 'Attribution probe%' OR w.\"workTitle\" LIKE 'ra chain verify%'")
 if [ "${N:-0}" != "0" ]; then
-  PX "DELETE FROM \"MeasurementBookEntry\" WHERE \"workOrderId\" IN (
-    SELECT id FROM \"SubcontractorWorkOrder\" WHERE \"workTitle\" ILIKE 'chain verify%' OR \"workTitle\" LIKE 'Attribution probe%' OR \"workTitle\" LIKE 'ra chain verify%')" | tail -1
+  PX "DELETE FROM \"MeasurementBookEntry\" m WHERE m.description ILIKE 'chain verify%' OR m.description ILIKE 'WO-% probe%' OR m.\"workOrderId\" IN (
+    SELECT id FROM \"SubcontractorWorkOrder\" w WHERE w.\"workTitle\" ILIKE 'chain verify%' OR w.\"workTitle\" LIKE 'Attribution probe%' OR w.\"workTitle\" LIKE 'ra chain verify%')" | tail -1
   echo "  MeasurementBookEntry WO-chain: $N row(s) removed"
 fi
 N=$(P "SELECT count(*) FROM \"SubcontractorWorkOrder\" WHERE \"workTitle\" ILIKE 'chain verify%' OR \"workTitle\" LIKE 'Attribution probe%' OR \"workTitle\" LIKE 'ra chain verify%' OR \"workOrderNumber\" LIKE 'WO-RA-%'")
