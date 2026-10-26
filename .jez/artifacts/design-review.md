@@ -50,6 +50,10 @@ Consistently professional — this is well past "developer-designed". Uniform ca
 - **Mobile Stock** — status-colored card borders (amber low / red out / green ok), per-location breakdown. `/m/stock`
 - **Offline Queue** — Online status chip + explains what lands here. `/m/queue`
 - **Mobile approval action flow** — tap row → inline detail (dates/duration/reason) → Approve/Reject/Snooze; service rejections surface as toasts (verified: overlap guard error displayed verbatim). `/m/approvals`
+- **Purchase Orders** — List/Board toggle, per-row green receipt-progress bar, TOTAL footer. `/procurement?tab=purchase-orders`
+- **Material Sales** — status badge trio (Active/Returned/Partially) + payment pill per row; profit column signed. `/material-sales`
+- **Real Estate Inventory** — 4 equal stat cards + Plots strip + per-project table. `/reports/real-estate-inventory`
+- **Safety Management** — 4-stat strip, tab count badges, severity pills (FIRST AID/Near Miss). `/safety`
 
 ## What Looks Good
 
