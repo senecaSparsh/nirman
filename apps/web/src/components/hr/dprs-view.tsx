@@ -286,7 +286,7 @@ export function DprsView({
       label: "Date",
       sortable: true,
       sortValue: (d) => new Date(d.date),
-      render: (d) => <span className="tnum text-muted-foreground">{formatDate(d.date)}</span>,
+      render: (d) => <span className="tnum whitespace-nowrap text-muted-foreground">{formatDate(d.date)}</span>,
       exportValue: (d) => d.date,
     },
     {
