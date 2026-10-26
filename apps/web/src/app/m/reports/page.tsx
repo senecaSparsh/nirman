@@ -50,7 +50,7 @@ export default function MobileReportsHubPage({
             }),
             prisma.assetSale.findMany({
               where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
-              select: { salePrice: true, payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true, interestAmount: true } } },
+              select: { salePrice: true, gstAmount: true, tdsAmount: true, payments: { where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: "CLEARED" }] }, select: { amount: true, interestAmount: true } } },
             }),
             prisma.purchaseOrder.findMany({
               where: { companyId: company.id, status: { in: ["RECEIVED", "PARTIAL", "ORDERED"] } },
@@ -73,6 +73,13 @@ export default function MobileReportsHubPage({
           const inventoryValue = stockItems.reduce((s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost), 0);
           const salesRevenue = sales.reduce((s, sale) => s + sale.payments.reduce((ps, p) => ps + toNum(p.amount) - toNum(p.interestAmount), 0), 0);
           const salesBooked = sales.reduce((s, sale) => s + toNum(sale.salePrice), 0);
+          // Per-sale receivable: price + GST billed − collected − TDS withheld
+          // (TDS is deducted at source, not owed by the buyer). A global
+          // booked−received diff counts withheld TDS as dues — wrong.
+          const salesOutstanding = sales.reduce((s, sale) => {
+            const collected = sale.payments.reduce((ps, p) => ps + toNum(p.amount) - toNum(p.interestAmount), 0);
+            return s + Math.max(0, toNum(sale.salePrice) + toNum(sale.gstAmount) - collected - toNum(sale.tdsAmount));
+          }, 0);
           const purchaseSpend = purchaseOrders.reduce((s, p) => s + toNum(p.total), 0);
           const totalReceived = pendingPayments.reduce((s, p) => s + toNum(p.amount), 0);
           const totalProjectCosts = projectCosts.reduce((s, c) => s + toNum(c.amount), 0);
@@ -132,9 +139,9 @@ export default function MobileReportsHubPage({
                   <MobileRow icon={ShoppingCart} title="Total received" meta={formatCurrency(totalReceived)} tone="success" />
                   <MobileRow icon={ClipboardCheck} title="Booked (active sales)" meta={formatCurrency(salesBooked)} />
                   {/* Received > booked = advance money held against unbilled
-                      work — not a receivable. Clamp Outstanding at 0 and show
-                      the excess separately so the row never reads negative. */}
-                  <MobileRow icon={TrendingUp} title="Outstanding" meta={formatCurrency(Math.max(0, salesBooked - totalReceived))} tone="warning" />
+                      work — not a receivable. Per-sale Outstanding clamps at 0
+                      and matches the pending-payments report's basis. */}
+                  <MobileRow icon={TrendingUp} title="Outstanding" meta={formatCurrency(salesOutstanding)} tone="warning" />
                   {salesBooked - totalReceived < 0 ? (
                     <MobileRow icon={TrendingUp} title="Advance held" meta={formatCurrency(totalReceived - salesBooked)} tone="success" />
                   ) : null}
