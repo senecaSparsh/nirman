@@ -80,3 +80,45 @@ Every fix this session shares one root cause: **content squeezed below its natur
 - Notification panel doesn't close on outside-body click in the corner case observed (Escape/backdrop works) — verify.
 - "₹40,00,000" for the equipment sale notification is correct Indian grouping; no issue.
 - Equipment & Fixtures shows -₹43.51L flagged ⚠ — likely a test-data artifact (asset sold without book-value split); books still balance. Worth an accounting spot-check, not a design issue.
+
+## Round 5 — Books pipeline + fixture hygiene (Oct 26)
+
+### Fixes landed
+
+- `repair-books-dev.sh`: §2a marker sweep targeted nonexistent `LeaveApplication` — now `LeaveRequest`, and bare `reason='wf'` seeds are matched (was only `wf %`/`wf-%`). 54 accumulated leave fixtures removed.
+- `repair-books-dev.sh`: extended sweep to issue/payroll/land-chain fixtures — `isoh%`/`isd%` empty shells (guarded by no-dependents), `wlp-%` LandPurchase cascades, `glce%` employees (cascade), `glcp%`/`wlp-%` projects (escrow-guarded). Removed 55 empty shells + 16 fixture employees + 28 fixture projects + 13 orphan JEs; books stayed reconciled (gap 0).
+- `verify-workflows-full.sh`: pre-seed cleanup of prior `wf` leaves on the test employee — the random leave window could hit a leftover APPROVED leave and correctly fail the approve check (1 flake eliminated; suite now 83/83).
+
+### Verified clean
+
+- Money Flow: date-sorted, category+hint labels, signed amounts, date-range + quick-add.
+- Audit Log: human-readable actions, entity links, field-level diffs, desc time order.
+- Statutory: symmetric 4+2 cards, per-card hints (ECR ↓, ITC available), remittance ledger.
+- Outstanding Dues `/reports/pending-payments`: symmetric Payable/Receivable aging charts, 4+4 stat grid, tab counts; receivable ₹25L ties to the Finance overview card exactly.
+- DPR-Finance Reconciliation: honest ₹0 for narrative-only DPRs (0 material/0 labor lines verified in DB).
+- Claims: claimant+project, line counts, status pills.
+- GL/Stock/Vendors/Equipment/Gate Passes/Transfers/BOQ/Settings (earlier rounds): aligned, TOTAL rows consistent.
+
+### Consistency rule confirmed
+
+Cross-surface numbers reconcile: Receivables ₹25L = Finance "outstanding" card = "1 sale with pending balance". GL 1300 = stock value after fixture sweep.
+
+## Round 6 — Mobile + cross-surface consistency (Oct 26)
+
+### Fixed
+
+- **`/m/reports` Outstanding inflated by TDS** — computed `booked − received` globally, counting TDS-withheld amounts as customer dues (₹26.80L shown vs ₹25L real). Now sums per-sale `price + GST − collected − TDS`, same basis as pending-payments. Verified live: ₹25L on both surfaces.
+- **`verify-workflows-full.sh` leave flake** — prior runs' APPROVED `wf` leaves could overlap a new run's random window → correct rejection read as a failure. Pre-seed cleanup added; suite now **83/83** (was 82/83).
+- **`repair-books-dev.sh` LeaveRequest gap** — §2a swept nonexistent `LeaveApplication`; real `LeaveRequest` rows with bare `reason='wf'` now match. 54 accumulated fixtures removed; clp/issue/payroll/land chains verified swept end-to-end after fresh verify runs.
+
+### Verified clean
+
+- `/m/sales` — live activity ticker, 4+3 tile grid (pickCols fix holds), stage badges, score, Call action; test leads flow from desktop.
+- Mobile lead form — sectioned bottom-sheet (Contact/Project/Budget/Follow-up), required gating works (`disabled` until name+phone), defaults prefilled; Ramesh Patel created end-to-end.
+- `/m/site/attendance` — payroll-lock UX exemplary: explains _why_ locked, offers adjustment path, disables save + day-worker entry consistently.
+- `/reports/pending-payments` — symmetric aging charts, receivable ties to finance card.
+- Inventory Value ₹37.2K consistent mobile↔desktop (earlier ₹34.4K reading was pre-rebuild cache).
+
+### Data-integrity note
+
+`repair-books-dev.sh` now covers every known verify-script fixture family (vfy/hrc ids, wf-markers, isoh/isd/glcp/wlp/glce prefixes) and leaves books reconciled — dev DB stays production-plausible after every verify run.
