@@ -97,6 +97,12 @@ export interface Column<T> {
   noExport?: boolean;
   /** Plain-text value for CSV export. Defaults to the sort value. */
   exportValue?: (row: T) => string | number;
+  /**
+   * Value contributed to the column's TOTAL row. Defaults to `valueOf`.
+   * Use when the summed set differs from the displayed value — e.g. a
+   * cancelled row keeps showing its historical amount but contributes 0.
+   */
+  sumValue?: (row: T) => number;
   /** Hidden by default; the user can switch it on from the Columns menu. */
   defaultHidden?: boolean;
   /**
@@ -525,7 +531,11 @@ export function DataTable<T>({
     (rows: T[], key: string) => {
       const col = columns.find((c) => c.key === key);
       return rows.reduce((acc, row) => {
-        const v = col ? valueOf(col, row) : getPath(row, key);
+        const v = col?.sumValue
+          ? col.sumValue(row)
+          : col
+            ? valueOf(col, row)
+            : getPath(row, key);
         // Decimal columns serialize as strings over JSON ("123.45") — a strict
         // `typeof === "number"` silently drops them, so a money/qty footer
         // reads 0 while the rows above it show real values. Coerce numeric

@@ -577,6 +577,9 @@ export function RentalsView({
       sortable: true,
       render: (t) => <MoneyCell value={t.monthlyRent} formatted={formatCurrency(t.monthlyRent)} neutral />,
       exportValue: (t) => t.monthlyRent,
+      // Cancelled/ended tenancies show their historical rent but don't add
+      // to the portfolio total — keeps the footer equal to the header KPI.
+      sumValue: (t) => (t.status === "ACTIVE" ? t.monthlyRent : 0),
     },
     {
       key: "securityDeposit",
