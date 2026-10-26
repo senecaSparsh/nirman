@@ -763,7 +763,7 @@ function WorkOrderDetailDialog({
                 Scope <span className="text-muted-foreground font-normal">— BOQ Items ({detail.lines.length})</span>
               </h3>
               <div className="rounded-lg border border-border overflow-x-auto">
-                <table className="w-full table-fixed">
+                <table className="w-full table-fixed min-w-[620px]">
                   <colgroup>
                     <col className="w-[60px]" />
                     <col />
