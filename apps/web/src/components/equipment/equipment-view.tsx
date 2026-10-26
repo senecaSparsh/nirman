@@ -249,7 +249,15 @@ export function EquipmentView({
                     neutral
                     sub={
                       e.acquisitionCost > 0
-                        ? `${((1 - e.currentValue / e.acquisitionCost) * 100).toFixed(0)}% down`
+                        ? (() => {
+                            const pct = Math.round(
+                              (1 - e.currentValue / e.acquisitionCost) * 100,
+                            );
+                            if (pct === 0) return "at cost";
+                            return pct > 0
+                              ? `${pct}% down`
+                              : `${-pct}% up`;
+                          })()
                         : undefined
                     }
                   />
