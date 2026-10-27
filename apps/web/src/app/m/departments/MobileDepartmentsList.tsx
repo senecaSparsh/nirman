@@ -8,7 +8,7 @@ import {
   MobileFab,
   MobileNoResults,
   MobileSummaryStrip,
-  MobileFilterDropdown,
+  MobileFilterIcon,
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -119,11 +119,12 @@ export function MobileDepartmentsList({
         placeholder="Search code, name, description…"
         action={
           <div className="flex items-center gap-1 shrink-0">
-            <MobileFilterDropdown
-              label="Status"
+            <MobileFilterIcon
               options={FILTER_OPTIONS}
               active={statusFilter}
+              defaultValue="ALL"
               onChange={setStatusFilter}
+              ariaLabel="Filter by status"
             />
             {exportTitle && exportRows && exportColumns ? (
               <MobileExportShareIcons

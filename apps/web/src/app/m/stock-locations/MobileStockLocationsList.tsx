@@ -13,7 +13,7 @@ import {
 } from "@/components/mobile/v2/mobile-overview-sheet";
 import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
-import { MobileFab, MobileSearchHeader, MobileNoResults, MobileFilterDropdown } from "@/components/mobile/v2/scaffold";
+import { MobileFab, MobileSearchHeader, MobileNoResults, MobileFilterIcon } from "@/components/mobile/v2/scaffold";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { useFabModal } from "@/lib/use-fab-modal";
@@ -138,11 +138,12 @@ export function MobileStockLocationsList({
         onQueryChange={setQuery}
         placeholder="Search name, project, address…"
         action={
-          <MobileFilterDropdown
-            label="Type"
+          <MobileFilterIcon
             options={TYPE_FILTER_OPTIONS}
             active={typeFilter}
+            defaultValue="ALL"
             onChange={setTypeFilter}
+            ariaLabel="Filter by location type"
           />
         }
       />

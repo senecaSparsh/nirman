@@ -8,7 +8,7 @@ import {
   MobileStatusBadge,
 
 } from "@/components/mobile/v2/primitives";
-import { MobileSearchHeader, MobileNoResults, MobileFilterDropdown } from "@/components/mobile/v2/scaffold";
+import { MobileSearchHeader, MobileNoResults, MobileFilterIcon } from "@/components/mobile/v2/scaffold";
 import { formatCurrency } from "@/lib/utils";
 import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
 
@@ -117,11 +117,12 @@ function MobileMaterialIssuesListInner({
         onQueryChange={setQuery}
         placeholder="Search issue #, project, department…"
         action={
-          <MobileFilterDropdown
-            label="Status"
+          <MobileFilterIcon
             options={STATUS_FILTERS.map((opt) => ({ label: STATUS_LABELS[opt], value: opt }))}
             active={statusFilter}
+            defaultValue="ALL"
             onChange={setStatusFilter}
+            ariaLabel="Filter by status"
           />
         }
       />
