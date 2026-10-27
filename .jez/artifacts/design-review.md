@@ -122,3 +122,69 @@ Cross-surface numbers reconcile: Receivables ₹25L = Finance "outstanding" card
 ### Data-integrity note
 
 `repair-books-dev.sh` now covers every known verify-script fixture family (vfy/hrc ids, wf-markers, isoh/isd/glcp/wlp/glce prefixes) and leaves books reconciled — dev DB stays production-plausible after every verify run.
+
+## Round 7 — Pending List badge parity + People surfaces (Oct 26)
+
+### Fixed
+
+- **`/hr/pending` missing 5 badge-counted types** — sidebar badge summed 10 actionable types (via `/api/approvals?countOnly=1`) but the page rendered only 5; a pending RA bill (RA-261024-0003, ₹46.5K) showed on the badge with no row to act on. Added sections for RA bills, expenses, expense claims, advance requests, and punch-fix requests — each query mirrors its `actionableApprovalCounts` where-clause exactly (permission gate, scope, self-approval). Also aligned DPRs (sub-admin sees SUBMITTED, admin sees SUB_ADMIN_APPROVED, own submissions excluded) and leaves (HR_MANAGE gate). Verified live: badge 2 = Awaiting approval 2, RA bill row renders. Commits `8db60e5f` + `30abe277` (rows now deep-link `/approvals`, the surface with act buttons, instead of read-only lists).
+- **"₹0/sqft" artifact on DPRs + Profit Center** — `Decimal(0)` is truthy so stored-zero cost/sqft leaked through the `?:` null guard. Same `> 0` convention as budget-utilization now applied at the mapping layer; profit-center cards show "—" + "No sellable area set". Commit `d6889075`.
+- **28 `wf task` fixtures** — task-timer verify seeds accumulated on My Tasks; added `Task:title` to repair sweep markers (children cascade). Commit `965abdf1`.
+
+### Verified clean
+
+- `/hr/employees` (stat cards, wage badges) + Crews tab (same pattern, honest zeros)
+- `/my-tasks` + Team Tasks kanban (4-column board, overdue badges, consistent 4 = sidebar)
+- `/calls` — Total/Missed/Talk-time strip, direction icons, filter row
+- `/dprs` — 6-card approval-tier strip, progress bars, % of budget flags
+- `/approvals` — canonical queue: badge's 2 items render with full deduction math (gross − retention − TDS = net), waiting-on hints, expandable lines, Reject/Approve
+
+## Round 8 — Project-picker defaults + WO/MB fixture sweep (Oct 26)
+
+### Fixed
+
+- **Empty-project first impression on every project-scoped page** — pickers sorted `name: asc` put zero-data "Godrej Park" first; Work Orders, Measurement Book, WBS, and BOQ all opened on empty states while every row lived in "apex center". A first-time user could conclude the system has no data. Pickers now order by relation count desc, then name — verified live: /work-orders opens on apex center's 5 WOs + summary strip tying to Subcontractors (₹71.50L / ₹59.5K). Commit `112b700d`.
+- **`/m/hr/pending` same gap as desktop** — parallel mobile implementation missed gate passes, RA bills, expenses, claims, advances, punch-fix. Same actionable semantics; rows link `/m/approvals`. Verified: total 5 = 4 overdue + 1 gate pass. Commit `bc91a5a1`.
+- **Pending rows linked to read-only lists** — RA bill → /work-orders project picker (wrong project default!), expenses/claims → read-only finance tabs. All now → `/approvals` where act buttons live. Commit `30abe277`.
+
+### Fixture hygiene
+
+- `repair-books-dev.sh` + `SubcontractorWorkOrder` chain sweep: 'chain verify:_' / 'Attribution probe' / 'ra chain verify' / WO-RA-_ WOs (cascades RA bills+lines), probe/chain MB entries (incl. workOrderId-orphaned ones by description), RA-VFY-* BOQ items (Restrict-guarded). Removed: 8 WOs, 9 RA bills+lines, 9 MB entries, 19 BOQ items, 2 orphan JEs — GL stayed reconciled. Commits `45a23540` + `73f9d95b`.
+
+### Verified clean
+
+- `/subcontractors` — header ₹71.50L work done / ₹59.5K retention = table TOTAL exactly
+- `/quality-control` — 4-card strip, CAPA tag inline
+- `/workflows`, `/wbs`, `/measurement-book` — self-explaining empty states (honest zeros where no data)
+- `/change-orders` — "Approved" stat counts APPROVED∪IMPLEMENTED correctly; TOTAL +₹5.0K ties
+- `/m/approvals` — mobile queue mirrors badge (1 awaiting = gate pass)
+
+## Round 9 — Books Health repair + console-error resolution (Oct 27)
+
+### Fixed
+
+- **WIP GL vs cost pool FAIL (−₹89K on apex center)** — two PAID payrolls (11/2025, 1/2026) had their PAYROLL_PAYMENT JEs and labour-allocation ProjectCost docs but the gross-expense JE was missing (earlier sweep residue), and two "Attribution probe" RA-bill ProjectCost docs (₹50K) survived their deleted bills. Re-posted both payroll JEs through the real `postPayroll` service (JE-20261027-00029/30; gross 26K → WIP 19.5K apex + expense 6.5K, credits to Salaries Payable matching sibling-seed convention), deleted the orphan docs, re-ran `reallocateProjectCosts` (apex totalProjectCost 638.4K→588.4K, fixing the newly-surfaced unit-cost FAIL). **All 19 checks PASS** except the designed `account-signs` WARN (₹1.8K customer credit from paid-then-returned sales + ₹43.5L seed equipment noise — flags working as intended). Commit `8c029910`; one-off script kept at `packages/services/scripts/restore-payroll-jes.ts`.
+- **`repair-books-dev.sh` orphan-doc sweep** — ProjectCost rows whose 'RA Bill RA-####-####' reference no longer exists are now swept (probe/chain WO cascades delete bills but not these docs).
+
+### Resolved (not app defects)
+
+- **Recurring console error on every page: `429 /monitoring`** — Sentry's own ingest endpoint throttling the dev session, proxied through the tunnel route. Dev config runs `tracesSampleRate: 1.0` with a live DSN, so ~40 pages of audit spam envelopes past quota. Fire-and-forget telemetry — zero user impact; production samples at 0.1. No code change.
+- **Payroll "0 draft" vs dashboard "8 draft"** — resolved by the vfy-period sweep (the 8 drafts were far-future verify shells; page was correct).
+
+### Round 9 addendum — tenant-isolation audit + more fixture sweeps (Oct 27)
+
+- **Cross-tenant leaks closed (commit `11ac4fd9`)** — `scopeWhere()` returns `{}` at COMPANY scope, so any query on the 19 companyId-less models without an explicit anchor leaks every tenant's rows. Audited all ~700 `scopeWhere` call sites: real leaks were `/build` (units 91/109 → real 16/8), `/hr/pending` task lists, the assistant's task response, and orbit's `User.companyId` anchors (default company only → misses multi-company memberships). All other sites verified anchored via company-bearing relations.
+- **P&L margin artifact (commit `0c6cfce7`)** — "−21807.0%" on ₹4K revenue → em-dash, same convention as ₹0/sqft guards.
+- **Fixture sweeps extended (commits `3582803f` + earlier)** — `verifier-float-*` petty-cash floats + their auto-approved expenses; `verifier claim`/`Idempotency audit` expense claims. 6+2 orphan JEs swept; books reconciled to ₹0 gap.
+
+### Verified clean this round
+
+- `/health-books` — 19 checks all PASS; only designed `account-signs` WARN (real customer credit + seed equipment)
+- `/build` — pipeline stage cards now count this company only
+- `/stock` on-hand (₹37.2K ties to mobile), `/materials` catalog (low-stock badge 3 = stock page)
+- `/procurement?tab=purchase-orders` — ₹802 PO, 100% received, total ties
+- `/finance` expenses/claims/petty-cash/recurring/budgets/supplier-payments tabs — all consistent post-sweep
+- `/reports` index (21 reports, lifecycle-grouped) + `/reports/balance-sheet` (balanced ✓, negative accounts flagged honestly) + `/reports/profit` (margin artifact fixed)
+- `/sales` customers+pipeline tabs — 3 real customers, 4 real leads, totals tie
+- `/settings` — full company identity + procurement config surface
+- Route sweep: all real routes 200; `/properties`/`/companies`/`/notifications`/`/audit-log` 404s are correct (param/mobile-only paths), `/expenses`/`/goods-receipts`/`/requisitions`/`/purchase-orders` correctly redirect into hub tabs
