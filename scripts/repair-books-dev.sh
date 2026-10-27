@@ -92,6 +92,17 @@ if [ "${N:-0}" != "0" ]; then
   echo "  Tenancy tenant-a/b: $N fixture row(s) removed"
 fi
 
+# verify-procurement-chain.sh / verify-supplier-payment-tds.sh leave 'wf
+# supplier tds' / 'wf procurement supplier' vendors with RESTRICT-protected
+# invoices and payments — children first, then the suppliers.
+N=$(P "SELECT count(*) FROM \"Supplier\" WHERE name ILIKE 'wf %' OR name ILIKE 'wf-%'")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"SupplierPayment\" sp USING \"Supplier\" s WHERE s.id=sp.\"supplierId\" AND (s.name ILIKE 'wf %' OR s.name ILIKE 'wf-%')" | tail -1
+  PX "DELETE FROM \"SupplierInvoice\" si USING \"Supplier\" s WHERE s.id=si.\"supplierId\" AND (s.name ILIKE 'wf %' OR s.name ILIKE 'wf-%')" | tail -1
+  PX "DELETE FROM \"Supplier\" WHERE name ILIKE 'wf %' OR name ILIKE 'wf-%'" | tail -1
+  echo "  Supplier wf-fixture: $N vendor(s) removed (+ payments/invoices)"
+fi
+
 # verify-land-purchase-chain.sh 'Verifier Seller'/'Cancel Seller' purchases.
 # LandParcel/costs/payments/schedules/docs cascade; guard parcels still
 # referenced by a tenancy so a stray link skips loudly instead of dangling.
