@@ -4,11 +4,7 @@ import { PERM } from "@/lib/roles";
 import { Package, Plus } from "lucide-react";
 import Link from "next/link";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
-import {
-  MobileEmptyState,
-  Card,
-} from "@/components/mobile/v2/primitives";
-import { formatCurrency } from "@/lib/utils";
+import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileMaterialIssuesList, type MaterialIssueListItem } from "./MobileMaterialIssuesList";
 
 /**
@@ -69,35 +65,6 @@ export default function MobileMaterialIssuesPage() {
 
         return (
           <div>
-            <p className="px-4 pt-3 pb-1 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-              Stock issued to projects &amp; departments
-            </p>
-
-            {batch.length > 0 && (
-              <div className="px-4 mb-3">
-                <Card className="p-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                      Total issued value
-                    </p>
-                    <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-                      {formatCurrency(totalValue)}
-                    </p>
-                  </div>
-                  {pendingCount > 0 && (
-                    <div className="text-right">
-                      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                        Pending
-                      </p>
-                      <p className="text-m-section font-bold" style={{ color: "var(--color-signal-dark)" }}>
-                        {pendingCount}
-                      </p>
-                    </div>
-                  )}
-                </Card>
-              </div>
-            )}
-
             {batch.length === 0 ? (
               <MobileEmptyState
                 icon={Package}
@@ -119,6 +86,8 @@ export default function MobileMaterialIssuesPage() {
                 initialItems={serialized}
                 loadMoreUrl="/api/mobile/list/material-issues"
                 initialCursor={nextCursor}
+                totalValue={totalValue}
+                pendingCount={pendingCount}
                 exportTitle="Material Issues"
                 exportRows={serialized as unknown as Record<string, unknown>[]}
                 exportColumns={[

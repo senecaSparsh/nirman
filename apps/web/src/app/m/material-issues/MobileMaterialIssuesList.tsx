@@ -8,7 +8,7 @@ import {
   MobileStatusBadge,
 
 } from "@/components/mobile/v2/primitives";
-import { MobileSearchHeader, MobileNoResults, MobileFilterIcon } from "@/components/mobile/v2/scaffold";
+import { MobileSearchHeader, MobileNoResults, MobileFilterIcon, MobileSummaryStrip, type SummaryStat } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { formatCurrency } from "@/lib/utils";
 import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
@@ -57,6 +57,8 @@ export function MobileMaterialIssuesList(props: {
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
+  totalValue?: number;
+  pendingCount?: number;
 }) {
   // Suspense — useUrlFilter/useSearchParams requires it
   return (
@@ -73,6 +75,8 @@ function MobileMaterialIssuesListInner({
   exportTitle,
   exportRows,
   exportColumns,
+  totalValue = 0,
+  pendingCount = 0,
 }: {
   initialItems: MaterialIssueListItem[];
   loadMoreUrl?: string;
@@ -80,6 +84,8 @@ function MobileMaterialIssuesListInner({
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
+  totalValue?: number;
+  pendingCount?: number;
 }) {
   const { items, loading, hasMore, loadMore } = usePaginatedList<MaterialIssueListItem>(
     initialItems,
@@ -136,8 +142,15 @@ function MobileMaterialIssuesListInner({
   // Parent page renders its own empty state with an "Issue Materials" CTA.
   if (items.length === 0) return null;
 
+  const summaryStats: SummaryStat[] = [
+    { label: "Issued Value", value: formatCurrency(totalValue), tone: totalValue > 0 ? "stop" : "default" },
+    { label: "Issues", value: String(initialItems.length) },
+    { label: "Pending", value: String(pendingCount) },
+  ];
+
   return (
     <>
+      <MobileSummaryStrip stats={summaryStats} />
       <MobileSearchHeader
         query={query}
         onQueryChange={setQuery}
