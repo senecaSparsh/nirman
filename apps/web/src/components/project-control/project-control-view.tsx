@@ -226,8 +226,8 @@ export function ProjectControlView({ projects }: { projects: Project[] }) {
           {overruns.length === 0 && mto.length === 0 && !loading && (
             <EmptyState
               icon={<Gauge />}
-              title="No BOQ data"
-              description="Create a BOQ with line items linked to materials to see cost overrun forecasts and material take-off."
+              title="No material-linked BOQ items"
+              description="Link BOQ line items to materials to see cost overrun forecasts and material take-off for this project."
             />
           )}
         </>
