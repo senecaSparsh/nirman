@@ -260,6 +260,15 @@ if [ "${N:-0}" != "0" ]; then
   echo "  PettyCashFloat verifier: $N float(s) removed"
 fi
 
+# Expense-claim-chain fixtures (verify-expense-claim-chain.sh 'verifier
+# claim', idempotency audit 'Idempotency audit'). Lines cascade; the
+# approval+payment JEs fall to §2b.
+N=$(P "SELECT count(*) FROM \"ExpenseClaim\" WHERE description IN ('verifier claim','Idempotency audit')")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"ExpenseClaim\" WHERE description IN ('verifier claim','Idempotency audit')" | tail -1
+  echo "  ExpenseClaim verifier: $N claim(s) removed"
+fi
+
 # Land-purchase-chain projects (wlp-*): land purchases carry payments/parcels/
 # docs that all CASCADE from LandPurchase — delete them first (their FK to
 # Project is SET NULL, so deleting the project first would orphan them).
