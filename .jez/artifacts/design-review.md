@@ -188,3 +188,10 @@ Cross-surface numbers reconcile: Receivables ₹25L = Finance "outstanding" card
 - `/sales` customers+pipeline tabs — 3 real customers, 4 real leads, totals tie
 - `/settings` — full company identity + procurement config surface
 - Route sweep: all real routes 200; `/properties`/`/companies`/`/notifications`/`/audit-log` 404s are correct (param/mobile-only paths), `/expenses`/`/goods-receipts`/`/requisitions`/`/purchase-orders` correctly redirect into hub tabs
+
+### Round 9b — mobile surface sweep + notification debt (Oct 27)
+
+- **Pulse sold-units inconsistency (commit `a7575097`)** — exec dashboard said "1 sold" vs Units page's 8. `getPortfolioSummary` counted `_count.assetSales` (sale docs) while the detail view + Units page count `BuiltUnit.status=SOLD`. Seed units were marked SOLD without sale transactions — doc count is the wrong unit measure. Summary now filters by status like the detail path.
+- **Notification bell buried (commit `7cb857ea`)** — every verify run notifies watchers; 20,331 notifications pointed at already-swept entities. `repair-books-dev.sh` §2b-2 now validates `metadata.entityType`/`entityId` against live tables (same resolution as §2b JEs) and removes dead links. Live-entity notifications are real history — kept; the user-facing "mark all read" clears the unread badge (verified: unread 0).
+- **Mobile verified clean**: `/m/pulse` (portfolio ₹33.56Cr/8 active, all stat cards tie), `/m/pulse/attention` (Approvals 1 = gate pass, Low stock 3 = reorder breaches, Cost overruns 1 = apex +187%), `/m/queue` (honest offline-queue empty state), `/m/site/field` (cash-purchase escape hatch documented), `/m/expenses` (₹3.9K/3 ties to desktop post-sweep), `/m/stock` (₹37.2K/7 items ties; LOW/OUT 5 = 3 reorder + 2 zero-stock, honestly labelled), `/m/material-issues` (status filter tabs + values render).
+- **Not-a-defect**: mobile LOW/OUT 5 vs desktop "Low stock 3" — mobile counts reorder breaches + zero-stock items, desktop counts reorder breaches only; each label describes what it counts.
