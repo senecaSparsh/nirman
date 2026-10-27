@@ -75,6 +75,7 @@ for pair in \
   "Expense:notes" "AssetSale:notes" "MaterialSale:notes" \
   "MeasurementBookEntry:description" "WbsNode:name" "BuiltUnit:unitNumber" \
   "Task:title" "Tenancy:tenantName" "LandPurchase:sellerName" \
+  "DirectPurchase:notes" \
 ; do
   T="${pair%%:*}"; COL="${pair##*:}"
   N=$(P "SELECT count(*) FROM \"$T\" WHERE \"$COL\"='wf' OR \"$COL\" ILIKE 'wf %' OR \"$COL\" ILIKE 'wf-%'" 2>/dev/null)
@@ -98,6 +99,22 @@ N=$(P "SELECT count(*) FROM \"MaterialRequisition\" WHERE \"reqNumber\" LIKE 'IS
 if [ "${N:-0}" != "0" ]; then
   PX "DELETE FROM \"MaterialRequisition\" WHERE \"reqNumber\" LIKE 'ISR-%'" | tail -1
   echo "  MaterialRequisition ISR-*: $N fixture row(s) removed"
+fi
+
+# verify-direct-purchase-chain.sh cancels its spot buys every run — CANCELLED
+# supplier-less bills are the chain's cash-market fixture (real spot buys keep
+# a supplier or a note). Reversal JEs die with the rows; §2b handles strays.
+N=$(P "SELECT count(*) FROM \"DirectPurchase\" WHERE status='CANCELLED' AND \"supplierId\" IS NULL AND (notes IS NULL OR notes='')")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"DirectPurchase\" WHERE status='CANCELLED' AND \"supplierId\" IS NULL AND (notes IS NULL OR notes='')" | tail -1
+  echo "  DirectPurchase spot-cancel fixtures: $N row(s) removed"
+fi
+# Same chain's supplier-linked leg: qty10@40+18%GST = exactly ₹472.00, always
+# cancelled same-day. Real Ganga bills differ in amount and/or timing.
+N=$(P "SELECT count(*) FROM \"DirectPurchase\" d WHERE d.status='CANCELLED' AND d.\"billAmount\"=472.00 AND d.\"createdAt\"::date=d.\"cancelledAt\"::date AND EXISTS (SELECT 1 FROM \"Supplier\" s WHERE s.id=d.\"supplierId\" AND s.name='Ganga Aggregate Works')")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"DirectPurchase\" d WHERE d.status='CANCELLED' AND d.\"billAmount\"=472.00 AND d.\"createdAt\"::date=d.\"cancelledAt\"::date AND EXISTS (SELECT 1 FROM \"Supplier\" s WHERE s.id=d.\"supplierId\" AND s.name='Ganga Aggregate Works')" | tail -1
+  echo "  DirectPurchase Ganga-cancel fixtures: $N row(s) removed"
 fi
 
 # verify-procurement-chain.sh / verify-supplier-payment-tds.sh leave 'wf

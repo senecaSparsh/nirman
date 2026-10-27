@@ -30,7 +30,7 @@ echo "  baseline: qty=$Q0 balanceOwed=$BAL0"
 
 echo "════════ 1. create → receipt + GL + payable ════════"
 # 10 units @ ₹40 + 18% GST → subtotal 400, gst 72, bill 472
-r=$(req POST "direct-purchases" "{\"supplierId\":\"$SUP\",\"supplierName\":\"Ganga Aggregate Works\",\"locationId\":\"$LOC\",\"lines\":[{\"materialId\":\"$MAT\",\"qty\":10,\"unitCost\":40,\"gstRate\":18}]}")
+r=$(req POST "direct-purchases" "{\"supplierId\":\"$SUP\",\"supplierName\":\"Ganga Aggregate Works\",\"locationId\":\"$LOC\",\"notes\":\"wf verify\",\"lines\":[{\"materialId\":\"$MAT\",\"qty\":10,\"unitCost\":40,\"gstRate\":18}]}")
 DP=$(echo "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
 [ -n "$DP" ] && { PASS=$((PASS+1)); echo "  purchase $DP"; } || { FAIL=$((FAIL+1)); echo "  FAIL create: ${r:0:140}"; }
 expect_num "stock +10" "SELECT qty FROM \"StockLocationItem\" WHERE \"locationId\"='$LOC' AND \"materialId\"='$MAT'" "$(psql -h localhost -d nirman_inventory -tAc "SELECT $Q0::numeric + 10")"
@@ -53,7 +53,7 @@ expect_refused "double cancel" "$r"
 echo "════════ 3. supplier-less spot buy → cash leg, no AP ════════"
 # No supplierId → cash-market purchase: Cr Cash (never AP — there is no
 # payment path for an unnamed vendor, so AP would sit unpayable forever).
-r=$(req POST "direct-purchases" "{\"supplierName\":\"Roadside Aggregate\",\"locationId\":\"$LOC\",\"lines\":[{\"materialId\":\"$MAT\",\"qty\":1,\"unitCost\":100,\"gstRate\":18}]}")
+r=$(req POST "direct-purchases" "{\"supplierName\":\"Roadside Aggregate\",\"locationId\":\"$LOC\",\"notes\":\"wf verify\",\"lines\":[{\"materialId\":\"$MAT\",\"qty\":1,\"unitCost\":100,\"gstRate\":18}]}")
 DP2=$(echo "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
 [ -n "$DP2" ] && { PASS=$((PASS+1)); echo "  spot buy $DP2"; } || { FAIL=$((FAIL+1)); echo "  FAIL spot buy: ${r:0:140}"; }
 expect_num "spot buy Dr 1300 = 100" "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='DIRECT_PURCHASE' AND je.\"sourceId\"='$DP2' AND a.code='1300'" 100
