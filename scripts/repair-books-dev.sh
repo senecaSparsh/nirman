@@ -246,6 +246,20 @@ if [ "${N:-0}" != "0" ]; then
   echo "  Department issue-chain: $N empty shell(s) removed"
 fi
 
+# Petty-cash-chain fixtures (verify-petty-cash-chain.sh): 'verifier-float-*'
+# floats + their auto-approved spend expenses ('Petty Cash — verifier-float-*'
+# payee). TopUps cascade from the float; all JEs fall to §2b.
+N=$(P "SELECT count(*) FROM \"Expense\" WHERE \"payeeName\" ILIKE 'Petty Cash — verifier-float%'")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"Expense\" WHERE \"payeeName\" ILIKE 'Petty Cash — verifier-float%'" | tail -1
+  echo "  Expense petty-chain: $N row(s) removed"
+fi
+N=$(P "SELECT count(*) FROM \"PettyCashFloat\" WHERE name LIKE 'verifier-float-%'")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"PettyCashFloat\" WHERE name LIKE 'verifier-float-%'" | tail -1
+  echo "  PettyCashFloat verifier: $N float(s) removed"
+fi
+
 # Land-purchase-chain projects (wlp-*): land purchases carry payments/parcels/
 # docs that all CASCADE from LandPurchase — delete them first (their FK to
 # Project is SET NULL, so deleting the project first would orphan them).
