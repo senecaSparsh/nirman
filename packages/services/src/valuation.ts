@@ -584,7 +584,7 @@ export async function getCompanyPortfolioSummary(
     // Margin: only meaningful when there's revenue. For projects with no sales
     // yet, show 0% (not -100%) to avoid alarming/meaningless negative margins.
     const marginPct = revenue.gt(0) ? profit.div(revenue).times(100) : new Decimal(0);
-    const soldUnits = p._count.assetSales;
+    const soldUnits = p.builtUnits.filter((u) => u.status === "SOLD").length;
     const availableUnits = p.builtUnits.filter(
       (u) => u.status === "AVAILABLE" || u.status === "HOLD",
     ).length;
