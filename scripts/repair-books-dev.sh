@@ -92,6 +92,14 @@ if [ "${N:-0}" != "0" ]; then
   echo "  Tenancy tenant-a/b: $N fixture row(s) removed"
 fi
 
+# verify-issue-chain.sh indents — ISR-S-*/ISR-A-* reqNumbers on isrs/isra ids.
+# Lines cascade; MaterialIssue/DirectPurchase refs SetNull harmlessly.
+N=$(P "SELECT count(*) FROM \"MaterialRequisition\" WHERE \"reqNumber\" LIKE 'ISR-%'")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"MaterialRequisition\" WHERE \"reqNumber\" LIKE 'ISR-%'" | tail -1
+  echo "  MaterialRequisition ISR-*: $N fixture row(s) removed"
+fi
+
 # verify-procurement-chain.sh / verify-supplier-payment-tds.sh leave 'wf
 # supplier tds' / 'wf procurement supplier' vendors with RESTRICT-protected
 # invoices and payments — children first, then the suppliers.
