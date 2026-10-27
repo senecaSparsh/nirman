@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Building2, Package } from "lucide-react";
+import { Building2, Package, ArrowUpDown } from "lucide-react";
 import {
   MobileSearchHeader,
   MobileCardGrid,
@@ -63,6 +63,7 @@ export function MobileDepartmentsList({
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [sort, setSort] = useState<"default" | "name" | "code">("default");
   const fab = useFabModal();
 
   const filtered = useMemo(() => {
@@ -81,6 +82,14 @@ export function MobileDepartmentsList({
     }
     return result;
   }, [items, query, statusFilter]);
+
+  const sorted = useMemo(() => {
+    if (sort === "default") return filtered;
+    const arr = [...filtered];
+    if (sort === "name") arr.sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === "code") arr.sort((a, b) => a.code.localeCompare(b.code));
+    return arr;
+  }, [filtered, sort]);
 
   const summaryStats: SummaryStat[] = [
     { label: "Departments", value: String(items.length) },
@@ -126,6 +135,18 @@ export function MobileDepartmentsList({
               onChange={setStatusFilter}
               ariaLabel="Filter by status"
             />
+            <MobileFilterIcon
+              options={[
+                { label: "Default", value: "default" },
+                { label: "Name A-Z", value: "name" },
+                { label: "Code", value: "code" },
+              ]}
+              active={sort}
+              defaultValue="default"
+              onChange={setSort}
+              ariaLabel="Sort departments"
+              icon={<ArrowUpDown className="size-4" />}
+            />
             {exportTitle && exportRows && exportColumns ? (
               <MobileExportShareIcons
                 title={exportTitle}
@@ -140,7 +161,7 @@ export function MobileDepartmentsList({
         onClear={() => { setQuery(""); setStatusFilter("ALL"); }}
       />
 
-      {filtered.length === 0 ? (
+      {sorted.length === 0 ? (
         <MobileNoResults
           title={query || statusFilter !== "ALL" ? "No matching departments" : "No departments"}
           hint={query || statusFilter !== "ALL"
@@ -151,7 +172,7 @@ export function MobileDepartmentsList({
         />
       ) : (
         <MobileCardGrid cols={2}>
-          {filtered.map((d) => (
+          {sorted.map((d) => (
             <DepartmentCard key={d.id} d={d} />
           ))}
         </MobileCardGrid>

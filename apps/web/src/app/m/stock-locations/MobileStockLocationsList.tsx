@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {MapPin, Pencil, Trash2, Loader2, Warehouse, Building2, Share2, Package, IndianRupee, FolderOpen} from "lucide-react";
+import {MapPin, Pencil, Trash2, Loader2, Warehouse, Building2, Share2, Package, IndianRupee, FolderOpen, ArrowUpDown} from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { useLongPress } from "@/lib/use-long-press";
 import { useConfirm } from "@/lib/use-confirm";
@@ -14,6 +14,7 @@ import {
 import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileFab, MobileSearchHeader, MobileNoResults, MobileFilterIcon } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { useFabModal } from "@/lib/use-fab-modal";
@@ -58,14 +59,21 @@ export function MobileStockLocationsList({
   locations,
   projects,
   canManage,
+  exportTitle,
+  exportRows,
+  exportColumns,
 }: {
   locations: LocationRow[];
   projects: ProjectItem[];
   canManage: boolean;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"ALL" | LocationType>("ALL");
+  const [sort, setSort] = useState<"default" | "name" | "value">("default");
   const [editing, setEditing] = useState<LocationRow | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const fab = useFabModal();
@@ -85,6 +93,14 @@ export function MobileStockLocationsList({
     }
     return result;
   }, [locations, typeFilter, query]);
+
+  const sorted = useMemo(() => {
+    if (sort === "default") return filtered;
+    const arr = [...filtered];
+    if (sort === "name") arr.sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === "value") arr.sort((a, b) => b.stockValue - a.stockValue);
+    return arr;
+  }, [filtered, sort]);
 
   const TYPE_FILTER_OPTIONS: { label: string; value: "ALL" | LocationType }[] = [
     { label: "All", value: "ALL" },
@@ -138,13 +154,34 @@ export function MobileStockLocationsList({
         onQueryChange={setQuery}
         placeholder="Search name, project, address…"
         action={
-          <MobileFilterIcon
-            options={TYPE_FILTER_OPTIONS}
-            active={typeFilter}
-            defaultValue="ALL"
-            onChange={setTypeFilter}
-            ariaLabel="Filter by location type"
-          />
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={TYPE_FILTER_OPTIONS}
+              active={typeFilter}
+              defaultValue="ALL"
+              onChange={setTypeFilter}
+              ariaLabel="Filter by location type"
+            />
+            <MobileFilterIcon
+              options={[
+                { label: "Default", value: "default" },
+                { label: "Name A-Z", value: "name" },
+                { label: "Highest stock value", value: "value" },
+              ]}
+              active={sort}
+              defaultValue="default"
+              onChange={setSort}
+              ariaLabel="Sort locations"
+              icon={<ArrowUpDown className="size-4" />}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+              />
+            ) : null}
+          </div>
         }
       />
 
@@ -175,7 +212,7 @@ export function MobileStockLocationsList({
         <MobileNoResults query={query} />
       ) : (
         <div className="flex flex-col gap-2 px-4 pb-8">
-          {filtered.map((loc) => (
+          {sorted.map((loc) => (
             <LocationCard
               key={loc.id}
               loc={loc}

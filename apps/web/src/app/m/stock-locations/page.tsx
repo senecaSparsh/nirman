@@ -53,6 +53,15 @@ export default function MobileStockLocationsPage() {
             locations={rows}
             projects={projects.map((p) => ({ id: p.id, name: p.name }))}
             canManage={canManage}
+            exportTitle="Stock Locations"
+            exportRows={rows as unknown as Record<string, unknown>[]}
+            exportColumns={[
+              { key: "name", label: "Name" },
+              { key: "type", label: "Type" },
+              { key: "projectName", label: "Project" },
+              { key: "itemCount", label: "Items" },
+              { key: "stockValue", label: "Stock Value", format: "currency" },
+            ]}
           />
         );
       }}
