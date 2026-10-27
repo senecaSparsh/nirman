@@ -39,7 +39,13 @@ export default function MobileMaterialSalesPage() {
             project: { select: { name: true } },
             lines: { select: { id: true } },
             payments: { select: { amount: true, status: true, direction: true, chequeStatus: true } },
-            returns: { where: { status: "COMPLETED" }, select: { totalAmount: true } },
+            returns: {
+              where: { status: "COMPLETED" },
+              select: {
+                totalAmount: true,
+                lines: { select: { qty: true, unitPrice: true, unitCost: true } },
+              },
+            },
           },
         });
 
@@ -51,15 +57,12 @@ export default function MobileMaterialSalesPage() {
           ? `${lastItem.createdAt.toISOString()}|${lastItem.id}`
           : null;
 
-        const active = batch.filter((s) => s.status === "ACTIVE");
-        const pendingPayment = active.filter((s) => s.paymentStatus === "PENDING");
-        const totalRevenue = active.reduce((s, sale) => s + toNum(sale.totalAmount), 0);
-        const totalProfit = active.reduce(
-          (s, sale) => s + toNum(sale.grossProfit),
-          0,
-        );
-
-        const serialized = batch.map((s) => ({
+        const serialized = batch.map((s) => {
+          const returnedProfit = s.returns.reduce(
+            (sum, r) => sum + r.lines.reduce((ls, l) => ls + toNum(l.qty) * (toNum(l.unitPrice) - toNum(l.unitCost)), 0),
+            0,
+          );
+          return {
           id: s.id,
           saleNumber: s.saleNumber,
           status: s.status,
@@ -68,12 +71,20 @@ export default function MobileMaterialSalesPage() {
           totalAmount: toNum(s.totalAmount),
           totalPaid: s.payments.reduce((sum, p) => sum + (p.status !== "VOID" && p.direction === "IN" && (p.chequeStatus == null || p.chequeStatus === "CLEARED") ? toNum(p.amount) : 0), 0),
           returnedAmount: s.returns.reduce((sum, r) => sum + toNum(r.totalAmount), 0),
-          grossProfit: toNum(s.grossProfit),
+          grossProfit: ((net) => (Math.abs(net) < 0.5 ? 0 : net))(toNum(s.grossProfit) - returnedProfit),
           scrapSubtotal: toNum(s.scrapSubtotal),
           customerName: s.customer?.name ?? null,
           projectName: s.project?.name ?? null,
           lineCount: s.lines.length,
-        }));
+          };
+        });
+
+        // Same basis as the desktop material-sales page: every non-cancelled
+        // sale contributes, revenue and profit are net of completed returns.
+        const active = serialized.filter((s) => s.status !== "CANCELLED");
+        const pendingPayment = active.filter((s) => s.paymentStatus === "PENDING");
+        const totalRevenue = active.reduce((s, sale) => s + sale.totalAmount - sale.returnedAmount, 0);
+        const totalProfit = active.reduce((s, sale) => s + sale.grossProfit, 0);
 
         const csvColumns: MobileColumnSpec[] = [
           { key: "saleNumber", label: "Sale #" },
