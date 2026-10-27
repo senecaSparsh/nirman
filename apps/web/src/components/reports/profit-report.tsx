@@ -186,7 +186,11 @@ export function ProfitReport({
             <Badge variant="danger"><TrendingDown className="h-3 w-3" /> Loss</Badge>
           )}
           <span className="text-meta text-muted-foreground">
-            Net margin: {totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : "0.0"}%
+            Net margin: {(() => {
+              if (totalRevenue <= 0) return "—";
+              const m = (netProfit / totalRevenue) * 100;
+              return Math.abs(m) > 999 ? "—" : `${m.toFixed(1)}%`;
+            })()}
           </span>
         </div>
       </div>

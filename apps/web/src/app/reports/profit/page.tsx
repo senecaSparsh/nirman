@@ -90,7 +90,11 @@ async function ProfitReportContent() {
   const totalSalaries = monthly.reduce((s, m) => s + toNum(m.salaries), 0);
   const grossProfit = totalRevenue - totalCogs;
   const netProfit = grossProfit - totalOperating - totalSalaries;
-  const margin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+  const rawMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+  // Beyond ±999% the ratio stops meaning anything — a ₹4K-revenue month
+  // against ₹8.7L salaries prints "-21807%" which reads as a bug, not a
+  // margin. Show an em-dash instead (same convention as ₹0/sqft guards).
+  const margin = Math.abs(rawMargin) > 999 ? null : rawMargin;
 
   return (
     <>
@@ -101,7 +105,7 @@ async function ProfitReportContent() {
           { label: "Revenue (12mo)", value: formatCurrency(totalRevenue) },
           { label: "Gross Profit", value: formatCurrency(grossProfit) },
           { label: "Net Profit", value: formatCurrency(netProfit) },
-          { label: "Margin", value: `${margin.toFixed(1)}%` },
+          { label: "Margin", value: margin === null ? "—" : `${margin.toFixed(1)}%` },
         ]}
       />
       <ProfitReport
