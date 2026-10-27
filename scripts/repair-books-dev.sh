@@ -173,6 +173,15 @@ if [ "${N:-0}" != "0" ]; then
   echo "  ProjectCost chain-fixture: $N row(s) removed"
 fi
 
+# Orphaned RA-bill cost docs: a ProjectCost 'RA Bill RA-####-####' whose bill
+# was swept (probe/chain WOs cascade their bills but not these docs) leaves
+# doc-side WIP inflated with no GL behind it.
+N=$(P "SELECT count(*) FROM \"ProjectCost\" pc WHERE pc.notes ~ 'RA Bill (RA-[0-9]+-[0-9]+)' AND NOT EXISTS (SELECT 1 FROM \"RaBill\" rb WHERE rb.\"raBillNumber\" = substring(pc.notes from 'RA Bill (RA-[0-9]+-[0-9]+)'))")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"ProjectCost\" pc WHERE pc.notes ~ 'RA Bill (RA-[0-9]+-[0-9]+)' AND NOT EXISTS (SELECT 1 FROM \"RaBill\" rb WHERE rb.\"raBillNumber\" = substring(pc.notes from 'RA Bill (RA-[0-9]+-[0-9]+)'))" | tail -1
+  echo "  ProjectCost orphan-RA-bill: $N row(s) removed"
+fi
+
 # Subcontractor-WO chain fixtures: chain-runner.mjs ('chain verify: *'),
 # verify-ra-bill-chain.sh ('ra chain verify' / WO-RA-*), and ad-hoc
 # 'Attribution probe' WOs. MB entries on these WOs have no inbound FKs and go
