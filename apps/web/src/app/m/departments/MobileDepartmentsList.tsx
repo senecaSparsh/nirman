@@ -8,6 +8,7 @@ import {
   MobileFab,
   MobileNoResults,
   MobileSummaryStrip,
+  MobileFilterDropdown,
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -118,6 +119,12 @@ export function MobileDepartmentsList({
         placeholder="Search code, name, description…"
         action={
           <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterDropdown
+              label="Status"
+              options={FILTER_OPTIONS}
+              active={statusFilter}
+              onChange={setStatusFilter}
+            />
             {exportTitle && exportRows && exportColumns ? (
               <MobileExportShareIcons
                 title={exportTitle}
@@ -126,25 +133,6 @@ export function MobileDepartmentsList({
                 summary={exportSummary}
               />
             ) : null}
-          </div>
-        }
-        filterChips={
-          <div className="flex items-center gap-1.5 overflow-x-auto">
-            {FILTER_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setStatusFilter(opt.value)}
-                className="px-2.5 py-1 text-m-body rounded-full border whitespace-nowrap transition-colors press"
-                style={{
-                  borderColor: statusFilter === opt.value ? "var(--color-steel)" : "var(--color-line)",
-                  backgroundColor: statusFilter === opt.value ? "var(--color-paper-2)" : "transparent",
-                  color: statusFilter === opt.value ? "var(--color-ink-950)" : "var(--color-ink-500)",
-                  fontWeight: statusFilter === opt.value ? 600 : 400,
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
           </div>
         }
         showClear={statusFilter !== "ALL" || !!query}

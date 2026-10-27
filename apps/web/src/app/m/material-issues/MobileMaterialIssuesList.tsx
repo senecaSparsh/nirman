@@ -8,7 +8,7 @@ import {
   MobileStatusBadge,
 
 } from "@/components/mobile/v2/primitives";
-import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileSearchHeader, MobileNoResults, MobileFilterDropdown } from "@/components/mobile/v2/scaffold";
 import { formatCurrency } from "@/lib/utils";
 import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
 
@@ -89,6 +89,24 @@ function MobileMaterialIssuesListInner({
     return result;
   }, [items, statusFilter, query]);
 
+  // Group by project (fall back to department) so a long list across many
+  // projects stays scannable — same section convention as DPRs.
+  const grouped = useMemo(() => {
+    const groups: { label: string; items: MaterialIssueListItem[] }[] = [];
+    const map = new Map<string, MaterialIssueListItem[]>();
+    for (const i of filtered) {
+      const label = i.projectName ?? i.departmentName ?? "General";
+      let g = map.get(label);
+      if (!g) {
+        g = [];
+        map.set(label, g);
+        groups.push({ label, items: g });
+      }
+      g.push(i);
+    }
+    return groups;
+  }, [filtered]);
+
   // Parent page renders its own empty state with an "Issue Materials" CTA.
   if (items.length === 0) return null;
 
@@ -98,54 +116,64 @@ function MobileMaterialIssuesListInner({
         query={query}
         onQueryChange={setQuery}
         placeholder="Search issue #, project, department…"
-        filterChips={
-          <div className="flex items-center gap-1.5 overflow-x-auto">
-            {STATUS_FILTERS.map((opt) => (
-              <button
-                key={opt}
-                onClick={() => setStatusFilter(opt)}
-                className="px-2.5 py-1 text-m-body rounded-full border whitespace-nowrap transition-colors press"
-                style={{
-                  borderColor: statusFilter === opt ? "var(--color-steel)" : "var(--color-line)",
-                  backgroundColor: statusFilter === opt ? "color-mix(in srgb, var(--color-steel) 10%, transparent)" : "transparent",
-                  color: statusFilter === opt ? "var(--color-steel)" : "var(--color-ink-500)",
-                }}
-              >
-                {STATUS_LABELS[opt]}
-              </button>
-            ))}
-          </div>
+        action={
+          <MobileFilterDropdown
+            label="Status"
+            options={STATUS_FILTERS.map((opt) => ({ label: STATUS_LABELS[opt], value: opt }))}
+            active={statusFilter}
+            onChange={setStatusFilter}
+          />
         }
       />
 
       {filtered.length === 0 ? (
         <MobileNoResults query={query} />
       ) : (
-        <div className="flex flex-col gap-2 px-4">
-          {filtered.map((issue) => {
-            const target =
-              issue.projectName ??
-              issue.departmentName ??
-              "—";
-            const metaSub = `${new Date(issue.date).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-             timeZone: "Asia/Kolkata" })} · ${issue.lineCount} item${issue.lineCount === 1 ? "" : "s"}`;
-            return (
-              <MobileRow
-                key={issue.id}
-                href={`/m/material-issues/${issue.id}`}
-                icon={Package}
-                title={issue.issueNumber ?? "Issue"}
-                subtitle={target}
-                meta={formatCurrency(issue.totalValue)}
-                metaSub={metaSub}
-                badge={
-                  <MobileStatusBadge status={issue.status} />
-                }
-              />
-            );
-          })}
+        <div className="flex flex-col gap-4 px-4">
+          {grouped.map((group) => (
+            <div key={group.label}>
+              <div className="flex items-center justify-between mb-2">
+                <span
+                  className="text-m-body font-bold"
+                  style={{ color: "var(--color-ink-950)" }}
+                >
+                  {group.label}
+                </span>
+                <span
+                  className="text-m-caption font-semibold"
+                  style={{ color: "var(--color-ink-500)" }}
+                >
+                  {group.items.length} issue{group.items.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {group.items.map((issue) => {
+                  const subtitle =
+                    issue.projectName && issue.departmentName
+                      ? issue.departmentName
+                      : (issue.issuedByName ?? "");
+                  const metaSub = `${new Date(issue.date).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                   timeZone: "Asia/Kolkata" })} · ${issue.lineCount} item${issue.lineCount === 1 ? "" : "s"}`;
+                  return (
+                    <MobileRow
+                      key={issue.id}
+                      href={`/m/material-issues/${issue.id}`}
+                      icon={Package}
+                      title={issue.issueNumber ?? "Issue"}
+                      subtitle={subtitle}
+                      meta={formatCurrency(issue.totalValue)}
+                      metaSub={metaSub}
+                      badge={
+                        <MobileStatusBadge status={issue.status} />
+                      }
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

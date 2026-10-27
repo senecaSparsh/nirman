@@ -13,7 +13,7 @@ import {
 } from "@/components/mobile/v2/mobile-overview-sheet";
 import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
-import { MobileFab, MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileFab, MobileSearchHeader, MobileNoResults, MobileFilterDropdown } from "@/components/mobile/v2/scaffold";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { useFabModal } from "@/lib/use-fab-modal";
@@ -137,23 +137,13 @@ export function MobileStockLocationsList({
         query={query}
         onQueryChange={setQuery}
         placeholder="Search name, project, address…"
-        filterChips={
-          <div className="flex items-center gap-1.5 overflow-x-auto">
-            {TYPE_FILTER_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setTypeFilter(opt.value)}
-                className="px-2.5 py-1 text-m-body rounded-full border whitespace-nowrap transition-colors press"
-                style={{
-                  borderColor: typeFilter === opt.value ? "var(--color-steel)" : "var(--color-line)",
-                  backgroundColor: typeFilter === opt.value ? "color-mix(in srgb, var(--color-steel) 10%, transparent)" : "transparent",
-                  color: typeFilter === opt.value ? "var(--color-steel)" : "var(--color-ink-500)",
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+        action={
+          <MobileFilterDropdown
+            label="Type"
+            options={TYPE_FILTER_OPTIONS}
+            active={typeFilter}
+            onChange={setTypeFilter}
+          />
         }
       />
 
