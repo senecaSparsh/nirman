@@ -54,7 +54,7 @@ parcel() { # number → new AVAILABLE land parcel
 }
 sale_of() { P "SELECT id FROM \"AssetSale\" WHERE \"landParcelId\"='$1' ORDER BY \"createdAt\" DESC LIMIT 1"; }
 sell() { # parcel price initialPayment mode [chequeNo]
-  local body="{\"assetType\":\"LAND\",\"landParcelId\":\"$1\",\"customerId\":\"$CUST\",\"salePrice\":$2,\"gstRate\":0,\"initialPayment\":$3,\"initialPaymentMode\":\"$4\""
+  local body="{\"assetType\":\"LAND\",\"landParcelId\":\"$1\",\"customerId\":\"$CUST\",\"salePrice\":$2,\"gstRate\":0,\"initialPayment\":$3,\"initialPaymentMode\":\"$4\",\"notes\":\"wf verify\""
   [ -n "${5:-}" ] && body="$body,\"initialChequeNo\":\"$5\",\"initialChequeBank\":\"VFY BANK\""
   reqRetry POST "sales" "$body}"
 }

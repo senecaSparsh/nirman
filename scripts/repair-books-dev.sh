@@ -74,7 +74,7 @@ for pair in \
   "AttendanceCorrectionRequest:reason" "ExpenseClaim:notes" \
   "Expense:notes" "AssetSale:notes" "MaterialSale:notes" \
   "MeasurementBookEntry:description" "WbsNode:name" "BuiltUnit:unitNumber" \
-  "Task:title" "Tenancy:tenantName" \
+  "Task:title" "Tenancy:tenantName" "LandPurchase:sellerName" \
 ; do
   T="${pair%%:*}"; COL="${pair##*:}"
   N=$(P "SELECT count(*) FROM \"$T\" WHERE \"$COL\"='wf' OR \"$COL\" ILIKE 'wf %' OR \"$COL\" ILIKE 'wf-%'" 2>/dev/null)
@@ -90,6 +90,27 @@ N=$(P "SELECT count(*) FROM \"Tenancy\" WHERE \"tenantName\" IN ('tenant-a','ten
 if [ "${N:-0}" != "0" ]; then
   PX "DELETE FROM \"Tenancy\" WHERE \"tenantName\" IN ('tenant-a','tenant-b')" | tail -1
   echo "  Tenancy tenant-a/b: $N fixture row(s) removed"
+fi
+
+# verify-land-purchase-chain.sh 'Verifier Seller'/'Cancel Seller' purchases.
+# LandParcel/costs/payments/schedules/docs cascade; guard parcels still
+# referenced by a tenancy so a stray link skips loudly instead of dangling.
+N=$(P "SELECT count(*) FROM \"LandPurchase\" WHERE \"sellerName\" IN ('Verifier Seller','Cancel Seller')")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"LandPurchase\" l WHERE l.\"sellerName\" IN ('Verifier Seller','Cancel Seller')
+    AND NOT EXISTS (
+      SELECT 1 FROM \"LandParcel\" lp JOIN \"Tenancy\" t ON t.\"landParcelId\"=lp.id
+      WHERE lp.\"landPurchaseId\"=l.id)" | tail -1
+  echo "  LandPurchase verifier/cancel: $N fixture row(s) removed (tenancy-referenced skipped)"
+fi
+
+# Orphaned LAND sales — verify-asset-sale-chain.sh sells vfylp% parcels whose
+# parent purchases die above; landParcelId SetNulls to NULL leaving headless
+# sales. Payments/schedules/expenses/terms cascade; §2b cleans their JEs.
+N=$(P "SELECT count(*) FROM \"AssetSale\" WHERE \"assetType\"='LAND' AND \"landParcelId\" IS NULL")
+if [ "${N:-0}" != "0" ]; then
+  PX "DELETE FROM \"AssetSale\" WHERE \"assetType\"='LAND' AND \"landParcelId\" IS NULL" | tail -1
+  echo "  AssetSale orphan-land: $N fixture row(s) removed"
 fi
 
 # clp-chain BOQ items sit under Restrict FKs (MeasurementBookEntry above must
