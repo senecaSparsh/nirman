@@ -61,7 +61,8 @@ async function BuildContent() {
     portalListings,
   ] = await Promise.all([
     // Acquire — Supplier has no companyId; scope via purchaseOrders relation
-    prisma.landParcel.count({ where: { ...await scopeWhere("LandParcel"), deletedAt: null } }),
+    // LandParcel has no companyId — scope through the parent purchase.
+    prisma.landParcel.count({ where: { ...await scopeWhere("LandParcel"), deletedAt: null, landPurchase: { companyId: company.id } } }),
     prisma.supplier.count({ where: { deletedAt: null, purchaseOrders: { some: { companyId: company.id } } } }),
     prisma.rateContract.count({ where: { companyId: company.id, status: "ACTIVE" } }),
     // Procure
@@ -78,8 +79,11 @@ async function BuildContent() {
     prisma.project.count({ where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } } }),
     prisma.subcontractorWorkOrder.count({ where: { ...await scopeWhere("SubcontractorWorkOrder"), companyId: company.id, status: "ACTIVE" } }),
     // Sell
-    prisma.builtUnit.count({ where: { ...await scopeWhere("BuiltUnit"), deletedAt: null, status: "AVAILABLE" } }),
-    prisma.builtUnit.count({ where: { ...await scopeWhere("BuiltUnit"), deletedAt: null, status: "SOLD" } }),
+    // BuiltUnit has no companyId — scope through the project (same as
+    // MaterialRequisition above); scopeWhere alone returns {} at COMPANY
+    // scope and would count every tenant's units.
+    prisma.builtUnit.count({ where: { ...await scopeWhere("BuiltUnit"), deletedAt: null, status: "AVAILABLE", project: { companyId: company.id } } }),
+    prisma.builtUnit.count({ where: { ...await scopeWhere("BuiltUnit"), deletedAt: null, status: "SOLD", project: { companyId: company.id } } }),
     prisma.assetSale.count({ where: { ...await scopeWhere("AssetSale"), companyId: company.id, paymentStatus: { in: ["PENDING", "PARTIAL"] } } }),
     prisma.tenancy.count({ where: { ...await scopeWhere("Tenancy"), companyId: company.id, status: "ACTIVE" } }),
     prisma.portalListing.count({ where: { companyId: company.id, status: "LISTED" } }),

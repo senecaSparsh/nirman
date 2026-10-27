@@ -211,7 +211,7 @@ async function getCompanyNode(id: string, currentCompanyId: string): Promise<Orb
   // Count entities not directly related to Company
   const [taskCount, stockTransferCount] = await Promise.all([
     prisma.task.count({
-      where: { assignedTo: { companyId: c.id }, status: { not: "COMPLETED" } },
+      where: { assignedTo: { memberships: { some: { companyId: c.id } } }, status: { not: "COMPLETED" } },
     }).catch(() => 0),
     prisma.stockTransfer.count({
       where: { fromLocation: { companyId: c.id } },
@@ -1132,7 +1132,7 @@ async function getLeadChildren(companyId: string, _c: string): Promise<ChildEnti
 
 async function getTaskChildren(_parentId: string, companyId: string, _parentType: string): Promise<ChildEntity[]> {
   const items = await prisma.task.findMany({
-    where: { assignedTo: { companyId } },
+    where: { assignedTo: { memberships: { some: { companyId } } } },
     select: { id: true, title: true, status: true, priority: true, dueDate: true, assignedTo: { select: { name: true } } },
     orderBy: { createdAt: "desc" }, take: 30,
   });

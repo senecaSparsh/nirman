@@ -1553,10 +1553,14 @@ async function expenseResponse(companyId: string): Promise<AssistantResponse> {
     cards: [{ type: "link", label: "All expenses", href: "/m/accounts?tab=expenses" }]};
 }
 
-async function taskResponse(_companyId: string): Promise<AssistantResponse> {
-  // Tasks don't have companyId — they're scoped by assignee. Get all pending.
+async function taskResponse(companyId: string): Promise<AssistantResponse> {
+  // Tasks don't have companyId — they're scoped by assignee. Anchor to
+  // company members via UserCompany membership (same as /api/tasks).
   const tasks = await prisma.task.findMany({
-    where: { status: { in: ["PENDING", "IN_PROGRESS"] } },
+    where: {
+      status: { in: ["PENDING", "IN_PROGRESS"] },
+      assignedTo: { memberships: { some: { companyId } } },
+    },
     include: { assignedTo: true },
     orderBy: { createdAt: "desc" },
     take: 10});

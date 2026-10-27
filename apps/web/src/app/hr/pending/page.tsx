@@ -158,9 +158,12 @@ async function PendingListContent() {
         })
       : [],
     gatePassWhere ? prisma.gatePass.count({ where: gatePassWhere }) : 0,
-    // Overdue tasks (due date passed, not completed)
+    // Overdue tasks (due date passed, not completed). Task has no companyId —
+    // anchor to company members via the assignee's UserCompany membership
+    // (same convention as /api/tasks and /m/hr/pending).
     prisma.task.findMany({
-      where: {...await scopeWhere("Task"), 
+      where: {...await scopeWhere("Task"),
+        assignedTo: { memberships: { some: { companyId: company.id } } },
         status: { in: ["PENDING", "IN_PROGRESS"] },
         dueDate: { lt: now },
       },
@@ -172,14 +175,16 @@ async function PendingListContent() {
       },
     }),
     prisma.task.count({
-      where: {...await scopeWhere("Task"), 
+      where: {...await scopeWhere("Task"),
+        assignedTo: { memberships: { some: { companyId: company.id } } },
         status: { in: ["PENDING", "IN_PROGRESS"] },
         dueDate: { lt: now },
       },
     }),
     // Pending tasks (not started, due in the future)
     prisma.task.findMany({
-      where: {...await scopeWhere("Task"), 
+      where: {...await scopeWhere("Task"),
+        assignedTo: { memberships: { some: { companyId: company.id } } },
         status: "PENDING",
         dueDate: { gte: now },
       },
@@ -190,7 +195,8 @@ async function PendingListContent() {
       },
     }),
     prisma.task.count({
-      where: {...await scopeWhere("Task"), 
+      where: {...await scopeWhere("Task"),
+        assignedTo: { memberships: { some: { companyId: company.id } } },
         status: "PENDING",
         dueDate: { gte: now },
       },
