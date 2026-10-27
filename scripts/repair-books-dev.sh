@@ -326,6 +326,33 @@ for T in $(P "SELECT DISTINCT \"entityType\" FROM \"JournalLine\" WHERE \"entity
 done
 echo "  $ORPHAN_JES orphaned JE(s) removed"
 
+echo "═══ 2b-2. Orphaned notifications — bell rows pointing at deleted entities ═══"
+# Every verify run notifies watchers (PO_CREATED ×3,771 and friends); the
+# entities are swept above but the notifications survive, burying the bell
+# under thousands of dead links. metadata.entityType/entityId validate the
+# same way §2b validates journal lines.
+ORPHAN_NOTIFS=0
+for T in $(P "SELECT DISTINCT metadata->>'entityType' FROM \"InAppNotification\" WHERE metadata->>'entityType' IS NOT NULL"); do
+  TT="$T"
+  EXISTS=$(P "SELECT to_regclass('\"$TT\"') IS NOT NULL")
+  if [ "$EXISTS" != "t" ]; then
+    TT=$(echo "$T" | tr '[:upper:]_' '[:lower:] ' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)}1' | tr -d ' ')
+    EXISTS=$(P "SELECT to_regclass('\"$TT\"') IS NOT NULL")
+  fi
+  [ "$EXISTS" != "t" ] && continue
+  N=$(P "SELECT count(*) FROM \"InAppNotification\" n WHERE n.metadata->>'entityType'='$T'
+    AND n.metadata->>'entityId' IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM \"$TT\" r WHERE r.id=n.metadata->>'entityId')")
+  if [ "${N:-0}" != "0" ]; then
+    PX "DELETE FROM \"InAppNotification\" n WHERE n.metadata->>'entityType'='$T'
+      AND n.metadata->>'entityId' IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM \"$TT\" r WHERE r.id=n.metadata->>'entityId')" >/dev/null
+    ORPHAN_NOTIFS=$((ORPHAN_NOTIFS + N))
+    echo "  $T → $TT: deleted $N dead-link notification(s)"
+  fi
+done
+echo "  $ORPHAN_NOTIFS dead-link notification(s) removed"
+
 echo "═══ 2c-0. Attribution-less stock movements (empty refType — fixture-era only) ═══"
 # Every service path sets refType (STOCK_COUNT, MANUAL_ADJUSTMENT, …); an
 # empty ref can only come from a raw fixture insert. Baseline FIXTURE-refType
