@@ -75,7 +75,7 @@ for pair in \
   "Expense:notes" "AssetSale:notes" "MaterialSale:notes" \
   "MeasurementBookEntry:description" "WbsNode:name" "BuiltUnit:unitNumber" \
   "Task:title" "Tenancy:tenantName" "LandPurchase:sellerName" \
-  "DirectPurchase:notes" \
+  "DirectPurchase:notes" "SafetyInspection:title" \
 ; do
   T="${pair%%:*}"; COL="${pair##*:}"
   N=$(P "SELECT count(*) FROM \"$T\" WHERE \"$COL\"='wf' OR \"$COL\" ILIKE 'wf %' OR \"$COL\" ILIKE 'wf-%'" 2>/dev/null)
