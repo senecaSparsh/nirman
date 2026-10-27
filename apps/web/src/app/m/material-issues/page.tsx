@@ -119,6 +119,16 @@ export default function MobileMaterialIssuesPage() {
                 initialItems={serialized}
                 loadMoreUrl="/api/mobile/list/material-issues"
                 initialCursor={nextCursor}
+                exportTitle="Material Issues"
+                exportRows={serialized as unknown as Record<string, unknown>[]}
+                exportColumns={[
+                  { key: "issueNumber", label: "Issue #" },
+                  { key: "projectName", label: "Project" },
+                  { key: "departmentName", label: "Department" },
+                  { key: "status", label: "Status" },
+                  { key: "date", label: "Date", format: "date" },
+                  { key: "totalValue", label: "Value", format: "currency" },
+                ]}
               />
             )}
 

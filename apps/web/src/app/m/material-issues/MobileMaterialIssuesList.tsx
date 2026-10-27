@@ -2,13 +2,14 @@
 
 import { useState, useMemo, Suspense } from "react";
 import { useUrlFilter } from "@/lib/use-url-filter";
-import { Package } from "lucide-react";
+import { Package, ArrowUpDown } from "lucide-react";
 import {
   MobileRow,
   MobileStatusBadge,
 
 } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults, MobileFilterIcon } from "@/components/mobile/v2/scaffold";
+import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { formatCurrency } from "@/lib/utils";
 import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
 
@@ -38,6 +39,13 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
   CANCELLED: "Cancelled",
 };
 
+type SortMode = "newest" | "oldest" | "value";
+const SORT_OPTIONS: { label: string; value: SortMode }[] = [
+  { label: "Newest first", value: "newest" },
+  { label: "Oldest first", value: "oldest" },
+  { label: "Highest value", value: "value" },
+];
+
 /**
  * Client component for the paginated material issues list.
  * Renders the issue rows and a "Load More" button at the bottom.
@@ -46,6 +54,9 @@ export function MobileMaterialIssuesList(props: {
   initialItems: MaterialIssueListItem[];
   loadMoreUrl?: string;
   initialCursor?: string | null;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
 }) {
   // Suspense — useUrlFilter/useSearchParams requires it
   return (
@@ -59,10 +70,16 @@ function MobileMaterialIssuesListInner({
   initialItems,
   loadMoreUrl,
   initialCursor,
+  exportTitle,
+  exportRows,
+  exportColumns,
 }: {
   initialItems: MaterialIssueListItem[];
   loadMoreUrl?: string;
   initialCursor?: string | null;
+  exportTitle?: string;
+  exportRows?: Record<string, unknown>[];
+  exportColumns?: MobileColumnSpec[];
 }) {
   const { items, loading, hasMore, loadMore } = usePaginatedList<MaterialIssueListItem>(
     initialItems,
@@ -72,6 +89,7 @@ function MobileMaterialIssuesListInner({
 
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useUrlFilter<StatusFilter>("status", "ALL");
+  const [sort, setSort] = useState<SortMode>("newest");
 
   const filtered = useMemo(() => {
     let result = items;
@@ -89,12 +107,20 @@ function MobileMaterialIssuesListInner({
     return result;
   }, [items, statusFilter, query]);
 
+  const sorted = useMemo(() => {
+    if (sort === "newest") return filtered;
+    const arr = [...filtered];
+    if (sort === "oldest") arr.sort((a, b) => a.date.localeCompare(b.date));
+    if (sort === "value") arr.sort((a, b) => b.totalValue - a.totalValue);
+    return arr;
+  }, [filtered, sort]);
+
   // Group by project (fall back to department) so a long list across many
   // projects stays scannable — same section convention as DPRs.
   const grouped = useMemo(() => {
     const groups: { label: string; items: MaterialIssueListItem[] }[] = [];
     const map = new Map<string, MaterialIssueListItem[]>();
-    for (const i of filtered) {
+    for (const i of sorted) {
       const label = i.projectName ?? i.departmentName ?? "General";
       let g = map.get(label);
       if (!g) {
@@ -105,7 +131,7 @@ function MobileMaterialIssuesListInner({
       g.push(i);
     }
     return groups;
-  }, [filtered]);
+  }, [sorted]);
 
   // Parent page renders its own empty state with an "Issue Materials" CTA.
   if (items.length === 0) return null;
@@ -117,13 +143,30 @@ function MobileMaterialIssuesListInner({
         onQueryChange={setQuery}
         placeholder="Search issue #, project, department…"
         action={
-          <MobileFilterIcon
-            options={STATUS_FILTERS.map((opt) => ({ label: STATUS_LABELS[opt], value: opt }))}
-            active={statusFilter}
-            defaultValue="ALL"
-            onChange={setStatusFilter}
-            ariaLabel="Filter by status"
-          />
+          <div className="flex items-center gap-1 shrink-0">
+            <MobileFilterIcon
+              options={STATUS_FILTERS.map((opt) => ({ label: STATUS_LABELS[opt], value: opt }))}
+              active={statusFilter}
+              defaultValue="ALL"
+              onChange={setStatusFilter}
+              ariaLabel="Filter by status"
+            />
+            <MobileFilterIcon
+              options={SORT_OPTIONS}
+              active={sort}
+              defaultValue="newest"
+              onChange={setSort}
+              ariaLabel="Sort issues"
+              icon={<ArrowUpDown className="size-4" />}
+            />
+            {exportTitle && exportRows && exportColumns ? (
+              <MobileExportShareIcons
+                title={exportTitle}
+                rows={exportRows}
+                columns={exportColumns}
+              />
+            ) : null}
+          </div>
         }
       />
 
