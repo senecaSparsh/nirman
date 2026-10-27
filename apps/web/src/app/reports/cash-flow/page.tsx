@@ -36,7 +36,7 @@ async function CashFlowContent() {
   const projects = await prisma.project.findMany({
     take: 200,
     where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
-    orderBy: { name: "asc" },
+    orderBy: [{ assetSales: { _count: "desc" } }, { name: "asc" }],
     select: { id: true, name: true },
   });
 

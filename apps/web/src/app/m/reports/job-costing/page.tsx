@@ -52,7 +52,7 @@ async function MobileJobCostingContent({
 
   const projects = await prisma.project.findMany({
     where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
-    orderBy: { name: "asc" },
+    orderBy: [{ projectCosts: { _count: "desc" } }, { name: "asc" }],
     select: { id: true, name: true },
   });
 

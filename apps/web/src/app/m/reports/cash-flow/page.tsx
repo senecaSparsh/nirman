@@ -52,7 +52,7 @@ async function MobileCashFlowContent({
 
   const projects = await prisma.project.findMany({
     where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
-    orderBy: { name: "asc" },
+    orderBy: [{ assetSales: { _count: "desc" } }, { name: "asc" }],
     select: { id: true, name: true },
   });
 
