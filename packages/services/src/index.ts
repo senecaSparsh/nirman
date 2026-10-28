@@ -919,6 +919,7 @@ export {
   changeTenant,
   generateRentSchedule,
   generateDueRentSchedules,
+  markOverdueRentPayments,
   sendRentDueReminders,
   uploadRentAgreement,
   uploadDraft,

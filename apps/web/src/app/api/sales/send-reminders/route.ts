@@ -6,6 +6,7 @@ import {
   processDueEscalations,
   checkMilestonePayments,
   generateDueRentSchedules,
+  markOverdueRentPayments,
   sendDemandNotice,
 } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
@@ -68,7 +69,10 @@ export const POST = apiHandler(async (_req: NextRequest) => {
   const [escalations, rentSchedule, rentReminders, saleReminders] = await Promise.all([
     processDueEscalations(company.id).catch(() => ({ checked: 0, escalated: 0 })),
     generateDueRentSchedules(company.id).catch(() => ({ checked: 0, created: 0 })),
-    sendRentDueReminders(company.id).catch(() => ({ checked: 0, sent: 0 })),
+    // Flip freshly-past dues to OVERDUE before reminding — see cron/reminders.
+    markOverdueRentPayments(company.id)
+      .catch(() => ({ marked: 0 }))
+      .then((mark) => sendRentDueReminders(company.id).catch(() => ({ checked: 0, sent: 0 })).then((remind) => ({ mark, remind }))),
     sendPaymentDueReminders(company.id).catch(() => ({ checked: 0, sent: 0 })),
   ]);
 

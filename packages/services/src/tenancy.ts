@@ -668,16 +668,20 @@ export async function recordRentPayment(input: RecordRentInput) {
     const periodEnd = input.periodEnd ? new Date(input.periodEnd) : null;
 
     // Guard against double-settling the same rent period — a RECEIVED row for
-    // this period/due date already exists (voided receipts don't block re-entry).
+    // this period/due date already exists (voided receipts don't block
+    // re-entry). paymentDate is only the identity when the caller names no
+    // period at all — otherwise two different months settled on the same day
+    // would collide on it.
     const settledPayment = await tx.rentalPayment.findFirst({
       where: {
         tenancyId: t.id,
         status: "RECEIVED",
-        OR: [
-          ...(periodStart ? [{ periodStart }] : []),
-          { paymentDate },
-          { dueDate },
-        ],
+        OR: periodStart || input.dueDate
+          ? [
+              ...(periodStart ? [{ periodStart }] : []),
+              ...(input.dueDate ? [{ dueDate }] : []),
+            ]
+          : [{ paymentDate }],
       },
     });
     if (settledPayment) {
@@ -926,6 +930,14 @@ export async function applyRentEscalation(input: ApplyEscalationInput) {
       },
     });
 
+    // Re-price unpaid future dues: minted PENDING schedule rows still carry the
+    // old rent and would silently under-bill every month after the escalation.
+    // OVERDUE/RECEIVED rows keep the amount that was owed for their period.
+    const repriced = await tx.rentalPayment.updateMany({
+      where: { tenancyId: t.id, status: "PENDING" },
+      data: { amount: newRent },
+    });
+
     await logAction(tx, {
       userId: input.userId, // null = system (cron) actor
       companyId: t.companyId,
@@ -933,7 +945,7 @@ export async function applyRentEscalation(input: ApplyEscalationInput) {
       entityType: "Tenancy",
       entityId: t.id,
       before: { monthlyRent: oldRent.toString(), nextEscalationDate: t.nextEscalationDate?.toISOString() ?? null },
-      after: { monthlyRent: newRent.toString(), escalationPercent: escPct.toString(), nextEscalationDate: nextDate.toISOString() },
+      after: { monthlyRent: newRent.toString(), escalationPercent: escPct.toString(), nextEscalationDate: nextDate.toISOString(), repricedPayments: repriced.count },
     });
 
     return { tenancy: updated, oldRent, newRent, increase };
@@ -1280,6 +1292,25 @@ export async function generateDueRentSchedules(companyId?: string): Promise<{ ch
   }
 
   return { checked: activeTenancies.length, created };
+}
+
+/**
+ * Flip minted PENDING rent dues to OVERDUE once their due date passes.
+ * Status is only ever set at mint time, so without this sweep a due that
+ * ages after minting stays PENDING forever — and sendRentDueReminders
+ * (which filters OVERDUE) would never see it.
+ */
+export async function markOverdueRentPayments(companyId?: string): Promise<{ marked: number }> {
+  const now = new Date();
+  const result = await prisma.rentalPayment.updateMany({
+    where: {
+      status: "PENDING",
+      dueDate: { lt: now },
+      ...(companyId ? { tenancy: { companyId } } : {}),
+    },
+    data: { status: "OVERDUE" },
+  });
+  return { marked: result.count };
 }
 
 // ───────────────────────────────────────────────────────────

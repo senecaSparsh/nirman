@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { toNum } from "@/lib/utils";
 import { prisma } from "@nirman/db";
-import { sendRentDueReminders, sendPaymentDueReminders, processDueEscalations, checkMilestonePayments, processPendingNotifications, generateDueRentSchedules, generateDueRecurringExpenses, checkExpiringLegalDocs, checkExpiringEmploymentTerms, checkExpiringEmployeeDocs, checkDueSupplierInvoices,
+import { sendRentDueReminders, sendPaymentDueReminders, processDueEscalations, checkMilestonePayments, processPendingNotifications, generateDueRentSchedules, markOverdueRentPayments, generateDueRecurringExpenses, checkExpiringLegalDocs, checkExpiringEmploymentTerms, checkExpiringEmployeeDocs, checkDueSupplierInvoices,
   checkStaleTransfers,
   checkApprovalBacklog,
   checkBooksHealth,
@@ -54,7 +54,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const [escalations, rentSchedule, rentReminders, saleReminders, notifications, recurringExpenses, legalDocs, employmentTerms, employeeDocs, supplierInvoices, overdueCapas, staleStockCounts, equipmentMaintenance, staleTransfers, approvalBacklog, booksHealth, reraValidity, rateContracts] = await Promise.all([
     processDueEscalations().catch(() => ({ checked: 0, escalated: 0 })),
     generateDueRentSchedules().catch(() => ({ checked: 0, created: 0 })),
-    sendRentDueReminders().catch(() => ({ checked: 0, sent: 0 })),
+    // Flip freshly-past dues to OVERDUE before reminding — the reminder sweep
+    // only sees OVERDUE rows, and PENDING→OVERDUE never transitions without this.
+    markOverdueRentPayments()
+      .catch(() => ({ marked: 0 }))
+      .then((mark) => sendRentDueReminders().catch(() => ({ checked: 0, sent: 0 })).then((remind) => ({ mark, remind }))),
     sendPaymentDueReminders().catch(() => ({ checked: 0, sent: 0 })),
     processPendingNotifications().catch(() => ({ processed: 0, sent: 0, failed: 0 })),
     // Generate due recurring expenses for all companies
