@@ -5042,6 +5042,7 @@ model NotificationLog {
 
 enum NotificationStatus {
   PENDING
+  SENDING // claimed by a flush — prevents a second concurrent flusher from double-sending
   SENT
   FAILED
 }

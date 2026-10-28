@@ -231,6 +231,10 @@ export interface SendNotificationInput {
   message: string;
   metadata?: Record<string, unknown>;
   userId?: string;
+  /** Existing NotificationLog row to update instead of creating a new one —
+   *  the pending-flush passes its claimed row so a flush doesn't write a
+   *  second log entry per send. */
+  logId?: string;
 }
 
 /**
@@ -254,21 +258,29 @@ export async function sendNotification(
     }
   }
 
-  // Find the active template for this event type + channel
-  const template = await prisma.notificationTemplate.findFirst({
-    where: {
-      companyId: input.companyId,
-      eventType: input.eventType,
-      channel: input.channel,
-      isActive: true,
-    },
-  });
+  // Find the active template for this event type + channel — skipped when the
+  // caller reuses a row (logId): the flush already rendered the message with
+  // the full variable set, and re-rendering here with only {recipient} would
+  // clobber it back to raw {{placeholders}}.
+  const template = input.logId
+    ? null
+    : await prisma.notificationTemplate.findFirst({
+        where: {
+          companyId: input.companyId,
+          eventType: input.eventType,
+          channel: input.channel,
+          isActive: true,
+        },
+      });
 
   // Use the template if found, otherwise use the provided message
   const message = template ? renderTemplate(template.template, { recipient: input.recipientName ?? "" }) : input.message;
 
-  // Create the log entry
-  const log = await prisma.notificationLog.create({
+  // Create the log entry — or reuse the caller's claimed row (pending-flush
+  // passes logId so a flush doesn't write a duplicate log per send).
+  const log = input.logId
+    ? { id: input.logId }
+    : await prisma.notificationLog.create({
     data: {
       companyId: input.companyId,
       templateId: template?.id ?? null,

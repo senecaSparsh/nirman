@@ -23,6 +23,13 @@ export async function processPendingNotifications(): Promise<{
   sent: number;
   failed: number;
 }> {
+  // Reclaim rows wedged in SENDING by a crashed flush — a send takes seconds,
+  // so anything claimed >10 min ago is safe to retry.
+  await prisma.notificationLog.updateMany({
+    where: { status: "SENDING", createdAt: { lt: new Date(Date.now() - 10 * 60 * 1000) } },
+    data: { status: "PENDING" },
+  }).catch(() => {});
+
   const pending = await prisma.notificationLog.findMany({
     where: { status: "PENDING" },
     orderBy: { createdAt: "asc" },
@@ -86,13 +93,26 @@ export async function processPendingNotifications(): Promise<{
   const liveMember = new Set(liveMemberships.map((m) => `${m.userId}|${m.companyId}`));
 
   for (const log of pending) {
+    // Claim the row before touching external providers — a second flusher
+    // racing this row sees SENDING (not PENDING) and skips it.
+    const claim = await prisma.notificationLog.updateMany({
+      where: { id: log.id, status: "PENDING" },
+      data: { status: "SENDING" },
+    }).catch(() => ({ count: 0 }));
+    if (claim.count === 0) continue;
+
     try {
       const metadata = parseNotificationMetadata(log.metadata);
       const channels: string[] = (metadata.channels as string[]) ?? ["IN_APP"];
       const urgency = (metadata.urgency as string) ?? "DAILY";
 
-      // Skip if still within quiet hours and not IMMEDIATE
+      // Skip if still within quiet hours and not IMMEDIATE — release the claim
+      // so the next sweep picks the row up again.
       if (urgency !== "IMMEDIATE" && isWithinQuietHours()) {
+        await prisma.notificationLog.update({
+          where: { id: log.id },
+          data: { status: "PENDING" },
+        }).catch(() => {});
         continue;
       }
 
@@ -179,6 +199,7 @@ export async function processPendingNotifications(): Promise<{
             companyId: log.companyId,
             eventType: log.eventType,
             userId: log.recipient,
+            logId: log.id,
           });
         } else {
           // No template — send the pre-rendered message from the event bus
@@ -190,6 +211,7 @@ export async function processPendingNotifications(): Promise<{
             companyId: log.companyId,
             eventType: log.eventType,
             userId: log.recipient,
+            logId: log.id,
           });
         }
         delivered = true;
