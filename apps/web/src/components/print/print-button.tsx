@@ -86,7 +86,7 @@ export function PrintToolbar({
           // Skip the toolbar itself and any print:hidden elements
           if (node instanceof HTMLElement) {
             if (node === toolbarRef.current) return false;
-            if (node.closest(".print:hidden")) return false;
+            if (node.classList.contains("print:hidden")) return false;
             if (node.closest("[data-print-exclude]")) return false;
           }
           return true;
@@ -120,7 +120,7 @@ export function PrintToolbar({
         filter: (node) => {
           if (node instanceof HTMLElement) {
             if (node === toolbarRef.current) return false;
-            if (node.closest(".print:hidden")) return false;
+            if (node.classList.contains("print:hidden")) return false;
           }
           return true;
         },
