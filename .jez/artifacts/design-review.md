@@ -267,3 +267,22 @@ rows summing ₹2.6K while "Total Received" reads ₹1.2K — likely a
 refunded/reversed row in seed data; math is self-consistent with the ₹531
 balance. Payslip demo data is all-₹0 (no salary structure configured for the
 owner persona). Both are fixture artifacts.
+
+## Round 16 — Dialog/mutation flows
+
+**Payment flow (real mutation, verified end-to-end):** mobile material-sale
+detail → Payment → bottom sheet (balance banner, prefilled Pay-in-full, mode
+select, ref no, cheque fields, Cancel/Record pair) → POST
+`/api/material-sales/:id/payments` → `MaterialSalePayment` row (₹224 CASH
+RECEIVED) → balance ₹224 → ₹0. Sale status PARTIALLY_RETURNED is a goods
+state (partial return), not a payment state — correct.
+
+**Adjust Stock dialog (desktop):** title carries material code+name+unit,
+Add/Remove segmented toggle (green active), location select with project
+context, current-balance + moving-avg-cost info box, paired Qty/Unit-Cost
+with "Defaults to ₹9" helper, required Reason with audit-trail hint,
+Cancel/Add pair. Production-grade.
+
+**Test-harness note:** the detail-page payment dialog's submit reads "Record"
+(the list-level variant reads "Record Payment") — not a bug, just a label
+difference between the two components. Both submit real POSTs.
