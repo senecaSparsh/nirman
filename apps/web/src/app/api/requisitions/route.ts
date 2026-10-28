@@ -12,7 +12,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const statusParam = searchParams.get("status");
   // Reject unknown statuses with 400 instead of letting Prisma 500 on a bad enum.
-  const REQ_STATUSES = ["DRAFT", "SUBMITTED", "APPROVED", "CONVERTED", "REJECTED"] as const;
+  const REQ_STATUSES = ["DRAFT", "SUBMITTED", "APPROVED", "CONVERTED", "REJECTED", "CANCELLED"] as const;
   const requested = statusParam?.split(",").map((s) => s.trim().toUpperCase()) ?? [];
   if (requested.some((s) => !REQ_STATUSES.includes(s as RequisitionStatus))) {
     return json({ error: `Invalid status — expected one of ${REQ_STATUSES.join(", ")}` }, { status: 400 });

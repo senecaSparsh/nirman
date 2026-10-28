@@ -101,9 +101,13 @@ export function MobileRequisitionActions({
   const [busy, setBusy] = useState<string | null>(null);
   const [showConvert, setShowConvert] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
 
   const showSubmit = (requisition.status === "DRAFT" || requisition.status === "REJECTED") && (canManage || canSubmit);
   const showApproveReject = requisition.status === "SUBMITTED" && canApprove;
+  // Owner-withdraw: draft or submitted indents only — an approved indent may
+  // already have a QuotationRequest collecting quotes against it.
+  const showWithdraw = (requisition.status === "DRAFT" || requisition.status === "SUBMITTED") && (canManage || canSubmit);
   // Only show the manual convert button when quotes are waived (no winning
   // quote to auto-convert from) or when a winning quote exists but auto-
   // conversion failed (rare — status would normally be CONVERTED by now).
@@ -117,10 +121,10 @@ export function MobileRequisitionActions({
   const [showReject, setShowReject] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
-  if (!showSubmit && !showApproveReject && !canConvert && !showDelete)
+  if (!showSubmit && !showApproveReject && !canConvert && !showDelete && !showWithdraw)
     return null;
 
-  async function act(action: "submit" | "approve" | "reject", label: string, extra?: Record<string, unknown>) {
+  async function act(action: "submit" | "approve" | "reject" | "cancel", label: string, extra?: Record<string, unknown>) {
     haptic(10);
     setBusy(action);
     try {
@@ -236,6 +240,18 @@ export function MobileRequisitionActions({
           )}
         </>
       )}
+      {showWithdraw && (
+        <BarButton
+          onClick={() => {
+            haptic(10);
+            setShowWithdrawConfirm(true);
+          }}
+          busy={busy === "cancel"}
+          icon={XCircle}
+          label="Withdraw Indent"
+          variant="outline"
+        />
+      )}
       {showDelete && (
         <BarButton
           onClick={() => {
@@ -248,6 +264,49 @@ export function MobileRequisitionActions({
           variant="outline"
         />
       )}
+      <MobileModalSheet
+        open={showWithdrawConfirm}
+        onClose={() => { if (!busy) setShowWithdrawConfirm(false); }}
+        label="Withdraw indent"
+        className="rounded-t-[1rem] border-t"
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+          paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
+        }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
+        <div className="px-4 py-3 flex flex-col gap-3">
+          <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
+            Withdraw requisition{" "}
+            <span className="font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
+              {requisition.reqNumber}
+            </span>
+            ? It will leave the approval queue and won&apos;t be ordered. This can&apos;t be undone.
+          </p>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => setShowWithdrawConfirm(false)}
+              disabled={busy === "cancel"}
+              className="flex-1 h-10 rounded-[0.5rem] border text-m-body font-bold press"
+              style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+            >
+              Keep it
+            </button>
+            <button
+              onClick={() => {
+                act("cancel", `Indent ${requisition.reqNumber} withdrawn`);
+                setShowWithdrawConfirm(false);
+              }}
+              disabled={busy === "cancel"}
+              className="flex-1 h-10 rounded-[0.5rem] text-m-body font-bold press disabled:opacity-50"
+              style={{ backgroundColor: "var(--color-stop)", color: "#fff" }}
+            >
+              {busy === "cancel" ? "Withdrawing…" : "Withdraw"}
+            </button>
+          </div>
+        </div>
+      </MobileModalSheet>
       <MobileModalSheet
         open={showDeleteConfirm}
         onClose={() => { if (!busy) setShowDeleteConfirm(false); }}

@@ -528,6 +528,7 @@ export {
   createRequisition,
   submitRequisition,
   updateRequisition,
+  cancelRequisition,
   approveRequisition,
   rejectRequisition,
   convertRequisitionToPo,

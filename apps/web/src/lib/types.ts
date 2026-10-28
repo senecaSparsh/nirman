@@ -1156,7 +1156,7 @@ export type EquipmentMaintenanceRow = {
 //  Requisitions module
 // ───────────────────────────────────────────────────────────
 
-export type RequisitionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "CONVERTED" | "REJECTED";
+export type RequisitionStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "CONVERTED" | "REJECTED" | "CANCELLED";
 
 export type QuotationRequestRow = {
   id: string;

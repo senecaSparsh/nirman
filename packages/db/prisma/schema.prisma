@@ -3543,6 +3543,7 @@ enum RequisitionStatus {
   APPROVED
   CONVERTED  // turned into a PurchaseOrder
   REJECTED
+  CANCELLED  // withdrawn by the requester — pre-approval only
 }
 
 model MaterialRequisition {
@@ -4280,6 +4281,8 @@ model AssetSale {
   bbaDocumentName      String?    // original filename for display
   registryDocumentUrl  String?    // Sale deed / registry document — uploaded PDF/image (REQUIRED for completion)
   registryDocumentName String?    // original filename for display
+  registryDate         DateTime?  // date the sale deed was registered (markRegistryDone input was dropping it)
+  registryPendingAt    DateTime?  // when the sale entered REGISTRY_PENDING — ages the paid-but-incomplete queue
   allotmentDocumentUrl String?    // Allotment letter — uploaded PDF/image
   allotmentDocumentName String?   // original filename for display
   // ── TDS tracking (sales > ₹50L, buyer deducts 1% TDS) ──

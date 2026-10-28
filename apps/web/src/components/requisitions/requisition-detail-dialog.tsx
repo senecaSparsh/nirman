@@ -105,7 +105,7 @@ export function RequisitionDetailDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- doAction uses latest state via closure
   }, [open, detail, acting]);
 
-  async function doAction(action: "submit" | "approve" | "reject") {
+  async function doAction(action: "submit" | "approve" | "reject" | "cancel") {
     if (!requisition) return;
     setActing(true);
     try {
@@ -116,7 +116,7 @@ export function RequisitionDetailDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Action failed");
-      toast.success(`Indent ${action}ted`);
+      toast.success(action === "cancel" ? "Indent withdrawn" : `Indent ${action}ted`);
       // Re-fetch detail
       refetchDetail();
       router.refresh();
@@ -254,6 +254,11 @@ export function RequisitionDetailDialog({
               )}
               {detail.status === "APPROVED" && canApprove && (detail.requestedById !== currentUserId || canSelfApprove) && (
                 <Button size="sm" variant="ghost" onClick={() => (onReject && requisition ? onReject(requisition) : doAction("reject"))} disabled={acting} title="Withdraw this indent — it won't be ordered" className="text-muted-foreground hover:text-danger">
+                  <X className="h-4 w-4" /> Withdraw
+                </Button>
+              )}
+              {(detail.status === "DRAFT" || detail.status === "SUBMITTED") && detail.requestedById === currentUserId && (
+                <Button size="sm" variant="ghost" onClick={() => doAction("cancel")} disabled={acting} title="Withdraw this indent — it won't be ordered" className="text-muted-foreground hover:text-danger">
                   <X className="h-4 w-4" /> Withdraw
                 </Button>
               )}

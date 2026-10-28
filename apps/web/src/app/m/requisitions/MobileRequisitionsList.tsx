@@ -28,6 +28,7 @@ import {
 } from "@/components/mobile/v2/export-share-bar";
 import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
 import { usePrompt } from "@/lib/use-prompt";
+import { useConfirm } from "@/lib/use-confirm";
 
 type ReqStatus =
   | "ALL"
@@ -38,7 +39,8 @@ type ReqStatus =
   | "SUBMITTED"
   | "APPROVED"
   | "REJECTED"
-  | "CONVERTED";
+  | "CONVERTED"
+  | "CANCELLED";
 
 export type RequisitionListItem = {
   id: string;
@@ -68,6 +70,7 @@ const FILTER_CHIPS: { label: string; value: ReqStatus }[] = [
   { label: "Approved", value: "APPROVED" },
   { label: "Rejected", value: "REJECTED" },
   { label: "Converted", value: "CONVERTED" },
+  { label: "Withdrawn", value: "CANCELLED" },
 ];
 
 /* ── Status → accent color + label ── */
@@ -77,6 +80,7 @@ const STATUS_STYLE: Record<string, { color: string; label: string }> = {
   APPROVED: { color: "var(--color-steel)", label: "Approved" },
   REJECTED: { color: "var(--color-stop)", label: "Rejected" },
   CONVERTED: { color: "var(--color-go)", label: "Converted" },
+  CANCELLED: { color: "var(--color-ink-400)", label: "Withdrawn" },
 };
 
 function quotesMetFor(r: RequisitionListItem): boolean {
@@ -286,6 +290,7 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
   const [menuOpen, setMenuOpen] = useState(false);
   const { bind: longPressBind } = useLongPress(() => setMenuOpen(true));
   const [prompt, promptDialog] = usePrompt();
+  const [confirm, confirmDialog] = useConfirm();
   const style = STATUS_STYLE[req.status] ?? STATUS_STYLE.DRAFT!;
   const accentColor = style.color;
 
@@ -333,6 +338,30 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
     }
   }, [req.id, req.reqNumber, onAction, prompt]);
 
+  const handleWithdraw = useCallback(async () => {
+    const ok = await confirm({
+      title: "Withdraw indent",
+      description: `Withdraw ${req.reqNumber}? It will no longer wait for approval — this can't be undone.`,
+      confirmLabel: "Withdraw",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    haptic(10);
+    try {
+      const res = await fetch(`/api/requisitions/${req.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to withdraw");
+      toast.success(`Indent ${req.reqNumber} withdrawn`);
+      onAction?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Action failed");
+    }
+  }, [req.id, req.reqNumber, confirm, onAction]);
+
   const handleSubmit = useCallback(async () => {
     haptic(10);
     try {
@@ -354,6 +383,8 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
   //    have REQUISITION_APPROVE AND did not create this indent themselves.
   // Tier-1 approvers (OWNER/ADMIN) may approve their own indent.
   const canActOn = canApprove && (req.requestedById !== currentUserId || canSelfApprove);
+  const isOwner = !!currentUserId && req.requestedById === currentUserId;
+  const canWithdraw = isOwner && (req.status === "DRAFT" || req.status === "SUBMITTED");
 
   // Swipe actions based on status
   const swipeActions =
@@ -377,6 +408,9 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
           { label: "Approve", icon: Check, color: "var(--color-go)", onPress: handleApprove },
           { label: "Reject", icon: X, color: "var(--color-stop)", destructive: true, onPress: handleReject },
         ]
+      : []),
+    ...(canWithdraw
+      ? [{ label: "Withdraw", icon: X, color: "var(--color-stop)", destructive: true, onPress: handleWithdraw }]
       : []),
     {
       label: "Copy Number",
@@ -586,6 +620,7 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
           actions={contextActions}
         />
         {promptDialog}
+        {confirmDialog}
       </>
     );
   }
@@ -600,6 +635,7 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
         actions={contextActions}
       />
       {promptDialog}
+      {confirmDialog}
     </>
   );
 }

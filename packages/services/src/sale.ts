@@ -1399,6 +1399,8 @@ export async function markRegistryDone(input: MarkRegistryDoneInput) {
         saleDeedNo: input.saleDeedNo ?? sale.saleDeedNo ?? null,
         registryDocumentUrl: input.registryDocumentUrl ?? undefined,
         registryDocumentName: input.registryDocumentName ?? undefined,
+        registryDate: input.registryDate ? new Date(input.registryDate) : new Date(),
+        registryPendingAt: new Date(),
         finalSaleDate: undefined,
       },
     });

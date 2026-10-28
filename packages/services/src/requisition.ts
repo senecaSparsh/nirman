@@ -45,8 +45,12 @@ export function validateRequisitionInput(input: {
  * Pure function — no DB access.
  *
  * Flow: DRAFT → SUBMITTED → APPROVED → CONVERTED
- *                   ↓
- *                REJECTED
+ *           ↓       ↓
+ *       CANCELLED  REJECTED
+ *
+ * CANCELLED = the requester withdrew it. Pre-approval only — an approved
+ * indent may already have a QuotationRequest against it (approveRequisition
+ * auto-creates one), so withdrawing post-approval goes through procurement.
  */
 export function isRequisitionTransitionAllowed(
   from: RequisitionStatus,
@@ -54,11 +58,12 @@ export function isRequisitionTransitionAllowed(
 ): boolean {
   if (from === to) return true; // no-op
   const allowed: Partial<Record<RequisitionStatus, RequisitionStatus[]>> = {
-    DRAFT: ["SUBMITTED"],
-    SUBMITTED: ["APPROVED", "REJECTED"],
+    DRAFT: ["SUBMITTED", "CANCELLED"],
+    SUBMITTED: ["APPROVED", "REJECTED", "CANCELLED"],
     APPROVED: ["CONVERTED"],
     REJECTED: ["DRAFT"], // can re-submit after rejection
     CONVERTED: [],
+    CANCELLED: [],
   };
   return allowed[from]?.includes(to) ?? false;
 }
@@ -380,6 +385,45 @@ export async function submitRequisition(reqId: string, userId?: string) {
     timestamp: new Date(),
   });
 
+  return updated;
+}
+
+/**
+ * Withdraw an indent — the requester's own exit. DRAFT and SUBMITTED only:
+ * an APPROVED indent may already have an auto-created QuotationRequest and
+ * quotes arriving against it, so post-approval withdrawal goes through
+ * procurement (they close the QR) rather than the requester.
+ */
+export async function cancelRequisition(reqId: string, userId?: string) {
+  const { updated } = await withSerializableTransaction(async (tx) => {
+    const req = await tx.materialRequisition.findUnique({
+      where: { id: reqId },
+      include: {
+        project: { select: { companyId: true } },
+        department: { select: { companyId: true } },
+      },
+    });
+    if (!req) throw new ServiceError("Indent not found", 404);
+    if (!isRequisitionTransitionAllowed(req.status, "CANCELLED")) {
+      throw new ServiceError(
+        `Cannot withdraw an indent in status ${req.status} — only drafts and submitted indents can be withdrawn.`,
+        409,
+      );
+    }
+    const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
+    if (!reqCompanyId) throw new ServiceError("Indent has no project or department", 400);
+    const updated = await tx.materialRequisition.update({ where: { id: reqId }, data: { status: "CANCELLED" } });
+    await logAction(tx, {
+      userId,
+      companyId: reqCompanyId,
+      action: "REQUISITION_CANCEL",
+      entityType: "MaterialRequisition",
+      entityId: reqId,
+      before: { status: req.status },
+      after: { status: "CANCELLED" },
+    });
+    return { updated };
+  });
   return updated;
 }
 

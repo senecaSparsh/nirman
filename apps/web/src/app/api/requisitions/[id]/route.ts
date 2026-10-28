@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import {
   approveRequisition,
+  cancelRequisition,
   convertRequisitionToPo,
   rejectRequisition,
   submitRequisition,
@@ -252,6 +253,26 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       revalidatePath("/m/procurement");
       return json({ ok: true });
     }
+    if (action === "cancel") {
+      const user = await requireAnyPermission(PERM.PROCUREMENT_MANAGE, PERM.REQUISITION_CREATE);
+      // Same ownership rule as submit/edit: field creators withdraw only
+      // their own indents; procurement managers can withdraw anyone's
+      // pre-approval indent (post-approval goes through the QR/PO path).
+      const perms = await getUserPermissions();
+      if (!perms.includes("*") && !perms.includes(PERM.PROCUREMENT_MANAGE)) {
+        const own = await prisma.materialRequisition.findFirst({
+          where: { id, OR: [{ requestedById: user.id }, { submittedById: user.id }] },
+          select: { id: true },
+        });
+        if (!own) {
+          return json({ error: "You can only withdraw your own indents." }, { status: 403 });
+        }
+      }
+      await cancelRequisition(id, user.id);
+      revalidatePath("/requisitions");
+      revalidatePath("/m/procurement");
+      return json({ ok: true });
+    }
     if (action === "waiveQuotes") {
       const user = await requireEffectivePermission(PERM.PO_APPROVE);
       const reason = (body?.reason ?? body?.waiveReason) as string;
@@ -281,7 +302,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       revalidatePath("/m/procurement");
       return json({ ok: true, poId: po.id, poNumber: po.poNumber }, { status: 201 });
     }
-    return json({ error: "Invalid action. Use submit, approve, reject, waiveQuotes, or convert." }, { status: 400 });
+    return json({ error: "Invalid action. Use submit, approve, reject, edit, cancel, waiveQuotes, or convert." }, { status: 400 });
   } catch (err: unknown) {
     if (err instanceof ForbiddenError) return json({ error: err.message }, { status: 403 });
     if (err instanceof UnauthorizedError) return json({ error: err.message }, { status: 401 });

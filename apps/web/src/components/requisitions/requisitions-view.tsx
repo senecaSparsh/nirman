@@ -53,6 +53,7 @@ function buildReqColumns(opts: {
   onReject: (r: RequisitionRow) => void;
   onConvert: (r: RequisitionRow) => void;
   onSubmit: (r: RequisitionRow) => void;
+  onWithdraw: (r: RequisitionRow) => void;
   onEdit?: (r: RequisitionRow) => void;
   onDelete: (r: RequisitionRow) => void;
   onPrint: (r: RequisitionRow) => void;
@@ -110,7 +111,7 @@ function buildReqColumns(opts: {
     sortValue: (r) => (r.neededByDate ? new Date(r.neededByDate) : new Date(0)),
     render: (r) => {
       if (!r.neededByDate) return <span className="text-muted-foreground">—</span>;
-      const isOverdue = new Date(r.neededByDate) < new Date() && r.status !== "CONVERTED" && r.status !== "REJECTED";
+      const isOverdue = new Date(r.neededByDate) < new Date() && r.status !== "CONVERTED" && r.status !== "REJECTED" && r.status !== "CANCELLED";
       return (
         <span className={`tnum ${isOverdue ? "text-danger font-medium" : "text-muted-foreground"}`}>
           {formatDate(r.neededByDate)}
@@ -185,6 +186,11 @@ function buildReqColumns(opts: {
           <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); opts.onPrint(r); }} title="Print">
             <Printer className="h-3 w-3" />
           </Button>
+          {(r.status === "DRAFT" || r.status === "SUBMITTED") && isOwner && (
+            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); opts.onWithdraw(r); }} title="Withdraw — it won't be ordered">
+              <X className="h-3 w-3" />
+            </Button>
+          )}
           {r.status === "DRAFT" && isOwner && (
             <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); opts.onDelete(r); }} title="Delete">
               <Trash2 className="h-3 w-3" />
@@ -250,6 +256,7 @@ export function RequisitionsView({
   const filtered = statusFilter ? requisitions.filter((r) => r.status === statusFilter) : requisitions;
 
   const rejectedItems = filtered.filter((r) => r.status === "REJECTED");
+  const withdrawnItems = filtered.filter((r) => r.status === "CANCELLED");
   const convertedItems = filtered.filter((r) => r.status === "CONVERTED");
 
   const pipelineColumns: { status: RequisitionStatus; label: string; color: string }[] = [
@@ -398,6 +405,7 @@ export function RequisitionsView({
         <option value="APPROVED">Approved</option>
         <option value="REJECTED">Rejected</option>
         <option value="CONVERTED">Converted</option>
+        <option value="CANCELLED">Withdrawn</option>
       </select>
       <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
     </div>
@@ -435,6 +443,7 @@ export function RequisitionsView({
                   onReject: (r) => { setRejectTarget(r); },
                   onConvert: (r) => setConvertTarget(r),
                   onSubmit: (r) => action(r.id, "submit"),
+                  onWithdraw: (r) => action(r.id, "cancel"),
                   onEdit: (r) => openEdit(r),
                   onDelete: (r) => setDeleting(r),
                   onPrint: (r) => window.open(`/print/requisition/${r.id}`, "_blank"),
@@ -673,6 +682,27 @@ export function RequisitionsView({
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-danger" onClick={() => setDeleting(r)} title="Delete">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Withdrawn (compact section) ─────────────────────────── */}
+          {withdrawnItems.length > 0 && (
+            <div className="rounded-lg border border-border">
+              <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "var(--color-stage-system)" }} />
+                <span className="text-label text-muted-foreground">Withdrawn</span>
+                <span className="ml-auto text-caption font-semibold tnum text-muted-foreground">{withdrawnItems.length}</span>
+              </div>
+              <div className="divide-y divide-border">
+                {withdrawnItems.map((r) => (
+                  <div key={r.id} className="flex items-center gap-3 px-3 py-2">
+                    <span className="font-mono text-caption font-bold text-foreground w-28 shrink-0">{r.reqNumber}</span>
+                    <span className="flex-1 truncate text-body font-medium">{r.projectName}</span>
+                    <span className="text-caption text-muted-foreground shrink-0">{r.lineCount} item{r.lineCount !== 1 ? "s" : ""}</span>
+                    <StatusPill status={r.status} />
                   </div>
                 ))}
               </div>
