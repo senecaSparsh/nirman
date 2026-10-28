@@ -221,11 +221,13 @@ export function MobileGatePassList({
           toast.success(`Gate pass ${actionPastTense(action)}`);
         }
         router.refresh();
+        return true;
       } catch (err: unknown) {
         // ── Revert: restore the original status from server props ──
         const original = initialItems.find((gp) => gp.id === id);
         if (original) updateGpStatus(id, original.status);
         toast.error(err instanceof Error ? err.message : "Action failed");
+        return false;
       } finally {
         setActionLoading(null);
       }
@@ -629,28 +631,15 @@ export function MobileGatePassList({
               <button
                 disabled={actionLoading === exitTarget.id}
                 onClick={async () => {
-                  setActionLoading(exitTarget.id);
-                  try {
-                    const res = await fetch(`/api/gate-passes/${exitTarget.id}`, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        action: "confirmExit",
-                        exitNotes: exitNotes.trim() || undefined,
-                        exitPhotos: exitPhotos.length > 0 ? exitPhotos : undefined,
-                      }),
-                    });
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(data.error ?? "Action failed");
-                    toast.success("Gate pass exited");
+                  const target = exitTarget;
+                  const ok = await handleAction(target.id, "confirmExit", {
+                    exitNotes: exitNotes.trim() || undefined,
+                    exitPhotos: exitPhotos.length > 0 ? exitPhotos : undefined,
+                  });
+                  if (ok) {
                     setExitTarget(null);
                     setExitNotes("");
                     setExitPhotos([]);
-                    router.refresh();
-                  } catch (err: unknown) {
-                    toast.error(err instanceof Error ? err.message : "Action failed");
-                  } finally {
-                    setActionLoading(null);
                   }
                 }}
                 className="flex items-center gap-1 rounded-[0.375rem] px-3 py-1.5 text-m-caption font-semibold press active:scale-95 disabled:opacity-50"
