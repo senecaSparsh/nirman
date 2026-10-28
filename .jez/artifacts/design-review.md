@@ -339,3 +339,21 @@ all `<Dialog title=` usages for the same pattern — this was the only one.
 **Dev-server note:** /settings cold compile pushed next-server to 110% CPU
 for ~2min, health timed out once, then self-recovered (compile finished,
 health 200 in 72ms). Same known Turbopack dev gap — not app code.
+
+## Round 19 — Mobile settings + change-orders + route-redirect check
+
+**`/m/settings` (More hub):** business-overview cards with color-coded
+edges (payables ₹15.2K / receivables 1 sale / portfolio ₹33.56Cr / Tally
+pending 173), profile card, administration rows — consistent with the
+mobile card conventions.
+
+**Redirects confirmed intentional:** `/m/settings/team` → `/m/hr/employees`
+(mobile team management lives in the HR hub); `/m/settings/company` →
+company details elsewhere. Not defects — but they repeatedly surfaced as
+"cold compile timeouts" in scripted sweeps because the redirect target
+compiles on first hit.
+
+**`/change-orders` (desktop):** stat tiles (3/1/1), filter row
+(status/search/Columns/CSV/Save View/Views/New CO), typed rows
+(Modification/Addition), signed cost deltas (+₹5K red, ₹0), status badges,
+TOTAL +₹5.0K — holds the shared table conventions.
