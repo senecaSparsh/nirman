@@ -318,3 +318,24 @@ surfaced). Commit af218e53.
 MaterialSalePayment row + balance cleared; stock adjust +5 →
 StockLocationItem.qty + StockMovement audit row. Full stack: dialog →
 validation → API → DB → audit.
+
+## Round 18 — Settings + user-management surfaces
+
+**Verified excellent:** `/settings` hub (sidebar: My Profile/Company
+Settings/Who Sees What/Backup/Feedback/Telephony; tabs: Company/Users/
+Locations/Cost Centres/People/Companies/Integrations/Notifications; real
+config: LCI threshold, PO approval thresholds, approval aging, books-lock
+date). Users tab: 21-member table with inline role dropdowns, unit, code,
+status badges, 6 action icons; Custom Roles card; "Who can do this"
+permission reverse-lookup; **Create User = proper 3-step wizard**
+(Profile → Access Scope → Review) with inline role descriptions and
+paired fields.
+
+**FIXED — duplicated dialog title:** Bulk Import rendered "Bulk Import
+Employees / Upload a CSV…" twice — once in the Dialog frame, again in the
+body. Removed inner copy, kept Template button. Commit 3a879586. Grepped
+all `<Dialog title=` usages for the same pattern — this was the only one.
+
+**Dev-server note:** /settings cold compile pushed next-server to 110% CPU
+for ~2min, health timed out once, then self-recovered (compile finished,
+health 200 in 72ms). Same known Turbopack dev gap — not app code.
