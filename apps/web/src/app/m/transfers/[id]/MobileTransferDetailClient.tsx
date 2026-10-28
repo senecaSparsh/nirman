@@ -207,7 +207,9 @@ export function MobileTransferDetailClient({
       ? "In Transit"
       : isCompleted
         ? "Completed"
-        : "Cancelled";
+        : isReversed
+          ? "Reversed"
+          : "Cancelled";
 
   const handleCancel = async () => {
     haptic(10);
@@ -524,6 +526,24 @@ export function MobileTransferDetailClient({
           <InfoRow icon={FileText} label="Notes" value={transfer.notes} />
         ) : null}
       </div>
+
+      {/* ── Reversed / cancelled banner — the first thing a field user must
+          see on a dead transfer, before any line items or transport data. ── */}
+      {isReversed ? (
+        <div className="mb-3">
+          <DetailAlertBanner
+            tone="warning"
+            title={`This transfer was reversed — stock moved back to source and journals unwound.${transfer.reversalReason ? ` Reason: ${transfer.reversalReason}` : ""}`}
+          />
+        </div>
+      ) : isCancelled ? (
+        <div className="mb-3">
+          <DetailAlertBanner
+            tone="danger"
+            title="This transfer was cancelled. No stock was moved."
+          />
+        </div>
+      ) : null}
 
       {/* ── Inter-company pricing ── */}
       {transfer.isInterCompany &&
@@ -1230,25 +1250,7 @@ export function MobileTransferDetailClient({
         </div>
       ) : null}
 
-      {/* ── Reversed info ── */}
-      {isReversed ? (
-        <div className="mt-4">
-          <DetailAlertBanner
-            tone="warning"
-            title={`This transfer was reversed — stock moved back to source and journals unwound.${transfer.reversalReason ? ` Reason: ${transfer.reversalReason}` : ""}`}
-          />
-        </div>
-      ) : null}
-
-      {/* ── Cancelled info ── */}
-      {isCancelled ? (
-        <div className="mt-4">
-          <DetailAlertBanner
-            tone="danger"
-            title="This transfer was cancelled. No stock was moved."
-          />
-        </div>
-      ) : null}
+      {/* Reversed/cancelled banner lives up top — see below the info row. */}
 
       {/* ── Sender/receiver context banner ── */}
       {canManage && (isDraft || isInTransit) && isInterCompany ? (
