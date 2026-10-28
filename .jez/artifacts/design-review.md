@@ -530,3 +530,26 @@ Materials-used + Labour-utilised add-rows, Site-photo upload.
 - Desktop `/hr/attendance`: "Attendance is locked — 10/2026 payroll is
   already paid" banner (admin phrasing vs worker phrasing on mobile —
   copy adapts to persona).
+
+## Round 27 — SECURITY_GUARD persona + first-run tour
+
+**Guard home is receiving-centric:** nav re-centers to
+`Home | Field | Gate Pass | More` (his job is the gate); Field tab
+shows My tasks / Incoming deliveries ("Nothing in transit") / Recent
+issues (SR-261027-0002 visible). Greeting "Good evening, Ramesh".
+
+**Helpful empty states:** "No employee record linked to your account —
+attendance and DPR steps will appear once HR links one" — explains
+WHY the TODAY timeline is empty and who fixes it. "Nothing new in
+your feed" + pointer to the rail above.
+
+**Quick tour works end-to-end:** first login for this persona opened
+a 7-step walkthrough — "About a minute. You can replay it anytime
+from Settings." Stepped through all 7: spotlight rings highlight real
+elements (e.g. step 5 "The full menu" rings the hamburger icon), the
+tour navigates across tabs, Skip/Next/Done + step counter "5 OF 7".
+Proper first-run UX aimed at the least-technical user.
+
+**Persona coverage now:** OWNER (full) · SITE_ENGINEER (field day
+view, gated) · SECURITY_GUARD (gate-centric, most restricted). Each
+gets adapted nav, landing, and copy.
