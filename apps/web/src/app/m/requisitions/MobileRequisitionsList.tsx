@@ -598,6 +598,13 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
             >
               {formatDate(req.createdAt)}
             </span>
+          ) : req.status === "CANCELLED" ? (
+            <span
+              className="text-m-caption font-semibold"
+              style={{ color: "var(--color-ink-400)" }}
+            >
+              Withdrawn
+            </span>
           ) : null}
         </div>
       </div>

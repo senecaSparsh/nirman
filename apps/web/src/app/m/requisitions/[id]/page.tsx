@@ -204,18 +204,29 @@ export default function MobileRequisitionDetailPage({
           },
         ];
 
-        if (req.status !== "DRAFT") {
-          timelineSteps.push({
-            label: "Submitted",
-            date: formatDate(req.requestDate),
-            state: "done",
-            color: "var(--color-go)",
-          });
-        } else {
+        if (req.status === "DRAFT") {
           timelineSteps.push({
             label: "Draft — not submitted",
             detail: "Awaiting submission",
             state: "current",
+          });
+        } else if (req.status !== "CANCELLED" || req.submittedAt) {
+          // Skip "Submitted" for a draft withdrawn before it ever entered the queue
+          timelineSteps.push({
+            label: "Submitted",
+            date: req.submittedAt ? formatDate(req.submittedAt) : formatDate(req.requestDate),
+            state: "done",
+            color: "var(--color-go)",
+          });
+        }
+
+        if (req.status === "CANCELLED") {
+          timelineSteps.push({
+            label: "Withdrawn",
+            date: formatDate(req.updatedAt),
+            detail: "Withdrawn by the requester",
+            state: "done",
+            color: "var(--color-stop)",
           });
         }
 

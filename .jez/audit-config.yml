@@ -1,0 +1,10 @@
+# ux-audit allowlist — known noise, not app defects.
+# Sentry telemetry posts to /monitoring get rate-limited (429) by the tunnel;
+# the app itself is unaffected.
+allowlist:
+  - match: "/monitoring.*429"
+    kind: network
+    reason: "Sentry telemetry rate-limited; external noise"
+  - match: "sentry"
+    kind: console
+    reason: "Sentry SDK info/warning chatter"
