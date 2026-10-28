@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import { attendancePeriodLocked } from "@nirman/services";
 import { apiHandler, json, getCurrentUser, getCompany, getUserPermissions, getUserRole, getOwnRole } from "@/lib/server";
 import { PERM, roleTier } from "@/lib/roles";
 import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
@@ -133,15 +134,7 @@ export const GET = apiHandler(async () => {
   // processed/paid payroll period, self check-in will 409. Tell the widget
   // up front so it can show "locked" instead of a doomed Check In button.
   const lockedPeriod = myEmployee
-    ? await prisma.payrollPeriod.findFirst({
-        where: {
-          companyId: company.id,
-          status: { in: ["PROCESSED", "PAID"] },
-          startDate: { lte: startOfToday },
-          endDate: { gte: startOfToday },
-        },
-        select: { month: true, year: true, status: true },
-      })
+    ? await attendancePeriodLocked(company.id, startOfToday)
     : null;
 
   return json({

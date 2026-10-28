@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
+import { attendancePeriodLocked } from "@nirman/services";
 import { getCompany, toNum, scopeWhere, getScopedFormOptions, getEffectivePermissions, getEmployeeAccessScope } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileAttendanceForm } from "@/components/mobile/mobile-attendance-form";
@@ -40,15 +41,7 @@ async function MobileAttendanceContent() {
   // Same rule as assertAttendancePeriodOpen — surface it up front so a
   // supervisor doesn't mark 30 rows and only learn at save time that the
   // period is already paid.
-  const lockedPeriod = await prisma.payrollPeriod.findFirst({
-    where: {
-      companyId: company.id,
-      status: { in: ["PROCESSED", "PAID"] },
-      startDate: { lte: startOfToday },
-      endDate: { gte: startOfToday },
-    },
-    select: { month: true, year: true, status: true },
-  });
+  const lockedPeriod = await attendancePeriodLocked(company.id, startOfToday);
   const [projects, employees, existingAttendance] = await Promise.all([
     Promise.resolve(scopedOpts.projects),
     prisma.employee.findMany({

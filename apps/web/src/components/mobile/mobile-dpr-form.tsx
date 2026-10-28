@@ -723,7 +723,7 @@ export function MobileDprForm({
           }}
         >
           <AlertCircle className="size-3.5" />
-          DPR for {fDate} is already approved — reject it to make changes
+          DPR for {fDate} is already approved — ask your approver to reject it, then re-file
         </div>
       )}
       {payrollLock && !editingDprId && (
@@ -738,7 +738,7 @@ export function MobileDprForm({
           <AlertCircle className="size-3.5 shrink-0" />
           <span>
             {fDate} falls in a locked period — {payrollLock.label}. The DPR will be
-            rejected on submit; correct it with an adjustment in the next period.
+            rejected on submit; ask HR to record the correction as an adjustment in the next period.
           </span>
         </div>
       )}

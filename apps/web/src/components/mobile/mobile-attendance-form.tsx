@@ -353,7 +353,7 @@ export function MobileAttendanceForm({
               Attendance locked — {periodLocked.month}/{periodLocked.year} payroll is {periodLocked.status.toLowerCase()}
             </p>
             <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-              Correct it with an adjustment in the next period.
+              Payroll can post a correction as an adjustment in the next period.
             </p>
           </div>
         </div>

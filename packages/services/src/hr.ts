@@ -2963,6 +2963,23 @@ export async function attendancePeriodLocked(
   });
 }
 
+/**
+ * All processed/paid payroll periods for a company — the list version of
+ * attendancePeriodLocked for UIs that paint a whole date range as locked
+ * (attendance sheet, back-dated DPR picker) instead of checking one date.
+ */
+export async function lockedPayrollPeriods(
+  companyId: string,
+  tx?: Prisma.TransactionClient,
+): Promise<{ month: number; year: number; status: string; startDate: Date; endDate: Date }[]> {
+  const db = tx ?? prisma;
+  return db.payrollPeriod.findMany({
+    where: { companyId, status: { in: ["PROCESSED", "PAID"] } },
+    select: { month: true, year: true, status: true, startDate: true, endDate: true },
+    orderBy: { startDate: "desc" },
+  });
+}
+
 export async function assertAttendancePeriodOpen(
   companyId: string,
   date: Date,

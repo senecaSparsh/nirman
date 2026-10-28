@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
+import { attendancePeriodLocked } from "@nirman/services";
 import { getCurrentUser, getEffectivePermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
@@ -76,21 +77,13 @@ export default function SitePage() {
         // can't be filed into a PROCESSED/PAID payroll period. Nagging the
         // engineer for a report the server will reject is confusing — show
         // why it's locked instead of "Due".
-        const lockedPeriod = await prisma.payrollPeriod.findFirst({
-          where: {
-            companyId: company.id,
-            status: { in: ["PROCESSED", "PAID"] },
-            startDate: { lte: today },
-            endDate: { gte: today },
-          },
-          select: { month: true, year: true, status: true },
-        });
+        const lockedPeriod = await attendancePeriodLocked(company.id, today);
 
         if (canSubmitDpr && !myDprToday && lockedPeriod) {
           attentionBanners.push({
             id: "dpr-locked",
             title: `DPR locked — ${lockedPeriod.month}/${lockedPeriod.year} payroll ${lockedPeriod.status.toLowerCase()}`,
-            subtitle: "Report today's work via an adjustment in the next period",
+            subtitle: "Payroll can record it as an adjustment in the next period",
             href: "/m/site/dpr",
             severity: "low",
             qtyText: "!",

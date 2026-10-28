@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
+import { lockedPayrollPeriods } from "@nirman/services";
 import { getCompany, toNum, scopeWhere, getScopedFormOptions, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileDprForm } from "@/components/mobile/mobile-dpr-form";
@@ -153,16 +154,8 @@ async function MobileDprContent({
   // server already rejects these with 409) so the user doesn't fill the
   // whole form only to be told "locked" on submit.
   const lockedPeriods = (
-    await prisma.payrollPeriod.findMany({
-      where: {
-        companyId: company.id,
-        status: { in: ["PROCESSED", "PAID"] },
-      },
-      select: { month: true, year: true, status: true, startDate: true, endDate: true },
-      orderBy: { startDate: "desc" },
-      take: 24,
-    })
-  ).map((p) => ({
+    await lockedPayrollPeriods(company.id)
+  ).slice(0, 24).map((p) => ({
     start: p.startDate.toISOString().slice(0, 10),
     end: p.endDate.toISOString().slice(0, 10),
     label: `${p.month}/${p.year} payroll ${p.status.toLowerCase()}`,

@@ -179,14 +179,31 @@ converge on one write path.
    ordered before the dunning sweep in both cron routes; minted PENDING rows
    re-priced on escalation; same-day settle guard uses `paymentDate` only as
    last-resort identity (two months settle in one visit now works).
-4. **B2** (double-PO) — one fulfilment-domain PR + invariant. **NEXT**
-5. **B4 + M8** (indent edit/duplicate + copy sweep) — UX dead-ends for field users.
-6. **M2** (WhatsApp templates + claim rows) — claim-before-send half landed in
-   `c37403a7` (notifkit pattern: `PENDING→SENDING` atomic claim, stale-claim
-   reclaim, `logId` reuse so no duplicate log rows). Remaining: approved
-   utility templates + FAILED backoff (`retryAfter`).
-7. **M3, M4, M5** — ops hardening (CronRun, cron diet, invariants).
-8. **M6, M9, M10 items** — as the affected areas get touched.
+4. ~~**B2** (double-PO)~~ — **DONE** `581f0634`. One-fulfilment-per-indent
+   enforced across all three exits: QR-path quotes carry `requisitionId`,
+   `approveQuotation` claims the indent + writes `convertedPoId`, manual
+   conversion refuses fulfilled indents + validates the winning supplier,
+   direct purchase claims/releases, PO cancel releases links. Real-DB
+   invariant tests cover all four races.
+5. ~~**B4 + M8**~~ — **DONE** `cc54cebf`. `updateRequisition` edits
+   DRAFT/REJECTED indents (bounces to DRAFT, clears rejection stamp, fresh
+   stock/rate snapshots, project/phase locked); reject requires a reason at
+   service + all UIs; edit wired through API `action:edit`, desktop
+   row/dialog Edit, mobile `?edit=` mode, flow-map REJECTED → edit form.
+6. **M2** (WhatsApp templates + claim rows) — claim-before-send landed in
+   `c37403a7`; **FAILED backoff landed in `cd0d6cfd`** (SENT cools 72h,
+   queued/failed backs off 24h for both rent + sale reminders — no more
+   15-min hot loop on a dead number). Remaining: approved Meta utility
+   templates (ops task — needs template names registered in the company's
+   WhatsApp Business account, then `type:"template"` sends).
+7. ~~**M3, M4, M5**~~ — **DONE** `cd0d6cfd`. Every reminders-sweep failure
+   logs + flags by name (`ok:false` + `failedSweeps` on the response);
+   `checkBooksHealth` removed from the 15-min sweep (nightly reconciliation
+   covers it); 4 new invariant checks (escalation-schedule drift, STO
+   transfer price, SMS→voided-payment, notification backlog). A real
+   `CronRun` table is still deferred — the named-failure surfacing is the
+   minimum that makes partial failure visible.
+8. **M6, M9, M10 items** — as the affected areas get touched. **NEXT**
 
 Each fix PR opens with `SELECT COUNT(*)` audits of pre-fix rows (Migration
 lens: rows created now are tomorrow's legacy debt) and updates

@@ -780,6 +780,7 @@ export {
   deleteAttendance,
   assertAttendancePeriodOpen,
   attendancePeriodLocked,
+  lockedPayrollPeriods,
   projectProgressHistory,
   workforceProductivity,
   attendanceSummary,

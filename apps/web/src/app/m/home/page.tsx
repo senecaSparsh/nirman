@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { headers } from "next/headers";
 import { prisma } from "@nirman/db";
+import { attendancePeriodLocked } from "@nirman/services";
 import { getCompany, getCurrentUser, scopeWhere, getActionPermissions } from "@/lib/server";
 import { roleTier } from "@/lib/roles";
 import { getOwnRole, getEffectivePermissions, getUserRole } from "@/lib/server";
@@ -167,15 +168,7 @@ async function HomeContent() {
   // Same rule as assertAttendancePeriodOpen — surface it up front so the
   // field worker sees "locked" instead of a doomed Check In button.
   const lockedPeriod = myEmployee
-    ? await prisma.payrollPeriod.findFirst({
-        where: {
-          companyId: company.id,
-          status: { in: ["PROCESSED", "PAID"] },
-          startDate: { lte: startOfToday },
-          endDate: { gte: startOfToday },
-        },
-        select: { month: true, year: true, status: true },
-      })
+    ? await attendancePeriodLocked(company.id, startOfToday)
     : null;
 
   const homeData: HomeData = {

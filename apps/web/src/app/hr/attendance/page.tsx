@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { computeAttendanceTier, canAutoApprove, effectiveLeaveEntitlement } from "@nirman/services";
+import { computeAttendanceTier, canAutoApprove, effectiveLeaveEntitlement, lockedPayrollPeriods } from "@nirman/services";
 import { getActingRole, getCompany, toNum, getUserScope, scopeWhere, getScopedFormOptions, getCurrentUser, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
@@ -56,7 +56,7 @@ async function AttendanceContent() {
 
   const scopedOpts = await getScopedFormOptions();
 
-  const [employees, projects, recentAttendance, leaves, leaveEmployees, pendingOffsite, lockedPayrollPeriods] = await Promise.all([
+  const [employees, projects, recentAttendance, leaves, leaveEmployees, pendingOffsite, lockedPeriodRows] = await Promise.all([
     prisma.employee.findMany({
       take: 200,
       where: { companyId: company.id, deletedAt: null, active: true, ...await scopeWhere("Employee") },
@@ -102,9 +102,7 @@ async function AttendanceContent() {
     // Processed/paid payroll periods — same rule as
     // assertAttendancePeriodOpen, surfaced up front so a supervisor
     // doesn't mark 30 rows before the save 409s.
-    prisma.payrollPeriod.findMany({
-      where: { companyId: company.id, status: { in: ["PROCESSED", "PAID"] } },
-      select: { startDate: true, endDate: true, month: true, year: true, status: true }}),
+    lockedPayrollPeriods(company.id),
   ]);
 
   // ── Traffic-light tier computation (D10) ──────────────────────
@@ -221,7 +219,7 @@ async function AttendanceContent() {
         leaveEmployees={leaveEmployees.map((e) => ({ id: e.id, name: e.name, trade: e.trade, designation: e.designation }))}
         currentUserId={currentUser?.id ?? null}
         canSelfApprove={canAutoApprove(actingRole)}
-        lockedPeriods={lockedPayrollPeriods.map((p) => ({
+        lockedPeriods={lockedPeriodRows.map((p) => ({
           start: p.startDate.toISOString().slice(0, 10),
           end: p.endDate.toISOString().slice(0, 10),
           label: `${p.month}/${p.year} payroll is already ${p.status.toLowerCase()}`,

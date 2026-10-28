@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import { attendancePeriodLocked } from "@nirman/services";
 import {
   apiHandler,
   getCompany,
@@ -123,15 +124,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       // Same rule as assertAttendancePeriodOpen — the rail must say
       // "locked" rather than point the worker at a dead check-in card.
       employee
-        ? prisma.payrollPeriod.findFirst({
-            where: {
-              companyId: company.id,
-              status: { in: ["PROCESSED", "PAID"] },
-              startDate: { lte: startOfToday },
-              endDate: { gte: startOfToday },
-            },
-            select: { month: true, year: true, status: true },
-          })
+        ? attendancePeriodLocked(company.id, startOfToday)
         : null,
     ]);
 
