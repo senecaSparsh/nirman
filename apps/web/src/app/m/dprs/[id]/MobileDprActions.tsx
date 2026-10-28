@@ -204,6 +204,9 @@ export function MobileDprActions({
             </button>
           ) : (
             <>
+              {/* Self-reject is impossible (service refuses it) — hide the
+                  button on your own DPR even for tier-1 self-approvers */}
+              {!isOwnDpr ? (
               <button
                 onClick={() => setShowRejectConfirm(true)}
                 disabled={rejectAction.isPending}
@@ -221,6 +224,7 @@ export function MobileDprActions({
                 )}
                 Reject
               </button>
+              ) : null}
               <button
                 onClick={() => approveHandler.execute()}
                 disabled={approveBusy}
@@ -267,26 +271,28 @@ export function MobileDprActions({
                 className="w-full min-h-[80px] rounded-[0.5rem] border p-3 text-m-body mb-2"
                 style={{ borderColor: "var(--color-line)", color: "var(--color-ink-950)", backgroundColor: "var(--color-paper)" }}
               />
-              <button
-                onClick={() => setShowRejectConfirm(false)}
-                disabled={rejectAction.isPending}
-                className="flex-1 h-10 rounded-[0.5rem] border font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
-                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowRejectConfirm(false);
-                  rejectAction.execute({ action: "reject", reason: rejectReason || undefined });
-                  setRejectReason("");
-                }}
-                disabled={rejectAction.isPending}
-                className="flex-1 h-10 rounded-[0.5rem] font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
-                style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
-              >
-                {rejectAction.isPending ? <Loader2 className="size-4 animate-spin mx-auto" /> : "Reject"}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowRejectConfirm(false)}
+                  disabled={rejectAction.isPending}
+                  className="flex-1 h-10 rounded-[0.5rem] border font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
+                  style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowRejectConfirm(false);
+                    rejectAction.execute({ action: "reject", reason: rejectReason.trim() });
+                    setRejectReason("");
+                  }}
+                  disabled={rejectAction.isPending || !rejectReason.trim()}
+                  className="flex-1 h-10 rounded-[0.5rem] font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
+                  style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
+                >
+                  {rejectAction.isPending ? <Loader2 className="size-4 animate-spin mx-auto" /> : "Reject"}
+                </button>
+              </div>
             </div>
       </MobileDialog>
 
