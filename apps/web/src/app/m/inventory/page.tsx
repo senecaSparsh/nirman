@@ -135,7 +135,7 @@ export default function InventoryHomePage() {
     attentionBanners.push({
       id: m.id,
       title: m.name,
-      subtitle: `Out of stock · reorder at ${formatNumber(m.reorderPoint ?? 0, 0)} ${m.unit}`,
+      subtitle: `Out of stock${toNum(m.reorderPoint) > 0 ? ` · reorder at ${formatNumber(m.reorderPoint ?? 0, 0)} ${m.unit}` : ""}`,
       href: `/m/materials/${m.id}`,
       severity: "out",
       qtyText: "0",
@@ -146,7 +146,7 @@ export default function InventoryHomePage() {
     attentionBanners.push({
       id: m.id,
       title: m.name,
-      subtitle: `Low stock · ${formatNumber(m.totalQty, 0)} ${m.unit} left (reorder at ${formatNumber(m.reorderPoint ?? 0, 0)})`,
+      subtitle: `Low stock · ${formatNumber(m.totalQty, 0)} ${m.unit} left${toNum(m.reorderPoint) > 0 ? ` (reorder at ${formatNumber(m.reorderPoint ?? 0, 0)})` : ""}`,
       href: `/m/materials/${m.id}`,
       severity: "low",
       qtyText: formatNumber(m.totalQty, 0),

@@ -399,7 +399,7 @@ async function AttentionContent() {
                 key={m.materialId}
                 href={`/m/materials/${m.materialId}`}
                 title={m.name}
-                subtitle={`${m.code} · reorder at ${formatNumber(toNum(m.reorderPoint), 2)} ${m.unit}`}
+                subtitle={`${m.code}${toNum(m.reorderPoint) > 0 ? ` · reorder at ${formatNumber(toNum(m.reorderPoint), 2)} ${m.unit}` : ""}`}
                 meta={`${formatNumber(toNum(m.totalStock), 2)} ${m.unit}`}
                 metaColor={m.isCritical ? "var(--color-stop)" : "var(--color-signal-dark)"}
                 icon={<Package className="size-3" />}
