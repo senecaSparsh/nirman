@@ -742,7 +742,18 @@ ${messages.join("\n")}
       // which employees need their UAN filled before they can file.
       const pfLines = lines.filter((l) => toNum(l.pf) > 0 || toNum(l.employerPf) > 0);
       const missingUan = pfLines.filter((l) => !l.employee.uan).map((l) => l.employee.name);
-      const rows = pfLines.filter((l) => l.employee.uan).map((l) => {
+      const uanLines = pfLines.filter((l) => l.employee.uan);
+      // A blank ECR is worse than an error — the operator would download an
+      // empty file and discover it only on the EPFO portal. Refuse with a
+      // reason, same as the no-period branch above.
+      if (uanLines.length === 0) {
+        return json({
+          error: missingUan.length > 0
+            ? `Every PF-eligible employee in this period is missing a UAN — fill UAN for: ${missingUan.join(", ").slice(0, 300)}`
+            : "No PF-eligible employees in this payroll period — nothing to file",
+        }, { status: 404 });
+      }
+      const rows = uanLines.map((l) => {
         const gross = toNum(l.grossPay);
         const basic = toNum(l.basicAmount);
         const epfWages = basic > 0 ? basic : gross; // fall back to gross if basic unset
