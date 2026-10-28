@@ -1864,6 +1864,9 @@ export async function generatePayroll(input: GeneratePayrollInput) {
         month: `${input.month}/${input.year}`,
         zeroGross: `${result.zeroGrossEmployees.length} worker${result.zeroGrossEmployees.length !== 1 ? "s" : ""} earned ₹0 (no daily rate set): ${result.zeroGrossEmployees.slice(0, 5).join(", ")}`,
       },
+      // Draft regeneration re-emits the same warning — once a day is enough;
+      // a changed worker set produces a different message and still alerts.
+      dedupeWindowMinutes: 24 * 60,
       timestamp: new Date(),
     });
   }

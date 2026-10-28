@@ -296,6 +296,11 @@ export interface NotificationEvent {
   variables: Record<string, string>;
   /** When the event occurred */
   timestamp: Date;
+  /** Optional: suppress repeats of an identical alert (same user, eventType,
+   *  link and rendered message) emitted within this many minutes. Use for
+   *  warning-state events that re-fire while a condition persists (e.g. a
+   *  payroll draft regenerated daily) — a changed message still re-alerts. */
+  dedupeWindowMinutes?: number;
 }
 
 /**
@@ -481,7 +486,27 @@ export async function emitNotificationEvent(event: NotificationEvent): Promise<v
 
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
 
+    // Optional content dedupe — one query resolves which recipients already
+    // got this identical alert inside the window (warning-state events that
+    // re-emit while a condition persists).
+    let dedupedUsers: Set<string> | null = null;
+    if (event.dedupeWindowMinutes) {
+      const recent = await prisma.inAppNotification.findMany({
+        where: {
+          companyId: event.companyId,
+          userId: { in: recipientIds },
+          eventType: event.eventType,
+          message,
+          link,
+          createdAt: { gte: new Date(Date.now() - event.dedupeWindowMinutes * 60_000) },
+        },
+        select: { userId: true },
+      });
+      dedupedUsers = new Set(recent.map((r) => r.userId));
+    }
+
     for (const userId of recipientIds) {
+      if (dedupedUsers?.has(userId)) continue;
       const userPrefs = prefsByUser.get(userId) ?? [];
       // No preference rows → default is IN_APP only (external is opt-in).
       const channels: NotificationChannel[] = userPrefs.length > 0
