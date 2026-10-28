@@ -226,3 +226,8 @@ Cross-surface numbers reconcile: Receivables ₹25L = Finance "outstanding" card
 ### Round 13 — detail/form symmetry (Oct 27)
 
 - **Verified**: work-order detail (status stepper Draft→Issued→Active→Completed→Closed, financial 4-tile, terms/timeline cards, paired Pay Advance/Complete CTAs), expense detail, issue detail, stock-out form — all follow the shared detail-page conventions.
+
+### Round 14 — create-form + detail verification (Oct 27)
+
+- **Verified**: `/m/expenses/new` (sectioned cards, paired fields, Save Draft │ Submit CTAs), work-order detail, material-sales grid + activity feed — all follow shared form/detail conventions.
+- **Fixture noise noted**: material-sales activity feed repeats created/returned-sale rows — dev-verify residue, not a UI defect.
