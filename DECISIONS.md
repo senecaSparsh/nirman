@@ -199,6 +199,7 @@ If you catch yourself planning to "build the rent module" or "add the sale lifec
 ## How to use this doc
 
 - **Starting a session?** Read `AGENTS.md` (conventions) → this file (what to work on) → the evidence link for your chosen item.
+- **Which tool runs when?** `.jez/tooling-strategy.md` — the find→specify→verify→polish→adopt→compound pipeline mapping the 24 installed skills to cadence jobs.
 - **Finished an item?** Update its status row here AND the backing wayfinder ticket (if any).
 - **Found a new gap?** Add it to the appropriate tier with evidence pointer. Check the schema first — it's probably already modeled.
 - **Tempted to build a "new module"?** Re-read "The one finding that matters most" above. Verify the schema doesn't already have it.
