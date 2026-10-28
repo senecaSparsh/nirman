@@ -608,6 +608,20 @@ export function AssistantChat({
 // MESSAGE BUBBLE
 // ═══════════════════════════════════════════════════════════════════════════
 
+/** Renders assistant markdown-lite: **bold** → <strong>, keeps newlines. */
+function renderMessageText(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") ? (
+      <strong key={i} className="font-bold">
+        {part.slice(2, -2)}
+      </strong>
+    ) : (
+      part
+    ),
+  );
+}
+
 function MessageBubble({
   message,
   onCardClick,
@@ -634,7 +648,7 @@ function MessageBubble({
             border: isUser ? "none" : "1px solid var(--color-line)",
           }}
         >
-          {message.text}
+          {isUser ? message.text : renderMessageText(message.text)}
         </div>
 
         {/* Timestamp */}
