@@ -1,7 +1,7 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { canAutoApprove } from "@nirman/services";
+import { canAutoApprove, lockedPayrollPeriods } from "@nirman/services";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileDprsList } from "./MobileDprsList";
 import { MobileDprsFab } from "./MobileDprsFab";
@@ -68,6 +68,15 @@ export default function MobileDprsPage() {
         if (canSubmit) {
           dprFormData = await fetchDprFormData(company.id);
         }
+        // Payroll-locked periods — the FAB form needs them to show the lock
+        // banner + owner override field up front instead of a post-submit 409.
+        const lockedPeriods = canSubmit
+          ? (await lockedPayrollPeriods(company.id)).slice(0, 24).map((p) => ({
+              start: p.startDate.toISOString().slice(0, 10),
+              end: p.endDate.toISOString().slice(0, 10),
+              label: `${p.month}/${p.year} payroll ${p.status.toLowerCase()}`,
+            }))
+          : [];
 
         return (
           <div>
@@ -94,6 +103,8 @@ export default function MobileDprsPage() {
                 materials={dprFormData.materials}
                 existingDprsByProject={dprFormData.existingDprsByProject}
                 yesterdayDprsByProject={dprFormData.yesterdayDprsByProject}
+                lockedPeriods={lockedPeriods}
+                canOverrideLock={canApproveAdmin}
               />
             )}
           </div>

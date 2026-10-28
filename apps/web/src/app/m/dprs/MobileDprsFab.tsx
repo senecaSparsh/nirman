@@ -20,6 +20,8 @@ export function MobileDprsFab({
   materials,
   existingDprsByProject,
   yesterdayDprsByProject,
+  lockedPeriods,
+  canOverrideLock,
 }: {
   projects: { id: string; name: string }[];
   employees: { id: string; name: string; trade: string | null }[];
@@ -48,6 +50,8 @@ export function MobileDprsFab({
     materialLines: { materialId: string; qty: number; unitCost: number }[];
     laborLines: { employeeId: string | null; crewId: string | null; hoursWorked: number; taskDescription: string }[];
   }>;
+  lockedPeriods?: { start: string; end: string; label: string }[];
+  canOverrideLock?: boolean;
 }) {
   const fab = useFabModal();
   const router = useRouter();
@@ -68,6 +72,8 @@ export function MobileDprsFab({
           materials={materials}
           existingDprsByProject={existingDprsByProject}
           yesterdayDprsByProject={yesterdayDprsByProject}
+          lockedPeriods={lockedPeriods}
+          canOverrideLock={canOverrideLock}
           onClose={fab.close}
           onCreated={() => {
             // Refresh server-rendered cache so the list shows the new DPR

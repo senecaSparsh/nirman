@@ -762,7 +762,7 @@ export function MobileDprForm({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
           />
           <p className="text-[11px]" style={{ color: "var(--color-ink-500)" }}>
-            Labour here posts as an adjustment in the next open period — payroll for {payrollLock.label} stays settled.
+            Labour here posts as an adjustment in the next open period — {payrollLock.label} stays settled.
           </p>
         </div>
       ) : null}

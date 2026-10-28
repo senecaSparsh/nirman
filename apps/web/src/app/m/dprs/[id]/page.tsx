@@ -207,6 +207,16 @@ export default function MobileDprDetailPage({
               </div>
             </div>
 
+            {dpr.backDated ? (
+              <div className="mb-4">
+                <DetailAlertBanner
+                  tone="warning"
+                  title="Filed into a closed payroll period"
+                  description={dpr.lockOverrideReason ? `Override: ${dpr.lockOverrideReason}` : "Back-dated with approver override — labour posts as a next-period adjustment."}
+                />
+              </div>
+            ) : null}
+
             {/* ── Narrative section ── */}
             {dpr.workSummary ? (
               <div className="mb-4">
