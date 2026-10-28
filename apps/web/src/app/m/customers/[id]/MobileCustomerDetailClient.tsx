@@ -4,9 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Phone, Mail, BadgeCheck, MapPin, ShoppingCart,
-  Wallet, Plus, Trash2,
+  Mail, ShoppingCart,
+  Plus, Trash2,
   Pencil, Package, Home, Maximize, AlertCircle, Loader2,
+  UserRound,
 } from "lucide-react";
 import { MobileCustomerEditForm } from "./MobileCustomerEditForm";
 import {formatCurrencyCompact, formatDate} from "@/lib/utils";
@@ -14,7 +15,9 @@ import { toast } from "sonner";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { TrackedCallButton } from "@/components/calls/TrackedCallButton";
-import { DetailAlertBanner, DetailProgress } from "@/components/mobile/v2/detail-primitives";
+import {
+  DetailAlertBanner, DetailHeroCard, DetailKeyValueCard, DetailProgress, DetailStatGrid,
+} from "@/components/mobile/v2/detail-primitives";
 
 /* ─── Types ─── */
 
@@ -116,114 +119,93 @@ export function MobileCustomerDetailClient({
     }
   };
 
+  const contactEntries = [
+    data.phone ? { label: "Phone", value: data.phone } : null,
+    data.email ? { label: "Email", value: data.email } : null,
+    data.gstin ? { label: "GSTIN", value: data.gstin, mono: true } : null,
+    data.address ? { label: "Address", value: data.address } : null,
+  ].filter((e): e is NonNullable<typeof e> => e !== null);
+
+  const hasSales = data.totals.saleCount > 0;
+
   return (
     <div className="pb-6">
-      {/* ── Header — shell shows the customer name; keep just the tenure ── */}
-      <div className="flex items-center gap-2 mb-3">
-        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-          Customer since {formatDate(data.createdAt)}
-        </p>
-      </div>
-
-      {/* ── Contact card — clickable actions ── */}
-      <div
-        className="rounded-[0.625rem] border mb-3 overflow-hidden"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        <div className="p-3">
-          {/* Quick action buttons — call + email */}
-          <div className="flex gap-2 mb-3">
-            {data.phone ? (
-              <TrackedCallButton phone={data.phone} relatedCustomerId={data.id} />
-            ) : null}
-            {data.email ? (
-              <a
-                href={`mailto:${data.email}`}
-                className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
-                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
-              >
-                <Mail className="size-3.5" />
-                Email
-              </a>
-            ) : null}
-            {canSell ? (
-              <Link
-                href={`/m/sales/new?customerId=${data.id}`}
-                className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press"
-                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
-              >
-                <Plus className="size-3.5" />
-                New Sale
-              </Link>
-            ) : null}
-          </div>
-
-          {/* Contact details grid */}
-          <div className="grid grid-cols-2 gap-2">
-            <ContactField icon={<Phone className="size-2.5" />} label="Phone" value={data.phone} />
-            <ContactField icon={<Mail className="size-2.5" />} label="Email" value={data.email} />
-            <ContactField icon={<BadgeCheck className="size-2.5" />} label="GSTIN" value={data.gstin} mono />
-            <ContactField icon={<MapPin className="size-2.5" />} label="Address" value={data.address} />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Financial summary — the "what do they owe me" banner ── */}
-      <div
-        className="rounded-[0.625rem] border mb-3 overflow-hidden"
-        style={{
-          borderColor: data.totals.totalOutstanding > 0 ? "var(--color-signal)" : "var(--color-line)",
-          backgroundColor: "var(--color-paper)",
-        }}
-      >
-        <div className="p-3">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-                Outstanding
-              </p>
-              <p
-                className="text-m-section font-bold tabular-nums leading-tight"
-                style={{ color: data.totals.totalOutstanding > 0 ? "var(--color-signal-dark)" : "var(--color-ink-950)" }}
-              >
-                {formatCurrencyCompact(data.totals.totalOutstanding)}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-                Total Sales
-              </p>
-              <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-                {formatCurrencyCompact(data.totals.totalValue)}
-              </p>
-            </div>
-          </div>
-
-          {/* Payment progress bar */}
-          {data.totals.totalValue > 0 ? (
-            <div className="mb-2">
-              <DetailProgress label="Paid" pct={100 - outstandingPct} tone="go" />
-            </div>
+      {/* ── Hero — icon, tenure subtitle, quick contact actions ── */}
+      <DetailHeroCard icon={UserRound} subtitle={`Customer since ${formatDate(data.createdAt)}`}>
+        <div className="flex items-center gap-2 mt-2">
+          {data.phone ? (
+            <TrackedCallButton
+              phone={data.phone}
+              relatedCustomerId={data.id}
+              label={data.phone}
+              className="flex items-center gap-1 text-m-caption font-semibold text-m-body press"
+              style={{ color: "var(--color-steel)" }}
+            />
           ) : null}
-
-          {/* Mini stats row */}
-          <div className="flex items-center gap-3 text-m-caption font-semibold">
-            <span className="flex items-center gap-0.5" style={{ color: "var(--color-go)" }}>
-              <Wallet className="size-2.5" />
-              {formatCurrencyCompact(data.totals.totalPaid)} received
-            </span>
-            <span style={{ color: "var(--color-ink-500)" }}>
-              {data.totals.saleCount} sales
-            </span>
-            {data.totals.activeDeals > 0 ? (
-              <span className="flex items-center gap-0.5" style={{ color: "var(--color-signal-dark)" }}>
-                <ShoppingCart className="size-2.5" />
-                {data.totals.activeDeals} active
-              </span>
-            ) : null}
-          </div>
+          {data.email ? (
+            <a
+              href={`mailto:${data.email}`}
+              className="flex items-center gap-1 text-m-caption font-semibold text-m-body press"
+              style={{ color: "var(--color-steel)" }}
+            >
+              <Mail className="size-3" />
+              Email
+            </a>
+          ) : null}
         </div>
-      </div>
+      </DetailHeroCard>
+
+      {/* ── Primary action ── */}
+      {canSell ? (
+        <Link
+          href={`/m/sales/new?customerId=${data.id}`}
+          className="flex items-center justify-center gap-1.5 h-10 rounded-[0.5rem] mb-3 text-m-label font-bold text-m-body press"
+          style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
+        >
+          <Plus className="size-3.5" />
+          New Sale
+        </Link>
+      ) : null}
+
+      {/* ── Financial stats — only once there is real activity ── */}
+      {hasSales ? (
+        <DetailStatGrid
+          cols={data.totals.activeDeals > 0 ? 4 : 3}
+          stats={[
+            {
+              label: "Outstanding",
+              value: formatCurrencyCompact(data.totals.totalOutstanding),
+              tone: data.totals.totalOutstanding > 0 ? "signal" : "default",
+            },
+            { label: "Total Sales", value: formatCurrencyCompact(data.totals.totalValue) },
+            { label: "Received", value: formatCurrencyCompact(data.totals.totalPaid), tone: "go" },
+            ...(data.totals.activeDeals > 0
+              ? [{ label: "Active Deals", value: String(data.totals.activeDeals), tone: "signal" as const }]
+              : []),
+          ]}
+        />
+      ) : null}
+
+      {/* ── Collection progress — only when money has moved ── */}
+      {data.totals.totalValue > 0 ? (
+        <div
+          className="rounded-[0.625rem] border px-3 pt-1 pb-3 mb-3"
+          style={{
+            borderColor: data.totals.totalOutstanding > 0 ? "var(--color-signal)" : "var(--color-line)",
+            backgroundColor: "var(--color-paper)",
+          }}
+        >
+          <DetailProgress
+            label="Collected"
+            value={`${formatCurrencyCompact(data.totals.totalPaid)} of ${formatCurrencyCompact(data.totals.totalValue)}`}
+            pct={100 - outstandingPct}
+            tone="go"
+          />
+        </div>
+      ) : null}
+
+      {/* ── Contact details — only fields that actually have data ── */}
+      <DetailKeyValueCard title="Contact" entries={contactEntries} />
 
       {/* ── Sales history ── */}
       <div className="mb-4">
@@ -295,31 +277,6 @@ export function MobileCustomerDetailClient({
           onClose={() => setShowEdit(false)}
         />
       ) : null}
-    </div>
-  );
-}
-
-/* ─── Contact field ─── */
-function ContactField({
-  icon, label, value, mono,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string | null;
-  mono?: boolean;
-}) {
-  return (
-    <div>
-      <p className="text-m-caption font-semibold uppercase flex items-center gap-0.5" style={{ color: "var(--color-ink-500)" }}>
-        {icon}
-        {label}
-      </p>
-      <p
-        className={`text-m-label font-bold leading-tight mt-0.5 truncate ${mono ? "font-mono tabular-nums" : ""}`}
-        style={{ color: value ? "var(--color-ink-950)" : "var(--color-ink-300)" }}
-      >
-        {value ?? "—"}
-      </p>
     </div>
   );
 }

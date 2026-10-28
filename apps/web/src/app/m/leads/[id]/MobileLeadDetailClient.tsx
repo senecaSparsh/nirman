@@ -5,18 +5,18 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Phone, Mail, Calendar, User, Building2,
-  Target, TrendingUp, Clock, MessageSquare,
+  TrendingUp, MessageSquare,
   CheckCircle2, AlertCircle, ArrowRight,
   Plus, Loader2, X, UserRoundCheck, ChevronDown,
 } from "lucide-react";
 import { formatCurrency, formatDate, formatEnumLabel } from "@/lib/utils";
 import {
   MobileSectionTitle,
-  MobileRow,
   MobileEmptyState,
 } from "@/components/mobile/v2/primitives";
 import {
   DetailHeroCard,
+  DetailKeyValueCard,
   DetailStatGrid,
 } from "@/components/mobile/v2/detail-primitives";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
@@ -287,7 +287,7 @@ export function MobileLeadDetailClient({
 
       {/* ── Stats ── */}
       <DetailStatGrid
-        cols={4}
+        cols={3}
         stats={[
           { label: "Activities", value: String(lead.stats.activityCount) },
           {
@@ -301,71 +301,46 @@ export function MobileLeadDetailClient({
       {/* ── Details ── */}
       <div>
         <MobileSectionTitle>Details</MobileSectionTitle>
-        <div className="flex flex-col gap-2.5">
-          {lead.budgetMin != null || lead.budgetMax != null ? (
-            <MobileRow
-              icon={Target}
-              title="Budget"
-              meta={
-                lead.budgetMin != null && lead.budgetMax != null
-                  ? `${formatCurrency(lead.budgetMin)} – ${formatCurrency(lead.budgetMax)}`
-                  : lead.budgetMin != null
-                    ? `From ${formatCurrency(lead.budgetMin)}`
-                    : `Up to ${formatCurrency(lead.budgetMax ?? 0)}`
-              }
-            />
-          ) : null}
-          {lead.interestedUnitType ? (
-            <MobileRow icon={Building2} title="Interested In" meta={lead.interestedUnitType} />
-          ) : null}
-          {lead.interestedUnitNumber ? (
-            <MobileRow icon={Building2} title="Unit" meta={lead.interestedUnitNumber} />
-          ) : null}
-          {lead.projectName ? (
-            <MobileRow
-              icon={Building2}
-              title="Project"
-              meta={lead.projectName}
-            />
-          ) : null}
-          {lead.assignedToName ? (
-            <MobileRow icon={User} title="Assigned To" meta={lead.assignedToName} />
-          ) : null}
-          {lead.nextFollowUpAt ? (
-            <MobileRow
-              icon={Calendar}
-              title="Next Follow-up"
-              meta={formatDate(lead.nextFollowUpAt)}
-            />
-          ) : null}
-          {lead.lastContactAt ? (
-            <MobileRow
-              icon={Clock}
-              title="Last Contact"
-              meta={formatDate(lead.lastContactAt)}
-            />
-          ) : null}
-          {lead.convertedCustomerName ? (
-            <Link
-              href={`/m/customers/${lead.convertedCustomerId}`}
-              className="flex items-center gap-2"
-            >
-              <MobileRow
-                icon={CheckCircle2}
-                title="Converted To"
-                meta={lead.convertedCustomerName}
-              />
-              <ArrowRight className="size-3 shrink-0" style={{ color: "var(--color-steel)" }} />
-            </Link>
-          ) : null}
-          {isLost && lead.lostReason ? (
-            <MobileRow
-              icon={AlertCircle}
-              title="Lost Reason"
-              meta={lead.lostReason}
-            />
-          ) : null}
-        </div>
+        <DetailKeyValueCard
+          entries={[
+            lead.budgetMin != null || lead.budgetMax != null
+              ? {
+                  label: "Budget",
+                  value:
+                    lead.budgetMin != null && lead.budgetMax != null
+                      ? `${formatCurrency(lead.budgetMin)} – ${formatCurrency(lead.budgetMax)}`
+                      : lead.budgetMin != null
+                        ? `From ${formatCurrency(lead.budgetMin)}`
+                        : `Up to ${formatCurrency(lead.budgetMax ?? 0)}`,
+                }
+              : null,
+            lead.interestedUnitType ? { label: "Interested In", value: lead.interestedUnitType } : null,
+            lead.interestedUnitNumber ? { label: "Unit", value: lead.interestedUnitNumber } : null,
+            lead.projectName ? { label: "Project", value: lead.projectName } : null,
+            lead.assignedToName ? { label: "Assigned To", value: lead.assignedToName } : null,
+            lead.nextFollowUpAt ? { label: "Next Follow-up", value: formatDate(lead.nextFollowUpAt) } : null,
+            lead.lastContactAt ? { label: "Last Contact", value: formatDate(lead.lastContactAt) } : null,
+            isLost && lead.lostReason ? { label: "Lost Reason", value: lead.lostReason, tone: "stop" as const } : null,
+          ].filter((e): e is NonNullable<typeof e> => e !== null)}
+        />
+        {lead.convertedCustomerName ? (
+          <Link
+            href={`/m/customers/${lead.convertedCustomerId}`}
+            className="flex items-center gap-2.5 rounded-[0.625rem] border p-3 mb-3 press"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            <CheckCircle2 className="size-4 shrink-0" style={{ color: "var(--color-go)" }} />
+            <div className="min-w-0 flex-1">
+              <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
+                Converted To
+              </p>
+              <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                {lead.convertedCustomerName}
+              </p>
+            </div>
+            <ArrowRight className="size-3.5 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+          </Link>
+        ) : null}
       </div>
 
       {/* ── Notes ── */}
