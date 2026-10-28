@@ -384,7 +384,10 @@ function DprStrip({
           color: "var(--color-go)",
           onPress: handleApprove,
         },
-        { label: "Reject", color: "var(--color-stop)", onPress: handleReject },
+        // Self-reject is refused by the service — never offer it on own DPRs
+        ...(isNotOwnDpr
+          ? [{ label: "Reject", color: "var(--color-stop)", onPress: handleReject }]
+          : []),
       ]
     : [];
 
