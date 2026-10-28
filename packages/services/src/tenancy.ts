@@ -368,6 +368,36 @@ export async function updateTenancy(tenancyId: string, input: UpdateTenancyInput
         after.escalationPercent = escPct?.toString() ?? null;
       }
     }
+    if (input.rentFreeDays !== undefined && input.rentFreeDays !== t.rentFreeDays) {
+      if (input.rentFreeDays < 0) throw new ServiceError("Rent-free days cannot be negative");
+      data.rentFreeDays = input.rentFreeDays;
+      before.rentFreeDays = t.rentFreeDays;
+      after.rentFreeDays = input.rentFreeDays;
+    }
+    if (input.draftDocumentUrl !== undefined && input.draftDocumentUrl !== t.draftDocumentUrl) {
+      data.draftDocumentUrl = input.draftDocumentUrl ?? null;
+      before.draftDocumentUrl = t.draftDocumentUrl;
+      after.draftDocumentUrl = input.draftDocumentUrl;
+    }
+    if (input.draftDocumentName !== undefined && input.draftDocumentName !== t.draftDocumentName) {
+      data.draftDocumentName = input.draftDocumentName ?? null;
+    }
+    if (input.draftNotes !== undefined && input.draftNotes !== t.draftNotes) {
+      data.draftNotes = input.draftNotes ?? null;
+      before.draftNotes = t.draftNotes;
+      after.draftNotes = input.draftNotes;
+    }
+    if (input.draftDate !== undefined) {
+      const draftDate = input.draftDate == null
+        ? null
+        : input.draftDate instanceof Date ? input.draftDate : new Date(input.draftDate);
+      if (draftDate && isNaN(draftDate.getTime())) throw new ServiceError("Invalid draft date");
+      if ((draftDate?.getTime() ?? null) !== (t.draftDate?.getTime() ?? null)) {
+        data.draftDate = draftDate;
+        before.draftDate = t.draftDate?.toISOString() ?? null;
+        after.draftDate = draftDate?.toISOString() ?? null;
+      }
+    }
     if (input.notes !== undefined && input.notes !== t.notes) {
       data.notes = input.notes ?? null;
       before.notes = t.notes;
@@ -442,17 +472,20 @@ export async function activateTenancy(tenancyId: string, companyId: string, user
     const now = new Date();
     const monthsAhead = 12;
     let scheduleCreated = 0;
-    // Schedule months from the later of "now" or the lease start — a future
-    // lease must not generate rent for months before it begins.
-    const schedBase = start > now ? start : now;
+    // Billing begins after the rent-free (fit-out) days — the printed tenancy
+    // draft computes rent start as startDate + rentFreeDays; the schedule must
+    // match the contract. Then take the later of "now" or the billing start —
+    // a future lease must not generate rent for months before it begins.
+    const billingStart = new Date(start.getTime() + t.rentFreeDays * 86400000);
+    const schedBase = billingStart > now ? billingStart : now;
 
     for (let i = 0; i < monthsAhead; i++) {
       // UTC-midnight construction — dueDate/periodStart/periodEnd land in
       // @db.Date columns. `new Date(y, m, d)` (local midnight) would store the
       // previous UTC day in timezones ahead of UTC (IST = UTC+5:30). The
       // year/month come from local time (business "current month") while the
-      // day-of-month comes from the stored UTC-midnight startDate.
-      const dueDate = new Date(Date.UTC(schedBase.getFullYear(), schedBase.getMonth() + i, start.getUTCDate()));
+      // day-of-month comes from the billing start (startDate + rentFreeDays).
+      const dueDate = new Date(Date.UTC(schedBase.getFullYear(), schedBase.getMonth() + i, billingStart.getUTCDate()));
       if (dueDate > end) break;
 
       const periodStart = new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), 1));
@@ -999,6 +1032,7 @@ export async function changeTenant(input: ChangeTenantInput) {
         nextEscalationDate: t.escalationPercent
           ? new Date(newStart.getTime() + t.escalationIntervalMonths * 30 * 86400000)
           : null,
+        rentFreeDays: t.rentFreeDays,
         status: "ACTIVE",
         notes: input.notes ?? `Tenant changed from ${t.tenantName}`,
         createdById: input.userId ?? null,
@@ -1059,18 +1093,21 @@ export async function generateRentSchedule(input: GenerateRentScheduleInput) {
     const start = new Date(t.startDate);
     const end = new Date(t.endDate);
     const now = new Date();
-    const schedBase = start > now ? start : now;
+    // Billing begins after rent-free days (same anchor as activateTenancy and
+    // the printed tenancy draft), then the later of that or "now".
+    const billingStart = new Date(start.getTime() + t.rentFreeDays * 86400000);
+    const schedBase = billingStart > now ? billingStart : now;
 
     const created: string[] = [];
     const skipped: string[] = [];
 
     for (let i = 0; i < monthsAhead; i++) {
-      // Due date = same day of month as start, for the next N months from the
-      // later of "now" or the lease start (a future lease must not bill
-      // earlier months). UTC-midnight construction (@db.Date columns) —
-      // local `new Date(y, m, d)` stores the previous UTC day in timezones
-      // ahead of UTC.
-      const dueDate = new Date(Date.UTC(schedBase.getFullYear(), schedBase.getMonth() + i, start.getUTCDate()));
+      // Due date = same day of month as the billing start, for the next N
+      // months from the later of "now" or the billing start (a future lease
+      // must not bill earlier months). UTC-midnight construction (@db.Date
+      // columns) — local `new Date(y, m, d)` stores the previous UTC day in
+      // timezones ahead of UTC.
+      const dueDate = new Date(Date.UTC(schedBase.getFullYear(), schedBase.getMonth() + i, billingStart.getUTCDate()));
       if (dueDate > end) break;
 
       const periodStart = new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), 1));
@@ -1128,7 +1165,7 @@ export async function generateRentSchedule(input: GenerateRentScheduleInput) {
 export async function generateDueRentSchedules(companyId?: string): Promise<{ checked: number; created: number }> {
   const activeTenancies = await prisma.tenancy.findMany({
     where: { status: "ACTIVE", ...(companyId ? { companyId } : {}) },
-    select: { id: true, companyId: true, monthlyRent: true, startDate: true, endDate: true },
+    select: { id: true, companyId: true, monthlyRent: true, startDate: true, endDate: true, rentFreeDays: true },
   });
 
   let created = 0;
@@ -1139,11 +1176,13 @@ export async function generateDueRentSchedules(companyId?: string): Promise<{ ch
       const rent = new Decimal(t.monthlyRent);
       const start = new Date(t.startDate);
       const end = new Date(t.endDate);
-      const schedBase = start > now ? start : now;
+      // Billing begins after rent-free days — see activateTenancy.
+      const billingStart = new Date(start.getTime() + t.rentFreeDays * 86400000);
+      const schedBase = billingStart > now ? billingStart : now;
       // Generate for the current month + next 2 months (covers any gaps)
       for (let i = 0; i < 3; i++) {
         // UTC-midnight construction (@db.Date columns) — see activateTenancy.
-        const dueDate = new Date(Date.UTC(schedBase.getFullYear(), schedBase.getMonth() + i, start.getUTCDate()));
+        const dueDate = new Date(Date.UTC(schedBase.getFullYear(), schedBase.getMonth() + i, billingStart.getUTCDate()));
         if (dueDate > end) break;
 
         const periodStart = new Date(Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), 1));
