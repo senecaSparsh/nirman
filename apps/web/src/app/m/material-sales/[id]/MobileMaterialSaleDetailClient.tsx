@@ -9,12 +9,11 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatEnumLabel, formatNumber, formatPaymentMode, toNum} from "@/lib/utils";
 import { toast } from "sonner";
-import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
-import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileMaterialSalePaymentDialog } from "../MobileMaterialSalePaymentDialog";
 import { DetailStatGrid } from "@/components/mobile/v2/detail-primitives";
 import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 
@@ -50,8 +49,6 @@ type PaymentItem = {
   chequeBank: string | null;
   chequePhotoUrl: string | null;
 };
-
-const PAYMENT_MODES = ["CASH", "BANK", "UPI", "CHEQUE"];
 
 /**
  * Material sale detail — invoice header + financial summary + line items
@@ -140,11 +137,6 @@ export function MobileMaterialSaleDetailClient({
     return () => window.removeEventListener("hashchange", check);
   }, []);
 
-  // Payment form state
-  const [payAmount, setPayAmount] = useState("");
-  const [payMode, setPayMode] = useState("CASH");
-  const [payRef, setPayRef] = useState("");
-  const [payCheque, setPayCheque] = useState<MobileChequeState>(EMPTY_MOBILE_CHEQUE);
   const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState("");
   const [irnBusy, setIrnBusy] = useState(false);
@@ -237,51 +229,6 @@ export function MobileMaterialSaleDetailClient({
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to cancel sale");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handlePayment(e: React.FormEvent) {
-    e.preventDefault();
-    const amount = Number(payAmount);
-    if (!amount || amount <= 0) {
-      toast.error("Enter a valid amount");
-      return;
-    }
-    if (payMode === "CHEQUE" && !payCheque.chequeNo.trim()) {
-      toast.error("Cheque number is required");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await fetch(`/api/material-sales/${saleId}/payments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount,
-          paymentMode: payMode,
-          referenceNo: payRef || undefined,
-          ...(payMode === "CHEQUE" ? {
-            chequeNo: payCheque.chequeNo.trim() || undefined,
-            chequeDate: payCheque.chequeDate || undefined,
-            chequeBank: payCheque.chequeBank.trim() || undefined,
-            chequePhotoUrl: payCheque.chequePhotoUrl || undefined,
-          } : {}),
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Failed to record payment");
-      }
-      toast.success(payMode === "CHEQUE" ? "Cheque payment recorded (pending clearance)" : "Payment recorded");
-      setShowPayment(false);
-      setPayAmount("");
-      setPayRef("");
-      setPayCheque(EMPTY_MOBILE_CHEQUE);
-      router.refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to record payment");
     } finally {
       setSubmitting(false);
     }
@@ -790,81 +737,18 @@ export function MobileMaterialSaleDetailClient({
         </Modal>
       ) : null}
 
-      {/* ── Payment modal ── */}
+      {/* ── Payment modal — shared with the list surface so validation/TDS/
+          balance hints stay in one implementation ── */}
       {showPayment ? (
-        <Modal onClose={() => setShowPayment(false)} title="Record Payment">
-          <form onSubmit={handlePayment} className="flex flex-col gap-3">
-            {balanceDue > 0 ? (
-              <div className="flex items-center justify-between gap-2 text-m-caption rounded-[0.375rem] px-2 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)", color: "var(--color-signal-dark)" }}>
-                <span>Balance due: <span className="font-bold tabular-nums">{formatCurrency(balanceDue)}</span></span>
-                <button
-                  type="button"
-                  onClick={() => setPayAmount(String(balanceDue))}
-                  className="rounded-full px-2 py-0.5 text-m-caption font-bold press"
-                  style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 16%, transparent)" }}
-                >
-                  Pay in full
-                </button>
-              </div>
-            ) : null}
-            <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Payment Details</p>
-              <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                <FormField label="Amount" required>
-                  <input aria-label="Pay Amount"
-                    type="text" inputMode="decimal"
-                    step="any"
-                    min="0"
-                    value={payAmount}
-                    onChange={(e) => setPayAmount(e.target.value)}
-                    placeholder={String(balanceDue || totalAmount)}
-                    className={inputClass}
-                    style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
-                    required
-                  />
-                </FormField>
-                <div className="pl-2">
-                  <EnumSelect
-                    label="Payment mode"
-                    required
-                    value={payMode}
-                    onChange={(v) => setPayMode(v)}
-                    options={PAYMENT_MODES.map((m) => ({ value: m, label: formatPaymentMode(m) }))}
-                  />
-                </div>
-              </div>
-              <FormField label="Reference no (optional)">
-                <input aria-label="UTR / cheque no"
-                  type="text"
-                  value={payRef}
-                  onChange={(e) => setPayRef(e.target.value)}
-                  placeholder="UTR / cheque no"
-                  className={inputClass}
-                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
-                />
-              </FormField>
-              {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowPayment(false)}
-                className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-                style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
-              >
-                {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Record"}
-              </button>
-            </div>
-          </form>
-        </Modal>
+        <MobileMaterialSalePaymentDialog
+          open={showPayment}
+          onClose={() => setShowPayment(false)}
+          saleId={saleId}
+          saleNumber={saleNumber}
+          totalAmount={totalAmount}
+          outstandingBalance={balanceDue}
+          onPaid={() => router.refresh()}
+        />
       ) : null}
       <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
@@ -879,17 +763,3 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
     </MobileDialog>
   );
 }
-
-/* ─── Form field ─── */
-function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
-        {label}{required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-const inputClass = "w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors";
