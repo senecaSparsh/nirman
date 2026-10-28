@@ -66,7 +66,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated, canCreat
   const [showNewLocationDialog, setShowNewLocationDialog] = useState(false);
 
 
-  const [success, setSuccess] = useState<{ id: string } | null>(null);
+  const [success, setSuccess] = useState<{ id: string; counted: number; mismatches: number } | null>(null);
 
   // Draft auto-save
   const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<StockCountDraft>(
@@ -208,9 +208,11 @@ export default function MobileNewStockCountClient({ onClose, onCreated, canCreat
     let mismatches = 0;
     let netVariance = 0;
     for (const l of lines) {
-      const cq = Number(l.countedQty) || 0;
-      if (l.countedQty !== "") counted++;
-      const v = cq - l.systemQty;
+      // Uncounted lines are pending, not mismatches — a blank field must
+      // not read as "counted zero, short by the whole book qty".
+      if (l.countedQty === "") continue;
+      counted++;
+      const v = Number(l.countedQty) - l.systemQty;
       if (v > 0.001 || v < -0.001) {
         mismatches++;
         netVariance += v;
@@ -252,7 +254,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated, canCreat
           description: "Will sync when back online",
         });
         clearDraft();
-        setSuccess({ id: "QUEUED" });
+        setSuccess({ id: "QUEUED", counted: validLines.length, mismatches: 0 });
         return;
       }
 
@@ -269,7 +271,9 @@ export default function MobileNewStockCountClient({ onClose, onCreated, canCreat
 
       const data = await res.json();
       clearDraft();
-      setSuccess({ id: data.id });
+      // Snapshot the summary now — `lines` rebuilds from fresh stock data
+      // right after, zeroing varianceSummary before the success screen reads it.
+      setSuccess({ id: data.id, counted: validLines.length, mismatches: varianceSummary.mismatches });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create stock inventory");
     } finally {
@@ -305,7 +309,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated, canCreat
           </p>
         ) : (
           <p className="text-m-body mb-4" style={{ color: "var(--color-ink-700)" }}>
-            {varianceSummary.counted} item{varianceSummary.counted === 1 ? "" : "s"} counted · {varianceSummary.mismatches} mismatch{varianceSummary.mismatches === 1 ? "" : "es"}
+            {success.counted} item{success.counted === 1 ? "" : "s"} counted · {success.mismatches} mismatch{success.mismatches === 1 ? "" : "es"}
           </p>
         )}
         <div className="flex gap-3">
@@ -538,12 +542,16 @@ export default function MobileNewStockCountClient({ onClose, onCreated, canCreat
               style={{
                 color: varianceSummary.mismatches > 0
                   ? (varianceSummary.netVariance < 0 ? "var(--color-stop)" : "var(--color-signal-dark)")
-                  : "var(--color-go)",
+                  : varianceSummary.counted === 0 ? "var(--color-ink-500)" : "var(--color-go)",
               }}
             >
               {varianceSummary.mismatches > 0
                 ? `${varianceSummary.mismatches} mismatch${varianceSummary.mismatches !== 1 ? "es" : ""}`
-                : "all match"
+                : varianceSummary.counted === 0
+                  ? `${varianceSummary.total} to count`
+                  : varianceSummary.counted < varianceSummary.total
+                    ? "counted all match"
+                    : "all match"
               }
             </p>
             {varianceSummary.mismatches > 0 ? (
