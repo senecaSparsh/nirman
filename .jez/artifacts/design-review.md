@@ -510,3 +510,23 @@ surfaces on paper background:
   negatives and -187.2% margin pill on Godrej Park.
 
 CSS-var theming holds — no hard-coded color leaks found in either mode.
+
+## Round 26 — engineer DPR flow + books-lock consistency
+
+**`/m/site/dpr` (SITE_ENGINEER):** "File today's DPR" on the engineer
+home → full New DPR form: project selector (with GPS pin), work-type
+dropdown, paired Qty+Unit / Date+Progress fields, auto-filled weather
+(Sunny 28°C), Work summary / Blockers / Tomorrow's plan textareas,
+Materials-used + Labour-utilised add-rows, Site-photo upload.
+
+**Books-lock propagates consistently — verified across 3 surfaces:**
+
+- DPR form: amber banner "2026-10-28 falls in a locked period —
+  10/2026 payroll paid. The DPR will be rejected on submit; correct it
+  with an adjustment in the next period" + submit bar itself reads
+  "Locked — payroll processed" (blocks before effort is wasted).
+- Engineer home timeline: Check in / Check out both show
+  "Locked — payroll already processed".
+- Desktop `/hr/attendance`: "Attendance is locked — 10/2026 payroll is
+  already paid" banner (admin phrasing vs worker phrasing on mobile —
+  copy adapts to persona).
