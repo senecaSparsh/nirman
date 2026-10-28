@@ -34,7 +34,7 @@ type MbEntry = {
   status: "DRAFT" | "VERIFIED" | "APPROVED" | "REJECTED";
   boqItem: { serialNo: string; description: string; unit: string | null; rate: number | null };
   wbsNode: { code: string; name: string } | null;
-  measuredBy: { name: string } | null;
+  measuredBy: { id: string; name: string } | null;
   verifiedBy: { name: string } | null;
   approvedBy: { name: string } | null;
   rejectReason: string | null;
@@ -102,6 +102,8 @@ function mbColumnsWithActions(
   onAction: (id: string, action: "verify" | "approve" | "reject") => void,
   canVerify: boolean,
   canApprove: boolean,
+  currentUserId: string | null,
+  canSelfApprove: boolean,
 ): Column<MbEntry>[] {
   return [
     ...mbColumns,
@@ -109,35 +111,44 @@ function mbColumnsWithActions(
       key: "actions",
       label: "",
       align: "right",
-      render: (e) => (
-        <div className="flex items-center justify-end gap-1" onClick={(ev) => ev.stopPropagation()}>
-          <a
-            href={`/print/measurement-book/${e.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground"
-            title="Print MB entry"
-            aria-label="Print MB entry"
-          >
-            <Printer className="h-4 w-4" />
-          </a>
-          {e.status === "DRAFT" && canVerify && (
-            <button onClick={() => onAction(e.id, "verify")} className="text-muted-foreground hover:text-primary" title="Verify">
-              <CheckCircle className="h-4 w-4" />
-            </button>
-          )}
-          {e.status === "VERIFIED" && canApprove && (
-            <button onClick={() => onAction(e.id, "approve")} className="text-muted-foreground hover:text-emerald-600" title="Approve">
-              <ShieldCheck className="h-4 w-4" />
-            </button>
-          )}
-          {((e.status === "DRAFT" && canVerify) || (e.status === "VERIFIED" && canApprove)) && (
-            <button onClick={() => onAction(e.id, "reject")} className="text-muted-foreground hover:text-destructive" title="Reject">
-              <XCircle className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      ),
+      render: (e) => {
+        // Same gate as the service: self-verify/approve is waived only for
+        // tier-1 roles; self-reject is refused unconditionally, so a Reject
+        // button on the measurer's own entry is always a doomed action.
+        const isSelf = !!currentUserId && e.measuredBy?.id === currentUserId;
+        const showVerify = e.status === "DRAFT" && canVerify && (!isSelf || canSelfApprove);
+        const showApprove = e.status === "VERIFIED" && canApprove && (!isSelf || canSelfApprove);
+        const showReject = (e.status === "DRAFT" && canVerify || e.status === "VERIFIED" && canApprove) && !isSelf;
+        return (
+          <div className="flex items-center justify-end gap-1" onClick={(ev) => ev.stopPropagation()}>
+            <a
+              href={`/print/measurement-book/${e.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground"
+              title="Print MB entry"
+              aria-label="Print MB entry"
+            >
+              <Printer className="h-4 w-4" />
+            </a>
+            {showVerify && (
+              <button onClick={() => onAction(e.id, "verify")} className="text-muted-foreground hover:text-primary" title="Verify">
+                <CheckCircle className="h-4 w-4" />
+              </button>
+            )}
+            {showApprove && (
+              <button onClick={() => onAction(e.id, "approve")} className="text-muted-foreground hover:text-emerald-600" title="Approve">
+                <ShieldCheck className="h-4 w-4" />
+              </button>
+            )}
+            {showReject && (
+              <button onClick={() => onAction(e.id, "reject")} className="text-muted-foreground hover:text-destructive" title="Reject">
+                <XCircle className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 }
@@ -147,11 +158,15 @@ export function MeasurementBookView({
   canCreate,
   canVerify,
   canApprove,
+  currentUserId,
+  canSelfApprove,
 }: {
   projects: ProjectOption[];
   canCreate: boolean;
   canVerify?: boolean;
   canApprove?: boolean;
+  currentUserId?: string | null;
+  canSelfApprove?: boolean;
 }) {
   const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
   useEffect(() => { setLocalProjects(projects); }, [projects]);
@@ -304,7 +319,7 @@ export function MeasurementBookView({
           <DataTable
             data={entries}
             initialSort={{ key: "measureDate", direction: "desc" }}
-            columns={(canVerify || canApprove) ? mbColumnsWithActions(onAction, !!canVerify, !!canApprove) : mbColumns}
+            columns={(canVerify || canApprove) ? mbColumnsWithActions(onAction, !!canVerify, !!canApprove, currentUserId ?? null, !!canSelfApprove) : mbColumns}
             searchable
             searchPlaceholder="Search by MB no, description, BOQ item…"
             showTotals

@@ -172,6 +172,7 @@ export default function MobileMbDetailPage({
               status={entry.status}
               canVerify={canVerify}
               canApprove={canApprove}
+              isSelf={isSelfMeasured}
             />
           </div>
           </PageContextProvider>

@@ -21,11 +21,16 @@ export function MobileMbActions({
   status,
   canVerify,
   canApprove,
+  isSelf,
 }: {
   mbId: string;
   status: string;
   canVerify: boolean;
   canApprove: boolean;
+  /** Entry measured by the current user — the service refuses self-reject
+   *  unconditionally (no tier-1 waiver), so Reject must stay hidden even
+   *  when Verify/Approve are waived for OWNER/ADMIN. */
+  isSelf?: boolean;
 }) {
   const [visibleStatus, setVisibleStatus] = useState(status);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
@@ -77,23 +82,25 @@ export function MobileMbActions({
     <>
       <ActionBar>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowRejectConfirm(true)}
-            disabled={rejectAction.isPending}
-            className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
-            style={{
-              borderColor: "var(--color-stop)",
-              color: "var(--color-stop)",
-              backgroundColor: "transparent",
-            }}
-          >
-            {rejectAction.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <XCircle className="size-4" />
-            )}
-            Reject
-          </button>
+          {!isSelf ? (
+            <button
+              onClick={() => setShowRejectConfirm(true)}
+              disabled={rejectAction.isPending}
+              className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
+              style={{
+                borderColor: "var(--color-stop)",
+                color: "var(--color-stop)",
+                backgroundColor: "transparent",
+              }}
+            >
+              {rejectAction.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <XCircle className="size-4" />
+              )}
+              Reject
+            </button>
+          ) : null}
           <button
             onClick={() => approveHandler.execute()}
             disabled={approveBusy}

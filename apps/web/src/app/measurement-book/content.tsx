@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserScope, getUserPermissions } from "@/lib/server";
+import { getCompany, getUserScope, getUserPermissions, getCurrentUser, getActingRole } from "@/lib/server";
+import { canAutoApprove } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { NoAccess } from "@/components/no-access";
@@ -31,6 +32,8 @@ export async function MbContent() {
   const canCreate = __effPerms.includes(PERM.MB_VERIFY);
   const canVerify = __effPerms.includes(PERM.MB_VERIFY);
   const canApprove = __effPerms.includes(PERM.MB_APPROVE);
+  const currentUser = await getCurrentUser();
+  const actingRole = await getActingRole();
 
   return (
     <>
@@ -41,7 +44,7 @@ export async function MbContent() {
           { label: "Projects", value: projects.length },
         ]}
       />
-      <MeasurementBookView projects={projects} canCreate={canCreate} canVerify={canVerify} canApprove={canApprove} />
+      <MeasurementBookView projects={projects} canCreate={canCreate} canVerify={canVerify} canApprove={canApprove} currentUserId={currentUser?.id ?? null} canSelfApprove={canAutoApprove(actingRole)} />
     </>
   );
 }
