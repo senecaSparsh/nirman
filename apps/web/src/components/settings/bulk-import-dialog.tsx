@@ -105,13 +105,7 @@ export function BulkImportDialog({
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }} title="Bulk Import Employees" description="Upload a CSV to create multiple employee accounts at once" className="max-w-3xl">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-title text-foreground">Bulk Import Employees</h2>
-          <p className="text-meta text-muted-foreground mt-0.5">
-            Upload a CSV to create multiple employee accounts at once
-          </p>
-        </div>
+      <div className="flex items-center justify-end mb-4">
         <Button variant="outline" size="sm" onClick={downloadTemplate}>
           <Download className="h-3.5 w-3.5" /> Template
         </Button>
