@@ -222,3 +222,7 @@ Cross-surface numbers reconcile: Receivables ₹25L = Finance "outstanding" card
 
 - **Verified**: expense detail (rows + tracking timeline + documents — same convention as issue detail), work-orders (status tiles + card meta grid), `/m/requisitions` → procurement hub redirect (clean empty state), `/m/requisitions` earlier blank = cold-compile lag not a defect.
 - **Create FABs** navigate to entity forms (no modal) — consistent behavior across list pages.
+
+### Round 13 — detail/form symmetry (Oct 27)
+
+- **Verified**: work-order detail (status stepper Draft→Issued→Active→Completed→Closed, financial 4-tile, terms/timeline cards, paired Pay Advance/Complete CTAs), expense detail, issue detail, stock-out form — all follow the shared detail-page conventions.
