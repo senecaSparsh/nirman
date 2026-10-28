@@ -192,7 +192,9 @@ describe("guard regressions", () => {
     const before = await prisma.stockLocationItem.findUnique({
       where: { locationId_materialId: { locationId: fx.stockLocation.id, materialId: material.id } },
     });
-    await cancelMaterialIssue(issue.materialIssue.id, fx.user.id);
+    // A completed-issue cancel now requires an audit reason.
+    await expect(cancelMaterialIssue(issue.materialIssue.id, fx.user.id)).rejects.toThrow(/reason/i);
+    await cancelMaterialIssue(issue.materialIssue.id, fx.user.id, "test reversal");
     const after = await prisma.stockLocationItem.findUnique({
       where: { locationId_materialId: { locationId: fx.stockLocation.id, materialId: material.id } },
     });
