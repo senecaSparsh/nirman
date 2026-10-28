@@ -14,7 +14,7 @@ import { resetDb, createTestFixture, seedTestAccounts } from "./test/setup";
 import { createQuotationRequest, addQuoteToRequest, approveQuotation } from "./quotation";
 import { convertRequisitionToPo } from "./requisition";
 import { createDirectPurchase, cancelDirectPurchase } from "./direct-purchase";
-import { updateRequisition, rejectRequisition, submitRequisition } from "./requisition";
+import { updateRequisition, rejectRequisition, submitRequisition, cancelRequisition, approveRequisition } from "./requisition";
 
 async function seedProcurement() {
   const { company, user, project, stockLocation } = await createTestFixture();
@@ -267,5 +267,58 @@ describe("rejected-indent edit & resubmit", () => {
 
     const converted = await makeIndent(fx, "REQ-E4");
     await expect(updateRequisition(converted.id, { notes: "sneaky" }, fx.user.id)).rejects.toThrow(/status APPROVED/);
+  });
+});
+
+describe("owner withdraw (cancel)", () => {
+  async function makeSubmittedIndent(fx: Awaited<ReturnType<typeof seedProcurement>>, n: string) {
+    return prisma.materialRequisition.create({
+      data: {
+        reqNumber: n,
+        projectId: fx.project.id,
+        requestedById: fx.user.id,
+        status: "SUBMITTED",
+        submittedById: fx.user.id,
+        lines: { create: [{ materialId: fx.material.id, qtyRequested: 10 }] },
+      },
+    });
+  }
+
+  it("withdraws a SUBMITTED indent — terminal, audited, out of the approval queue", async () => {
+    const fx = await seedProcurement();
+    const req = await makeSubmittedIndent(fx, "REQ-W1");
+    const cancelled = await cancelRequisition(req.id, fx.user.id);
+    expect(cancelled.status).toBe("CANCELLED");
+
+    // Terminal — nothing resurrects it. A repeated withdraw is an idempotent
+    // no-op (the transition guard's same-state rule), not a resurrection.
+    const again = await cancelRequisition(req.id, fx.user.id);
+    expect(again.status).toBe("CANCELLED");
+    await expect(submitRequisition(req.id, fx.user.id)).rejects.toThrow(/status CANCELLED/);
+    await expect(approveRequisition(req.id, fx.approver.id)).rejects.toThrow();
+  });
+
+  it("withdraws a DRAFT indent", async () => {
+    const fx = await seedProcurement();
+    const req = await prisma.materialRequisition.create({
+      data: {
+        reqNumber: "REQ-W2",
+        projectId: fx.project.id,
+        requestedById: fx.user.id,
+        status: "DRAFT",
+        lines: { create: [{ materialId: fx.material.id, qtyRequested: 3 }] },
+      },
+    });
+    const cancelled = await cancelRequisition(req.id, fx.user.id);
+    expect(cancelled.status).toBe("CANCELLED");
+  });
+
+  it("refuses to withdraw an APPROVED indent — a QR may already collect quotes against it", async () => {
+    const fx = await seedProcurement();
+    const req = await makeSubmittedIndent(fx, "REQ-W3");
+    await approveRequisition(req.id, fx.approver.id);
+    await expect(cancelRequisition(req.id, fx.user.id)).rejects.toThrow(/status APPROVED/);
+    const after = await prisma.materialRequisition.findUniqueOrThrow({ where: { id: req.id } });
+    expect(after.status).toBe("APPROVED");
   });
 });
