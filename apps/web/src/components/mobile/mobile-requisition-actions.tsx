@@ -78,6 +78,7 @@ export function MobileRequisitionActions({
   canApprove,
   canManage,
   canSubmit,
+  isSelf,
   quoteCount = 0,
   minQuotesRequired = 3,
   quotesWaived = false,
@@ -92,6 +93,9 @@ export function MobileRequisitionActions({
   /** True when the viewer can submit this draft — manage users, or the
    *  indent's own creator holding requisition.create (site engineers). */
   canSubmit?: boolean;
+  /** True when the viewer created this indent — self-reject is refused by
+   *  the API even for tier-1 roles, so the button stays hidden. */
+  isSelf?: boolean;
   quoteCount?: number;
   minQuotesRequired?: number;
   quotesWaived?: boolean;
@@ -203,14 +207,16 @@ export function MobileRequisitionActions({
             variant="primary"
             className="flex-1"
           />
-          <BarButton
-            onClick={() => { setShowReject(true); setRejectReason(""); }}
-            busy={busy === "reject"}
-            icon={XCircle}
-            label="Reject"
-            variant="outline"
-            className="flex-1"
-          />
+          {!isSelf && (
+            <BarButton
+              onClick={() => { setShowReject(true); setRejectReason(""); }}
+              busy={busy === "reject"}
+              icon={XCircle}
+              label="Reject"
+              variant="outline"
+              className="flex-1"
+            />
+          )}
         </div>
       )}
       {canConvert && (

@@ -92,7 +92,7 @@ export function RequisitionDetailDialog({
       } else if (key === "a" && d.status === "SUBMITTED" && !acting && canApprove && (d.requestedById !== currentUserId || canSelfApprove)) {
         e.preventDefault();
         doAction("approve");
-      } else if (key === "r" && d.status === "SUBMITTED" && !acting && canApprove && (d.requestedById !== currentUserId || canSelfApprove)) {
+      } else if (key === "r" && d.status === "SUBMITTED" && !acting && canApprove && d.requestedById !== currentUserId) {
         e.preventDefault();
         if (onReject && requisition) onReject(requisition); else doAction("reject");
       } else if (key === "c" && d.status === "APPROVED" && !acting && (d.quotes?.waived || d.quotes?.selected)) {
@@ -237,9 +237,11 @@ export function RequisitionDetailDialog({
                   <Button size="sm" onClick={() => doAction("approve")} disabled={acting}>
                     <Check className="h-4 w-4" /> Approve <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">A</kbd>
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => (onReject && requisition ? onReject(requisition) : doAction("reject"))} disabled={acting} className="text-muted-foreground hover:text-danger">
-                    <X className="h-4 w-4" /> Reject <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">R</kbd>
-                  </Button>
+                  {detail.requestedById !== currentUserId && (
+                    <Button size="sm" variant="outline" onClick={() => (onReject && requisition ? onReject(requisition) : doAction("reject"))} disabled={acting} className="text-muted-foreground hover:text-danger">
+                      <X className="h-4 w-4" /> Reject <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">R</kbd>
+                    </Button>
+                  )}
                 </>
               )}
               {detail.status === "APPROVED" && (detail.quotes?.waived || detail.quotes?.selected) && (
@@ -252,7 +254,7 @@ export function RequisitionDetailDialog({
                   Next: upload ≥{detail.quotes?.minRequired ?? 3}{" "}quotes &amp; select a winner below — the PO is created automatically.
                 </span>
               )}
-              {detail.status === "APPROVED" && canApprove && (detail.requestedById !== currentUserId || canSelfApprove) && (
+              {detail.status === "APPROVED" && canApprove && detail.requestedById !== currentUserId && (
                 <Button size="sm" variant="ghost" onClick={() => (onReject && requisition ? onReject(requisition) : doAction("reject"))} disabled={acting} title="Withdraw this indent — it won't be ordered" className="text-muted-foreground hover:text-danger">
                   <X className="h-4 w-4" /> Withdraw
                 </Button>

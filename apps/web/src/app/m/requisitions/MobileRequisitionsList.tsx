@@ -393,7 +393,9 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
       : req.status === "SUBMITTED" && canActOn
         ? [
             { label: "Approve", color: "var(--color-go)", onPress: handleApprove },
-            { label: "Reject", color: "var(--color-stop)", onPress: handleReject },
+            ...(!isOwner
+              ? [{ label: "Reject", color: "var(--color-stop)", onPress: handleReject }]
+              : []),
           ]
         : [];
 
@@ -406,7 +408,10 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
     ...(req.status === "SUBMITTED" && canActOn
       ? [
           { label: "Approve", icon: Check, color: "var(--color-go)", onPress: handleApprove },
-          { label: "Reject", icon: X, color: "var(--color-stop)", destructive: true, onPress: handleReject },
+          // Self-reject is refused by the API even for tier-1 — never offer it
+          ...(!isOwner
+            ? [{ label: "Reject", icon: X, color: "var(--color-stop)", destructive: true, onPress: handleReject }]
+            : []),
         ]
       : []),
     ...(canWithdraw

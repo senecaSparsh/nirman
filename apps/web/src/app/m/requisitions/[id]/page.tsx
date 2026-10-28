@@ -444,6 +444,7 @@ export default function MobileRequisitionDetailPage({
                   canApprove={canApprove}
                   canManage={canManage}
                   canSubmit={canSubmit}
+                  isSelf={isSelfCreated}
                   quoteCount={quoteCount}
                   minQuotesRequired={req.minQuotesRequired}
                   quotesWaived={req.quotesWaived}
