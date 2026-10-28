@@ -72,6 +72,21 @@ export function computeEscalatedRent(
   return { increase, newRent };
 }
 
+/**
+ * Add calendar months to a UTC date, clamping to the target month's last day —
+ * matches Postgres `date + interval 'N months'` semantics exactly (Jan 31 +
+ * 1 month → Feb 28/29, not Mar 3). Used for every escalation-date computation
+ * so stored `nextEscalationDate` values track contract anniversaries instead
+ * of drifting ~5 days/yr under the old 30-day-month approximation.
+ * Pure function — no DB access.
+ */
+export function addMonthsUTC(date: Date, months: number): Date {
+  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  target.setUTCDate(Math.min(date.getUTCDate(), lastDay));
+  return target;
+}
+
 export interface CreateTenancyInput {
   companyId: string;
   assetType: AssetType;
@@ -182,7 +197,7 @@ export async function createTenancy(input: CreateTenancyInput) {
         escalationPercent: input.escalationPercent != null ? new Decimal(input.escalationPercent) : null,
         escalationIntervalMonths: input.escalationIntervalMonths ?? 12,
         nextEscalationDate: input.escalationPercent != null
-          ? new Date(startDate.getTime() + (input.escalationIntervalMonths ?? 12) * 30 * 86400000)
+          ? addMonthsUTC(startDate, input.escalationIntervalMonths ?? 12)
           : null,
         rentFreeDays: input.rentFreeDays ?? 0,
         draftDocumentUrl: input.draftDocumentUrl ?? null,
@@ -241,6 +256,7 @@ export interface UpdateTenancyInput {
   notes?: string | null;
   customerId?: string | null;
   escalationPercent?: Decimal | number | string | null;
+  escalationIntervalMonths?: number;
   rentFreeDays?: number;
   draftDocumentUrl?: string | null;
   draftDocumentName?: string | null;
@@ -368,6 +384,12 @@ export async function updateTenancy(tenancyId: string, input: UpdateTenancyInput
         after.escalationPercent = escPct?.toString() ?? null;
       }
     }
+    if (input.escalationIntervalMonths !== undefined && input.escalationIntervalMonths !== t.escalationIntervalMonths) {
+      if (input.escalationIntervalMonths <= 0) throw new ServiceError("Escalation interval must be a positive number of months");
+      data.escalationIntervalMonths = input.escalationIntervalMonths;
+      before.escalationIntervalMonths = t.escalationIntervalMonths;
+      after.escalationIntervalMonths = input.escalationIntervalMonths;
+    }
     if (input.rentFreeDays !== undefined && input.rentFreeDays !== t.rentFreeDays) {
       if (input.rentFreeDays < 0) throw new ServiceError("Rent-free days cannot be negative");
       data.rentFreeDays = input.rentFreeDays;
@@ -413,6 +435,23 @@ export async function updateTenancy(tenancyId: string, input: UpdateTenancyInput
       }
       before.customerId = t.customerId;
       after.customerId = input.customerId;
+    }
+
+    // Keep the escalation anchor consistent with the stored inputs: enabling
+    // escalation, changing the interval, or moving the start date must
+    // recompute nextEscalationDate — otherwise a newly-configured escalation
+    // never fires (null anchor) or fires on a stale anchor. PENDING tenancies
+    // have never escalated, so the anchor is always startDate + interval.
+    if (data.escalationPercent !== undefined || data.escalationIntervalMonths !== undefined || data.startDate !== undefined) {
+      const effEsc = (data.escalationPercent !== undefined ? data.escalationPercent : t.escalationPercent) as Decimal | null;
+      const effInterval = (data.escalationIntervalMonths ?? t.escalationIntervalMonths) as number;
+      const effStart = (data.startDate ?? t.startDate) as Date;
+      const nextEsc = effEsc ? addMonthsUTC(effStart, effInterval) : null;
+      if ((nextEsc?.getTime() ?? null) !== (t.nextEscalationDate?.getTime() ?? null)) {
+        data.nextEscalationDate = nextEsc;
+        before.nextEscalationDate = t.nextEscalationDate?.toISOString() ?? null;
+        after.nextEscalationDate = nextEsc?.toISOString() ?? null;
+      }
     }
 
     if (Object.keys(data).length === 0) {
@@ -830,6 +869,9 @@ export interface ApplyEscalationInput {
   tenancyId: string;
   companyId: string;
   userId?: string;
+  /** When true (cron sweep), the escalation only applies if nextEscalationDate
+   *  is due — claimed atomically so a concurrent or retried run can't double-apply. */
+  dueOnly?: boolean;
 }
 
 /**
@@ -853,29 +895,46 @@ export async function applyRentEscalation(input: ApplyEscalationInput) {
     const increase = oldRent.mul(escPct).div(100);
     const newRent = oldRent.plus(increase).toDecimalPlaces(2);
 
-    // Compute next escalation date
-    const intervalMs = t.escalationIntervalMonths * 30 * 86400000;
-    const nextDate = new Date(Date.now() + intervalMs);
+    // Next escalation lands on the contract anniversary, not cron time —
+    // anchor to the date that was due (or the last escalation / lease start)
+    // so a late run never slips the cadence. Roll forward past `now` when
+    // several anniversaries were missed; only ONE rent increase applies per
+    // fire.
+    const now = new Date();
+    const anchor = t.nextEscalationDate ?? t.lastEscalatedAt ?? t.startDate;
+    let nextDate = addMonthsUTC(anchor, t.escalationIntervalMonths);
+    while (nextDate.getTime() <= now.getTime()) {
+      nextDate = addMonthsUTC(nextDate, t.escalationIntervalMonths);
+    }
+
+    if (input.dueOnly) {
+      // Atomic claim: move the due date forward first; a concurrent or
+      // retried sweep sees a future date and skips — prevents double escalation.
+      const claim = await tx.tenancy.updateMany({
+        where: { id: t.id, status: "ACTIVE", nextEscalationDate: { lte: now } },
+        data: { nextEscalationDate: nextDate },
+      });
+      if (claim.count === 0) throw new ServiceError("Escalation is no longer due", 409);
+    }
 
     const updated = await tx.tenancy.update({
       where: { id: t.id },
       data: {
         monthlyRent: newRent,
-        lastEscalatedAt: new Date(),
+        lastEscalatedAt: now,
         nextEscalationDate: nextDate,
       },
     });
 
-    if (input.userId) {
-      await logAction(tx, {
-        userId: input.userId,
-        action: "RENT_ESCALATION_APPLIED",
-        entityType: "Tenancy",
-        entityId: t.id,
-        before: { monthlyRent: oldRent.toString() },
-        after: { monthlyRent: newRent.toString(), escalationPercent: escPct.toString(), nextEscalationDate: nextDate.toISOString() },
-      });
-    }
+    await logAction(tx, {
+      userId: input.userId, // null = system (cron) actor
+      companyId: t.companyId,
+      action: "RENT_ESCALATION_APPLIED",
+      entityType: "Tenancy",
+      entityId: t.id,
+      before: { monthlyRent: oldRent.toString(), nextEscalationDate: t.nextEscalationDate?.toISOString() ?? null },
+      after: { monthlyRent: newRent.toString(), escalationPercent: escPct.toString(), nextEscalationDate: nextDate.toISOString() },
+    });
 
     return { tenancy: updated, oldRent, newRent, increase };
   });
@@ -913,15 +972,20 @@ export async function processDueEscalations(companyId?: string) {
   });
 
   let count = 0;
+  let failed = 0;
   for (const t of dueTenancies) {
     try {
-      await applyRentEscalation({ tenancyId: t.id, companyId: t.companyId });
+      await applyRentEscalation({ tenancyId: t.id, companyId: t.companyId, dueOnly: true });
       count++;
-    } catch {
-      // Skip failures — will retry on next cron run
+    } catch (err) {
+      failed++;
+      // Was it a genuine failure or a concurrently-claimed skip?
+      if (!(err instanceof ServiceError && err.status === 409)) {
+        console.error(`[processDueEscalations] failed for tenancy ${t.id}:`, err);
+      }
     }
   }
-  return { checked: dueTenancies.length, escalated: count };
+  return { checked: dueTenancies.length, escalated: count, failed };
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1030,7 +1094,7 @@ export async function changeTenant(input: ChangeTenantInput) {
         escalationPercent: t.escalationPercent,
         escalationIntervalMonths: t.escalationIntervalMonths,
         nextEscalationDate: t.escalationPercent
-          ? new Date(newStart.getTime() + t.escalationIntervalMonths * 30 * 86400000)
+          ? addMonthsUTC(newStart, t.escalationIntervalMonths)
           : null,
         rentFreeDays: t.rentFreeDays,
         status: "ACTIVE",
