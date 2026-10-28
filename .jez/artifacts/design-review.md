@@ -440,3 +440,30 @@ status APPROVED, approvedById set, approvedAt timestamped.
 **Data cleanup:** the pending gate pass carried qty=99,999,999 kg
 (same boundary-test residue as the supplier-return lines) — cleaned
 to 10 kg before approving so the workflow moved sane data.
+
+## Round 23 — heavyweight desktop surfaces (1440px)
+
+All verified live with real data:
+
+- **`/dprs`** — DPRS/PENDING tiles + 6-stat strip (Approved 6, Avg
+  Progress 48.6%), date-range + search + Columns/CSV/Save View/Views/
+  New DPR, table with progress bars + over-budget flagging
+  (₹5.88L, "287% of budget" in red — working as designed).
+- **`/hr/attendance`** — payroll-lock banner ("Attendance is locked —
+  10/2026 payroll is already paid"), Present/Half/Absent/Leave tiles,
+  P/A/H/OT/L/LT/PL/NPL legend, per-employee status-chip grid, Mark All
+  Present + Save Attendance. A real attendance sheet.
+- **`/hr`** — dashboard: EMPLOYEES/PRESENT/CREWS tiles, live event
+  ticker, Headcount/Present/Labour Cost ₹3.80L/Pending KPIs, attendance
+  donut + 7-day trend, Headcount-by-Trade bars, Action Queue, Site
+  Presence empty state, Recent DPRs + Latest Payroll.
+- **`/work-orders`** — project selector + summary strip (₹71.50L work
+  done · ₹66.17L paid · ₹59.5K retention held), full subcontractor
+  table (scope/work done/paid/retention/RA bills/status), TOTAL row.
+- **`/gate-passes`** — TOTAL 361 / PENDING APPROVAL 0 / AWAITING EXIT
+  46 / REJECTED 0 tiles, 4 counted tabs, category + status chips,
+  vehicle/destination columns. GP-261025-0021 shows Approved — the
+  mobile approval mutation reflected here.
+
+Note: bare `/attendance` 404s correctly — real route is `/hr/attendance`
+(no broken links; my probe used a guessed URL).
