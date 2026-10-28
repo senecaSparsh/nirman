@@ -286,3 +286,14 @@ Cancel/Add pair. Production-grade.
 **Test-harness note:** the detail-page payment dialog's submit reads "Record"
 (the list-level variant reads "Record Payment") — not a bug, just a label
 difference between the two components. Both submit real POSTs.
+
+### Round 16 addendum — stock-adjustment mutation verified
+
+Desktop Adjust Stock on BRICK-RED/Godrej Park Site: +5 nos with reason
+"Dogfood verify +5" → POST `/api/materials/:id/adjust-stock` →
+`StockLocationItem.qty` 1900→1905 AND `StockMovement` row
+`ADJUSTMENT_IN | 5 | Dogfood verify +5 | MANUAL_ADJUSTMENT` — audit trail
+matches the dialog's helper text verbatim. CTA label is dynamic
+("Add nos" → "Add 5 nos" once qty is entered) — good detail.
+Two real mutations now proven end-to-end (payment + stock adjust):
+dialog → validation → API → DB → audit row.
