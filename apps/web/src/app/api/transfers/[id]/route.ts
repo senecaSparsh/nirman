@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
-import { completeTransfer, cancelTransfer, dispatchTransfer, returnTransferToSource, recordVehicleTrip } from "@nirman/services";
+import { completeTransfer, cancelTransfer, dispatchTransfer, returnTransferToSource, reverseCompletedTransfer, recordVehicleTrip } from "@nirman/services";
 import { apiHandler, getAssignedProjectIds, getUserScope, json, toNum, getCompany, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import {  assertScopeAllows } from "@/lib/server";
@@ -33,7 +33,7 @@ async function transferInScope(
 }
 
 const transferActionSchema = z.object({
-  action: z.enum(["dispatch", "complete", "cancel", "returnToSource"]),
+  action: z.enum(["dispatch", "complete", "cancel", "returnToSource", "reverse"]),
   // Dispatch fields
   vehicleNumber: z.string().optional(),
   vehicleType: z.string().optional(),
@@ -193,7 +193,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     if (action === "dispatch" || action === "cancel") {
       await assertScopeAllows({ projectId: transfer.fromLocation.projectId, departmentId: transfer.fromLocation.departmentId });
     }
-    if (action === "complete" || action === "returnToSource") {
+    if (action === "complete" || action === "returnToSource" || action === "reverse") {
       await assertScopeAllows({ projectId: transfer.toLocation.projectId, departmentId: transfer.toLocation.departmentId });
     }
   } catch (err) {
@@ -214,6 +214,13 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (action === "returnToSource") {
     if (transfer.toLocation.companyId !== company.id) {
       return json({ error: "Only the destination company can return this transfer." }, { status: 403 });
+    }
+  }
+  if (action === "reverse") {
+    // The stock physically sits at the destination — only that company can
+    // send it back, same as complete/returnToSource.
+    if (transfer.toLocation.companyId !== company.id) {
+      return json({ error: "Only the destination company can reverse this transfer." }, { status: 403 });
     }
   }
   if (action === "cancel") {
@@ -284,6 +291,12 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     }
     if (action === "returnToSource") {
       const t = await returnTransferToSource(id, user.id, body.reason);
+      revalidatePath("/transfers");
+      revalidatePath("/m/stock");
+      return json(t);
+    }
+    if (action === "reverse") {
+      const t = await reverseCompletedTransfer(id, user.id, body.reason);
       revalidatePath("/transfers");
       revalidatePath("/m/stock");
       return json(t);

@@ -938,6 +938,7 @@ model User {
   dispatchedStockTransfers StockTransfer[] @relation("TransferDispatcher")
   receivedStockTransfers   StockTransfer[] @relation("TransferReceiver")
   supervisedStockTransfers StockTransfer[] @relation("TransferSupervisor")
+  reversedStockTransfers   StockTransfer[] @relation("TransferReverser")
   createdSupplierReturns SupplierReturn[]
   createdLandPurchases   LandPurchase[]
   // Cancellation reversals
@@ -2688,6 +2689,7 @@ enum StockTransferStatus {
   DRAFT
   IN_TRANSIT
   COMPLETED
+  REVERSED
   CANCELLED
 }
 
@@ -2773,6 +2775,11 @@ model StockTransfer {
   grossWeight        Decimal?  @db.Decimal(14, 3)
   tareWeight         Decimal?  @db.Decimal(14, 3)
   netWeight          Decimal?  @db.Decimal(14, 3)
+  // Reversal audit — set when a COMPLETED transfer is undone (counter-movements
+  // + journal reversals on both companies for inter-company STOs).
+  reversedAt         DateTime?
+  reversedById       String?
+  reversalReason     String?
 
   fromLocation StockLocation         @relation("TransferFrom", fields: [fromLocationId], references: [id])
   toLocation   StockLocation         @relation("TransferTo", fields: [toLocationId], references: [id])
@@ -2780,6 +2787,7 @@ model StockTransfer {
   dispatchedBy User?                 @relation("TransferDispatcher", fields: [dispatchedById], references: [id], onDelete: SetNull)
   receivedBy  User?                  @relation("TransferReceiver", fields: [receivedById], references: [id], onDelete: SetNull)
   supervisor  User?                  @relation("TransferSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
+  reversedBy  User?                  @relation("TransferReverser", fields: [reversedById], references: [id], onDelete: SetNull)
   lines        StockTransferLine[]
 
   @@index([fromLocationId])
@@ -2805,6 +2813,11 @@ model StockTransferLine {
   unitCostAtSource   Decimal? @db.Decimal(14, 2)
   unitTransferPrice  Decimal? @db.Decimal(14, 2)
   lineTransferTotal  Decimal? @db.Decimal(14, 2)
+  // Inter-company markup component of the line TP — persisted separately so
+  // group consolidation can eliminate the intra-group margin later. Null for
+  // intra-company transfers (no markup) and rows completed before the field
+  // existed.
+  lineMarkup         Decimal? @db.Decimal(14, 2)
 
   stockTransfer StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
   material      Material      @relation(fields: [materialId], references: [id])

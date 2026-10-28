@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
   ArrowRight, Package,
   CheckCircle2, Clock, AlertTriangle,
-  ArrowDownToLine, ArrowUpFromLine,
+  ArrowDownToLine, ArrowUpFromLine, RotateCcw,
 } from "lucide-react";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { MobileStatusBadge, MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -41,7 +41,7 @@ export interface TransferItem {
   transferPriceTotal: number | null;
 }
 
-type TransferFilter = "ALL" | "PENDING" | "IN_TRANSIT" | "RECEIVED" | "CANCELLED";
+type TransferFilter = "ALL" | "DRAFT" | "IN_TRANSIT" | "COMPLETED" | "REVERSED" | "CANCELLED";
 type DirectionFilter = "ALL" | "OUTGOING" | "INCOMING";
 
 // Combined filter — merges direction + status into one dropdown.
@@ -52,18 +52,20 @@ const COMBINED_FILTERS: { label: string; value: CombinedFilter }[] = [
   { label: "All", value: "ALL" },
   { label: "Outgoing", value: "OUTGOING" },
   { label: "Incoming", value: "INCOMING" },
-  { label: "Pending", value: "PENDING" },
+  { label: "Pending", value: "DRAFT" },
   { label: "In Transit", value: "IN_TRANSIT" },
-  { label: "Received", value: "RECEIVED" },
+  { label: "Received", value: "COMPLETED" },
+  { label: "Reversed", value: "REVERSED" },
   { label: "Cancelled", value: "CANCELLED" },
 ];
 
 const DIRECTION_VALUES: DirectionFilter[] = ["OUTGOING", "INCOMING"];
 
 const STATUS_ICON: Record<string, typeof CheckCircle2> = {
-  PENDING: Clock,
+  DRAFT: Clock,
   IN_TRANSIT: ArrowRight,
-  RECEIVED: CheckCircle2,
+  COMPLETED: CheckCircle2,
+  REVERSED: RotateCcw,
   CANCELLED: AlertTriangle,
 };
 
@@ -147,9 +149,9 @@ function MobileTransfersListInner({
 
   const counts = {
     total: items.length,
-    pending: items.filter((t) => t.status === "PENDING").length,
+    pending: items.filter((t) => t.status === "DRAFT").length,
     inTransit: items.filter((t) => t.status === "IN_TRANSIT").length,
-    received: items.filter((t) => t.status === "RECEIVED").length,
+    received: items.filter((t) => t.status === "COMPLETED").length,
   };
 
   return (
@@ -284,8 +286,8 @@ function MobileTransfersListInner({
                       className="size-3"
                       style={{
                         color:
-                          t.status === "RECEIVED" ? "var(--color-go)" :
-                          t.status === "CANCELLED" ? "var(--color-stop)" :
+                          t.status === "COMPLETED" ? "var(--color-go)" :
+                          t.status === "CANCELLED" || t.status === "REVERSED" ? "var(--color-stop)" :
                           "var(--color-signal-dark)",
                       }}
                     />

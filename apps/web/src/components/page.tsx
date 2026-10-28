@@ -356,6 +356,7 @@ const STATUS_MEANING: Record<string, StatusMeaning> = {
   LOW: "neutral",
   RENTED: "active",
   CANCELLED: "bad",
+  REVERSED: "neutral", // fully unwound — no longer carries any effect
   REJECTED: "bad",
   DEPOSIT_RECEIVED: "waiting",
   RETIRED: "neutral",

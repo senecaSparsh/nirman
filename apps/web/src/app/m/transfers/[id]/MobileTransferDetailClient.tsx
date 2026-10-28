@@ -40,7 +40,7 @@ import {
   MobileTransferReceiveDialog,
 } from "./MobileTransferReceiveDialog";
 
-type TransferStatus = "DRAFT" | "IN_TRANSIT" | "COMPLETED" | "CANCELLED";
+type TransferStatus = "DRAFT" | "IN_TRANSIT" | "COMPLETED" | "REVERSED" | "CANCELLED";
 
 interface TransferLine {
   id: string;
@@ -117,6 +117,7 @@ interface TransferData {
   netWeight: number | null;
   geoFenceOk: boolean | null;
   geoFenceDistance: number | null;
+  reversalReason: string | null;
   totalQty: number;
   lineCount: number;
   // Sender/receiver context
@@ -144,16 +145,19 @@ export function MobileTransferDetailClient({
   canManage: boolean;
 }) {
   const router = useRouter();
-  const [acting, setActing] = useState<"cancel" | "return" | "complete" | null>(null);
+  const [acting, setActing] = useState<"cancel" | "return" | "complete" | "reverse" | null>(null);
   const [showCancel, setShowCancel] = useState(false);
   const [showReturn, setShowReturn] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
   const [returnReason, setReturnReason] = useState("");
+  const [showReverse, setShowReverse] = useState(false);
+  const [reverseReason, setReverseReason] = useState("");
 
   const isDraft = transfer.status === "DRAFT";
   const isInTransit = transfer.status === "IN_TRANSIT";
   const isCompleted = transfer.status === "COMPLETED";
   const isCancelled = transfer.status === "CANCELLED";
+  const isReversed = transfer.status === "REVERSED";
 
   // Sender/receiver context
   const isSourceCompany = transfer.isSourceCompany;
@@ -262,6 +266,42 @@ export function MobileTransferDetailClient({
       setActing(null);
       setShowReturn(false);
       setReturnReason("");
+    }
+  };
+
+  const handleReverse = async () => {
+    if (!reverseReason.trim()) {
+      toast.error("Please enter a reason for reversing");
+      return;
+    }
+    haptic(10);
+    setActing("reverse");
+    try {
+      const res = await fetch(`/api/transfers/${transfer.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "reverse",
+          reason: reverseReason.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to reverse transfer");
+      }
+      toast.success("Transfer reversed — stock and books unwound", {
+        description: reverseReason.trim(),
+      });
+      router.refresh();
+    } catch (err) {
+      haptic([10, 30, 10]);
+      toast.error(
+        err instanceof Error ? err.message : "Failed to reverse transfer",
+      );
+    } finally {
+      setActing(null);
+      setShowReverse(false);
+      setReverseReason("");
     }
   };
 
@@ -1190,6 +1230,16 @@ export function MobileTransferDetailClient({
         </div>
       ) : null}
 
+      {/* ── Reversed info ── */}
+      {isReversed ? (
+        <div className="mt-4">
+          <DetailAlertBanner
+            tone="warning"
+            title={`This transfer was reversed — stock moved back to source and journals unwound.${transfer.reversalReason ? ` Reason: ${transfer.reversalReason}` : ""}`}
+          />
+        </div>
+      ) : null}
+
       {/* ── Cancelled info ── */}
       {isCancelled ? (
         <div className="mt-4">
@@ -1219,7 +1269,7 @@ export function MobileTransferDetailClient({
       ) : null}
 
       {/* ── Inter-company switch prompt ── */}
-      {canManage && isInterCompany && !isCompleted && !isCancelled
+      {canManage && isInterCompany && !isCompleted && !isCancelled && !isReversed
         ? (() => {
             // User is on source company but needs to be on dest company to receive
             const needsSwitchToDest =
@@ -1489,6 +1539,33 @@ export function MobileTransferDetailClient({
         </div>
       ) : null}
 
+      {/* ── Reverse a completed transfer — only while the destination still
+          holds every received unit. Unwinds stock + journals. ── */}
+      {canManage && isCompleted && isDestCompany ? (
+        <ActionBar>
+          <button
+            onClick={() => {
+              haptic(10);
+              setShowReverse(true);
+            }}
+            disabled={acting !== null}
+            className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50 px-4"
+            style={{
+              borderColor: "var(--color-stop)",
+              color: "var(--color-stop)",
+              backgroundColor: "transparent",
+            }}
+          >
+            {acting === "reverse" ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RotateCcw className="size-4" />
+            )}
+            Reverse Transfer
+          </button>
+        </ActionBar>
+      ) : null}
+
       {/* ── Cancel confirmation modal ── */}
       {showCancel ? (
         <MobileDialog open={true} onClose={() => setShowCancel(false)} title="Cancel this transfer?">
@@ -1652,6 +1729,76 @@ export function MobileTransferDetailClient({
                 </>
               )}
             </button>
+          </div>
+        </MobileDialog>
+      ) : null}
+
+      {/* ── Reverse confirmation modal — reason required for audit ── */}
+      {showReverse ? (
+        <MobileDialog
+          open={true}
+          onClose={() => acting === null && setShowReverse(false)}
+          title="Reverse Transfer?"
+        >
+          <div className="space-y-3">
+            <p
+              className="text-m-body"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              All received stock moves back to {transfer.fromLocation.name} at
+              the original costs, and the journals unwind on both companies.
+              Only works if nothing has been consumed yet. A reason is required.
+            </p>
+            <div>
+              <label
+                className="text-m-caption font-semibold uppercase tracking-wide block mb-1"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Reason <span style={{ color: "var(--color-stop)" }}>*</span>
+              </label>
+              <textarea aria-label="Reversal Reason"
+                value={reverseReason}
+                onChange={(e) => setReverseReason(e.target.value)}
+                placeholder="e.g. Wrong material sent"
+                rows={3}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
+                style={{
+                  backgroundColor: "transparent",
+                }}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowReverse(false)}
+                disabled={acting !== null}
+                className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border text-m-body press disabled:opacity-50"
+                style={{
+                  borderColor: "var(--color-line)",
+                  backgroundColor: "var(--color-paper)",
+                  color: "var(--color-ink-950)",
+                }}
+              >
+                Keep
+              </button>
+              <button
+                onClick={() => void handleReverse()}
+                disabled={acting !== null || !reverseReason.trim()}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--color-stop)",
+                  color: "var(--color-paper)",
+                }}
+              >
+                {acting === "reverse" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <>
+                    <RotateCcw className="size-3.5" />
+                    <span>Reverse</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </MobileDialog>
       ) : null}

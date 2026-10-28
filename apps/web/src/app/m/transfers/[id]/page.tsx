@@ -151,6 +151,7 @@ export default function MobileTransferDetailPage({
           netWeight: transfer.netWeight ? toNum(transfer.netWeight) : null,
           geoFenceOk: transfer.geoFenceOk,
           geoFenceDistance: transfer.geoFenceDistance,
+          reversalReason: transfer.reversalReason,
           totalQty,
           lineCount: transfer.lines.length,
           // Gate pass context (for DRAFT transfers awaiting gate pass approval)

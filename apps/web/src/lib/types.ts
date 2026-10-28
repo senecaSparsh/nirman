@@ -232,7 +232,7 @@ export type TransferRow = {
   toLocationName: string;
   toLocationType: string;
   toCompanyName: string | null;
-  status: "DRAFT" | "IN_TRANSIT" | "COMPLETED" | "CANCELLED";
+  status: "DRAFT" | "IN_TRANSIT" | "COMPLETED" | "REVERSED" | "CANCELLED";
   transferDate: string;
   notes: string | null;
   createdAt: string;
@@ -524,7 +524,7 @@ export type StockTransferListRow = {
   fromLocationName: string;
   toLocationId: string;
   toLocationName: string;
-  status: "DRAFT" | "IN_TRANSIT" | "COMPLETED" | "CANCELLED";
+  status: "DRAFT" | "IN_TRANSIT" | "COMPLETED" | "REVERSED" | "CANCELLED";
   transferDate: string;
   notes: string | null;
   lineCount: number;

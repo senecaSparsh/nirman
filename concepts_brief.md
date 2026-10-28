@@ -1,6 +1,6 @@
 # Concepts Brief — Business-Logic Risk Hunt (EGM Brainstorm)
 
-**Status:** Goldfish review complete — fixes in progress (3 of 8 steps landed)
+**Status:** Goldfish review complete — 7 of 8 execution steps landed (B1, B2, B3+M7, M1, M3+M4+M5, B4+M8, M9 + ops hardening)
 **Method:** Elephant-Goldfish Model (google/elephant-goldfish-model). The Elephant
 (read the full Gopalpur 3 transcript, audited every owner ask against code)
 drafted the hypothesis; six zero-context Goldfish reviewers — Contrarian/YAGNI,
@@ -203,7 +203,35 @@ converge on one write path.
    transfer price, SMS→voided-payment, notification backlog). A real
    `CronRun` table is still deferred — the named-failure surfacing is the
    minimum that makes partial failure visible.
-8. **M6, M9, M10 items** — as the affected areas get touched. **NEXT**
+8. ~~**M9**~~ — **DONE** `361f591d`. Every column-backed file is now
+   reachable from at least one view surface: GRN receiving photos reach the
+   PO detail API + documents list + mobile receipts card; vehicle photos
+   flow through issue/sale/DP detail surfaces; cheque photos link on land,
+   supplier, asset-sale, material-sale and expense surfaces; renovation
+   costs gained both the receipt column and the upload path (was
+   write-only in both directions). Generic `EntityAttachment` rows still
+   coexist by design — `extraDocuments` is the convergence seam.
+9. ~~**M6**~~ — **DONE**. Inter-company STO fixed + reversal shipped:
+   - `postInterCompanyTransfer` no longer double-books freight/handling —
+     they're allocated inside `unitTransferPrice` already, so the header
+     charges are posted via the TP component split (markup → 4200,
+     freight+handling recovery → 4100, previously lumped into revenue).
+   - `StockTransferStatus.REVERSED` + `reversedAt`/`reversedById`/
+     `reversalReason` columns + persisted `StockTransferLine.lineMarkup`.
+   - `reverseCompletedTransfer` (destination-company only, mandatory
+     reason): restores source MAC at the original receipt cost, removes
+     destination stock, reverses both companies' journals as
+     `STOCK_TRANSFER_REVERSAL` entries, audits, notifies the source
+     company. Refuses when destination stock was consumed.
+   - UI: desktop Reverse dialog + mobile reverse sheet + reversed banner,
+     `REVERSED` in status unions/pills/filters. Also fixed a pre-existing
+     mobile-list bug — it filtered on `PENDING`/`RECEIVED` while the API
+     sends raw `DRAFT`/`COMPLETED`, so those filters/icons never matched.
+   - Real-DB suite `transfer-reversal.test.ts` (5 cases incl. the GL
+     split assertion). Zero completed IC transfers existed pre-fix, so no
+     historical-journal repair was needed.
+   **Remaining M10 items** — the migration-side constraints (registry
+   timestamps, requisition exit, company-code sequencing).
 
 Each fix PR opens with `SELECT COUNT(*)` audits of pre-fix rows (Migration
 lens: rows created now are tomorrow's legacy debt) and updates

@@ -117,6 +117,7 @@ export function TransfersTab({ transfers, locations, projects, canTransfer }: { 
         <option value="DRAFT">Draft</option>
         <option value="IN_TRANSIT">In Transit</option>
         <option value="COMPLETED">Completed</option>
+        <option value="REVERSED">Reversed</option>
         <option value="CANCELLED">Cancelled</option>
       </select>
       <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
@@ -216,9 +217,11 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
   const [deliveryMode, setDeliveryMode] = useState("");
   const [shortageRemarks, setShortageRemarks] = useState("");
   const [damageRemarks, setDamageRemarks] = useState("");
+  const [showReverse, setShowReverse] = useState(false);
+  const [reverseReason, setReverseReason] = useState("");
 
   async function doAction(
-    action: "complete" | "cancel" | "dispatch" | "returnToSource",
+    action: "complete" | "cancel" | "dispatch" | "returnToSource" | "reverse",
     extra?: Record<string, unknown>,
   ) {
     setActing(true);
@@ -230,7 +233,7 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Action failed");
-      const done: Record<typeof action, string> = { complete: "completed", cancel: "cancelled", dispatch: "dispatched", returnToSource: "returned to source" };
+      const done: Record<typeof action, string> = { complete: "completed", cancel: "cancelled", dispatch: "dispatched", returnToSource: "returned to source", reverse: "reversed" };
       toast.success(`Transfer ${done[action]}`);
       setShowDispatch(false);
       setShowComplete(false);
@@ -470,6 +473,17 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
         </div>
       )}
 
+      {/* Reverse a COMPLETED transfer — unwinds stock movements and (for
+          inter-company STOs) the journals on both companies' books. Only
+          available while every received unit still sits at the destination. */}
+      {transfer.status === "COMPLETED" && (
+        <div className="flex gap-2 border-t border-border pt-3">
+          <Button variant="outline" size="sm" onClick={() => setShowReverse(true)} disabled={acting} className="text-muted-foreground hover:text-danger">
+            <Undo className="h-4 w-4" /> Reverse Transfer
+          </Button>
+        </div>
+      )}
+
       {/* Dispatch dialog with vehicle capture */}
       <Dialog
         open={showDispatch}
@@ -533,6 +547,34 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
             <Button size="sm" onClick={handleComplete} disabled={acting}>
               {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               Confirm Receipt
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Reverse dialog — reason is required for the audit trail */}
+      <Dialog
+        open={showReverse}
+        onOpenChange={setShowReverse}
+        title="Reverse Transfer"
+        description="Moves all received stock back to the source at the original costs and reverses the journals on both companies. Only works if nothing has been consumed at the destination yet."
+        className="max-w-lg"
+      >
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Reason <span className="text-danger">*</span></Label>
+            <Input aria-label="Reversal reason" value={reverseReason} onChange={(e) => setReverseReason(e.target.value)} placeholder="e.g. Wrong material sent, duplicate entry" />
+          </div>
+          <div className="flex justify-end gap-2 border-t border-border pt-3">
+            <Button variant="outline" size="sm" onClick={() => setShowReverse(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={acting || !reverseReason.trim()}
+              onClick={() => doAction("reverse", { reason: reverseReason.trim() })}
+            >
+              {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo className="h-4 w-4" />}
+              Reverse Transfer
             </Button>
           </div>
         </div>

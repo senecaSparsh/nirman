@@ -105,6 +105,7 @@ export const ACCT = {
   EQUIPMENT_ASSET: "1900",
   ACCUM_DEPRECIATION: "1910", // Contra-asset: accumulated depreciation on equipment
   IC_RECEIVABLE: "1950",
+  IC_SALES_REVENUE: "4200",
   TDS_RECEIVABLE: "1960",
   TDS_RECEIVABLE_SALES: "1961",
   AP: "2000",
@@ -1912,11 +1913,16 @@ export async function postStockAdjustment(
  * SOURCE company (seller):
  *   Dr Inter-Company Receivable    transferPriceTotal
  *   Cr Inventory - Materials        sourceCostTotal (at source MAC)
- *   Cr Inter-Company Sales Revenue  markupTotal (TP − source cost)
+ *   Cr Inter-Company Sales Revenue  markup (the true margin billed)
+ *   Cr Cost Recovery                freight + handling billed (reimbursements, not margin)
  *
  * DESTINATION company (buyer):
  *   Dr Inventory - Materials        transferPriceTotal (at TP = new MAC)
  *   Cr Inter-Company Payable        transferPriceTotal
+ *
+ * `transferUnitPrice` is already all-in — computeTransferPrice allocates the
+ * header freight + handling into each line's unit price (cost-weighted) — so
+ * the GL total is Σ qty × TP and must NOT add the header charges again.
  *
  * Note: No GST is charged on inter-company stock transfers (same PAN/group).
  * If GST is applicable in a specific scenario, it should be added separately.
@@ -1932,10 +1938,12 @@ export async function postInterCompanyTransfer(
       materialId: string;
       qty: Decimal;
       sourceUnitCost: Decimal;  // source MAC
-      transferUnitPrice: Decimal; // TP per unit
+      transferUnitPrice: Decimal; // TP per unit (all-in: cost + freight + handling + markup)
     }[];
-    freight?: Decimal;
-    handlingFee?: Decimal;
+    /** The margin component of the billed TP — true inter-company markup. */
+    markup?: Decimal;
+    /** The freight + handling component of the billed TP — cost recovery, not margin. */
+    costRecovery?: Decimal;
   },
 ) {
   let sourceCostTotal = new Decimal(0);
@@ -1945,18 +1953,22 @@ export async function postInterCompanyTransfer(
     sourceCostTotal = sourceCostTotal.plus(qty.times(new Decimal(l.sourceUnitCost)));
     transferPriceTotal = transferPriceTotal.plus(qty.times(new Decimal(l.transferUnitPrice)));
   }
-  const freight = new Decimal(opts.freight ?? 0);
-  const handling = new Decimal(opts.handlingFee ?? 0);
-  transferPriceTotal = transferPriceTotal.plus(freight).plus(handling);
   const markupTotal = transferPriceTotal.minus(sourceCostTotal);
+  const costRecovery = new Decimal(opts.costRecovery ?? 0);
+  // True margin = billed premium minus the reimbursements riding inside the TP.
+  // Any rounding residue lands on markup so the entry always balances.
+  const markupRevenue = markupTotal.minus(costRecovery);
 
   // ── Source company entry (sale at TP) ──
   const sourceLines: JournalLineInput[] = [
     { accountCode: ACCT.IC_RECEIVABLE, debit: transferPriceTotal, credit: 0, entityType: "StockTransfer", entityId: opts.transferId, memo: "Inter-company transfer sale" },
     { accountCode: ACCT.INVENTORY, debit: 0, credit: sourceCostTotal, entityType: "StockTransfer", entityId: opts.transferId, memo: "Stock issued for inter-company transfer" },
   ];
-  if (markupTotal.gt(0)) {
-    sourceLines.push({ accountCode: "4200", debit: 0, credit: markupTotal, entityType: "StockTransfer", entityId: opts.transferId, memo: "Inter-company transfer markup revenue" });
+  if (markupRevenue.gt(0)) {
+    sourceLines.push({ accountCode: ACCT.IC_SALES_REVENUE, debit: 0, credit: markupRevenue, entityType: "StockTransfer", entityId: opts.transferId, memo: "Inter-company transfer markup revenue" });
+  }
+  if (costRecovery.gt(0)) {
+    sourceLines.push({ accountCode: ACCT.COST_RECOVERY, debit: 0, credit: costRecovery, entityType: "StockTransfer", entityId: opts.transferId, memo: "Inter-company freight/handling recovery" });
   }
   await postJournalEntry(tx, {
     companyId: opts.sourceCompanyId,

@@ -4,7 +4,7 @@ import Decimal from "decimal.js";
 import { recordMovement, recordTransfer, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
 import { logAction } from "./audit";
 import { autoFillHsnGst } from "./material-service";
-import { postTransferShortage, postInterCompanyTransfer } from "./gl-posting";
+import { postTransferShortage, postInterCompanyTransfer, reverseJournalEntry } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { assertGatePassApproved, autoCreateGatePassFromRef } from "./gate-pass";
 import { companyScopedPrefix, nextSequenceNumber } from "./sequence";
@@ -306,7 +306,7 @@ export async function dispatchTransfer(
       include: {
         lines: true,
         fromLocation: { select: { companyId: true, name: true } },
-        toLocation: { select: { name: true } },
+        toLocation: { select: { companyId: true, name: true } },
       },
     });
     if (!transfer) throw new ServiceError("Transfer not found", 404);
@@ -406,6 +406,24 @@ export async function dispatchTransfer(
       },
       timestamp: new Date(),
     });
+    // Inter-company: the destination is a different company — its users never
+    // see source-company notifications, so emit to their scope too or they
+    // can't know stock is inbound (and can't plan the receive).
+    if (transfer.isInterCompany && transfer.toLocation.companyId !== transfer.fromLocation.companyId) {
+      void emitNotificationEvent({
+        eventType: NotificationEventType.STOCK_TRANSFER_CREATED,
+        companyId: transfer.toLocation.companyId,
+        excludeIds: [userId],
+        entityType: "StockTransfer",
+        entityId: transferId,
+        variables: {
+          transferNumber: updated.challanNumber ?? updated.referenceNo ?? "",
+          fromName: transfer.fromLocation.name,
+          toName: transfer.toLocation.name,
+        },
+        timestamp: new Date(),
+      });
+    }
     return updated;
   });
 }
@@ -582,6 +600,7 @@ export async function completeTransfer(transferId: string, userId?: string, proo
             unitCostAtSource: tpLine.unitCostAtSource,
             unitTransferPrice: tpLine.unitTransferPrice,
             lineTransferTotal: tpLine.lineTransferTotal,
+            lineMarkup: tpLine.markup,
           },
         });
       }
@@ -612,8 +631,11 @@ export async function completeTransfer(transferId: string, userId?: string, proo
           sourceUnitCost: tp.lines[i]!.unitCostAtSource,
           transferUnitPrice: tp.lines[i]!.unitTransferPrice,
         })),
-        freight: new Decimal(transfer.freight ?? 0),
-        handlingFee: new Decimal(transfer.handlingFee ?? 0),
+        // TP units are already all-in (freight/handling/markup allocated into
+        // each unit price) — pass the component totals for the revenue split,
+        // NOT the raw header charges (adding them again double-books them).
+        markup: tp.totalMarkup,
+        costRecovery: tp.totalFreight.plus(tp.totalHandling),
       });
 
       await refreshMaterialCurrentCost(tx, transfer.lines.map((l) => l.materialId));
@@ -891,6 +913,150 @@ export async function returnTransferToSource(transferId: string, userId?: string
         entityId: transferId,
         before: { status: "IN_TRANSIT" },
         after: { status: "CANCELLED", reason },
+      });
+    }
+
+    return updated;
+  });
+}
+
+/**
+ * Reverse a COMPLETED transfer — undoes a wrong transfer end-to-end.
+ *
+ * Stock: moves each line's received qty back (TRANSFER_OUT at destination at
+ * the recorded receipt cost, TRANSFER_IN at source at the original issue
+ * cost), restoring both locations' MAC exactly.
+ *
+ * Books: reverses every STOCK_TRANSFER journal posted for the transfer (both
+ * companies on an inter-company STO — the IC receivable/payable, revenue and
+ * cost-recovery lines all unwind). In-transit shrinkage write-offs are left
+ * standing — goods lost in transit are still lost.
+ *
+ * Guards: only COMPLETED reverses, and the destination must still hold every
+ * received unit — consumed/sold/returned stock makes an honest reversal
+ * impossible (send a new transfer back instead; that's a fresh sale, not an
+ * undo).
+ */
+export async function reverseCompletedTransfer(transferId: string, userId?: string, reason?: string) {
+  const trimmed = reason?.trim();
+  if (!trimmed) throw new ServiceError("A reason is required to reverse a completed transfer");
+  return withStockTransaction(async (tx) => {
+    const transfer = await tx.stockTransfer.findUnique({
+      where: { id: transferId },
+      include: {
+        lines: true,
+        fromLocation: { select: { companyId: true } },
+        toLocation: { select: { companyId: true } },
+      },
+    });
+    if (!transfer) throw new ServiceError("Transfer not found", 404);
+    if (transfer.status !== "COMPLETED") {
+      throw new ServiceError(`Cannot reverse transfer in status ${transfer.status} — only COMPLETED transfers can be reversed`);
+    }
+
+    // Original receipt costs per line — the IN movement at the destination
+    // records exactly what the destination's books took the stock in at.
+    const inMovements = await tx.stockMovement.findMany({
+      where: { refType: "STOCK_TRANSFER", refId: transferId, movementType: "TRANSFER_IN", toLocationId: transfer.toLocationId },
+      select: { materialId: true, unitCost: true },
+    });
+    const inCostByMaterial = new Map(inMovements.map((m) => [m.materialId, new Decimal(m.unitCost)]));
+
+    // Original issue costs at source — persisted per line on inter-company
+    // transfers; for intra-company, fall back to the OUT movement's cost.
+    const outMovements = await tx.stockMovement.findMany({
+      where: { refType: "STOCK_TRANSFER", refId: transferId, movementType: "TRANSFER_OUT", fromLocationId: transfer.fromLocationId },
+      select: { materialId: true, unitCost: true },
+    });
+    const outCostByMaterial = new Map(outMovements.map((m) => [m.materialId, new Decimal(m.unitCost)]));
+
+    // Availability gate — every received unit must still sit at the
+    // destination, else a reversal would move phantom stock.
+    for (const line of transfer.lines) {
+      const recvQty = new Decimal(line.qtyReceived);
+      if (recvQty.lte(0)) continue;
+      const item = await tx.stockLocationItem.findUnique({
+        where: { locationId_materialId: { locationId: transfer.toLocationId, materialId: line.materialId } },
+      });
+      const available = item ? new Decimal(item.qty) : new Decimal(0);
+      if (available.lt(recvQty)) {
+        throw new ServiceError(
+          `Cannot reverse: destination holds ${available} of material ${line.materialId}, but ${recvQty} was received — some stock has been consumed. Send a new transfer back instead.`,
+          400,
+        );
+      }
+    }
+
+    for (const line of transfer.lines) {
+      const recvQty = new Decimal(line.qtyReceived);
+      if (recvQty.lte(0)) continue;
+      const receiptCost = inCostByMaterial.get(line.materialId);
+      const issueCost = line.unitCostAtSource != null
+        ? new Decimal(line.unitCostAtSource)
+        : outCostByMaterial.get(line.materialId) ?? receiptCost;
+      if (!receiptCost || !issueCost) {
+        throw new ServiceError(`Cannot reverse: missing cost trail for material ${line.materialId}`, 500);
+      }
+      // Leave the destination at the price it was received at.
+      await recordMovement(tx, {
+        materialId: line.materialId,
+        movementType: "TRANSFER_OUT",
+        fromLocationId: transfer.toLocationId,
+        qty: recvQty,
+        unitCost: receiptCost,
+        refType: "STOCK_TRANSFER_REVERSAL",
+        refId: transferId,
+        userId,
+        lotNumber: line.lotNumber ?? undefined,
+        companyId: transfer.toLocation.companyId,
+      });
+      // Re-enter the source at the price it was issued at — the source's
+      // MAC is restored exactly, not blended with a new valuation.
+      await recordMovement(tx, {
+        materialId: line.materialId,
+        movementType: "TRANSFER_IN",
+        toLocationId: transfer.fromLocationId,
+        qty: recvQty,
+        unitCost: issueCost,
+        refType: "STOCK_TRANSFER_REVERSAL",
+        refId: transferId,
+        userId,
+        lotNumber: line.lotNumber ?? undefined,
+        companyId: transfer.fromLocation.companyId,
+      });
+    }
+
+    // Unwind every journal the completion posted — inter-company STOs carry
+    // one entry per company; intra-company transfers post none.
+    const jes = await tx.journalEntry.findMany({
+      where: { sourceType: "STOCK_TRANSFER", sourceId: transferId, status: "POSTED" },
+      select: { id: true },
+    });
+    for (const je of jes) {
+      await reverseJournalEntry(tx, je.id, { postedById: userId, memo: `Reversal of completed stock transfer ${transferId}` });
+    }
+
+    await refreshMaterialCurrentCost(tx, transfer.lines.map((l) => l.materialId));
+
+    const updated = await tx.stockTransfer.update({
+      where: { id: transferId },
+      data: {
+        status: "REVERSED",
+        reversedAt: new Date(),
+        reversedById: userId,
+        reversalReason: trimmed,
+      },
+    });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        companyId: transfer.fromLocation.companyId,
+        action: "STOCK_TRANSFER_REVERSED",
+        entityType: "StockTransfer",
+        entityId: transferId,
+        before: { status: "COMPLETED" },
+        after: { status: "REVERSED", reason: trimmed, journalsReversed: jes.length },
       });
     }
 

@@ -80,6 +80,7 @@ export {
   cancelTransfer,
   checkStaleTransfers,
   returnTransferToSource,
+  reverseCompletedTransfer,
   computeTransferPrice,
   type TransferPriceLineInput,
   type TransferPriceLineResult,
