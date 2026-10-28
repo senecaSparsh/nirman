@@ -231,3 +231,39 @@ Cross-surface numbers reconcile: Receivables ₹25L = Finance "outstanding" card
 
 - **Verified**: `/m/expenses/new` (sectioned cards, paired fields, Save Draft │ Submit CTAs), work-order detail, material-sales grid + activity feed — all follow shared form/detail conventions.
 - **Fixture noise noted**: material-sales activity feed repeats created/returned-sale rows — dev-verify residue, not a UI defect.
+
+## Round 15 — Print/document surface sweep (25 doc types)
+
+**Covered:** material-sale invoice, issue slip, purchase order, goods-receipt
+challan, material-sale receipt (money receipt), sale invoice/allotment letter,
+sale-draft LOI, sale-statement, gate pass, measurement book, supplier-payment
+voucher, stock-transfer note, stock-count sheet, scrap note, payslip,
+offer/appointment/agreement letters, employee ID card, escrow statement,
+unit-spec sheet, direct-purchase voucher.
+
+**FIXED — functional bug (all 27 doc pages):** `PrintToolbar` Image + Share
+used `node.closest(".print:hidden")` — `:hidden` is a jQuery pseudo-class, so
+closest() threw SyntaxError inside html-to-image's filter; the catch silently
+fell back to window.print(). Image/Share never produced a file. Now
+`classList.contains("print:hidden")`. Verified: real 175KB PNG at 2x with
+toolbar excluded. Commit 70ece1f3.
+
+**Verified consistent:** shared chrome (Print/PDF/Image/Share/Close toolbar,
+`print:hidden`), SRG REALCON letterhead + GSTIN, black doc-type badge + doc
+number + date, two-party boxes (FROM/BILL TO, ISSUED TO/FROM STORE etc.),
+Sr./Description/HSN/Qty/Rate/Amount tables, right-aligned Subtotal/GST/Grand
+Total blocks, Amount in Words italic, Terms & Conditions, symmetric signature
+lines. Gate pass adds warning banner; money receipt adds amount-received
+highlight + account summary + progress bar + payment history; ID card renders
+true 85×54mm front/back with QR + print instructions.
+
+**Not renderable in demo company (no entity):** demand-notice (0 eligible
+schedule items — the 7 PaymentScheduleItems belong to another company),
+tenancy-draft (0 tenancies), requisition (0 indents). Their 404s are correct
+behavior, not bugs — verified by reading the notFound paths.
+
+**Data-quality note (not visual):** money-receipt payment history shows 3
+rows summing ₹2.6K while "Total Received" reads ₹1.2K — likely a
+refunded/reversed row in seed data; math is self-consistent with the ₹531
+balance. Payslip demo data is all-₹0 (no salary structure configured for the
+owner persona). Both are fixture artifacts.
