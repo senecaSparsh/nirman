@@ -199,6 +199,133 @@ export async function createRequisition(input: CreateRequisitionInput) {
   });
 }
 
+interface UpdateRequisitionInput {
+  phaseId?: string | null;
+  neededByDate?: Date | null;
+  notes?: string | null;
+  lines?: {
+    materialId: string;
+    qtyRequested: Decimal | number | string;
+    notes?: string;
+    preferredSupplierId?: string;
+  }[];
+}
+
+/**
+ * Edit a draft or rejected indent. A rejected indent returned to DRAFT is how
+ * the requester "fixes the quantities and resubmits" — the flow-map copy has
+ * always promised this; the path simply didn't exist.
+ *
+ * Lines are replaced wholesale when provided (delete + create with fresh
+ * stock/rate snapshots — the approver must see today's numbers, not the
+ * stale ones from before rejection). Header fields are optional patches.
+ */
+export async function updateRequisition(reqId: string, input: UpdateRequisitionInput, userId?: string) {
+  const { updated } = await withSerializableTransaction(async (tx) => {
+    const req = await tx.materialRequisition.findUnique({
+      where: { id: reqId },
+      include: {
+        lines: true,
+        project: { select: { companyId: true } },
+        department: { select: { companyId: true } },
+      },
+    });
+    if (!req) throw new ServiceError("Indent not found", 404);
+    if (req.status !== "DRAFT" && req.status !== "REJECTED") {
+      throw new ServiceError(
+        `Cannot edit an indent in status ${req.status} — only drafts and rejected indents can be edited.`,
+        409,
+      );
+    }
+    const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
+    if (!reqCompanyId) throw new ServiceError("Indent has no project or department", 400);
+
+    // The project itself is locked on edit — a phase from a different project
+    // would silently reparent the indent's scope. Mirror that lock here.
+    if (input.phaseId && req.projectId) {
+      const phase = await tx.projectPhase.findFirst({
+        where: { id: input.phaseId, projectId: req.projectId },
+        select: { id: true },
+      });
+      if (!phase) throw new ServiceError("That phase doesn't belong to this indent's project", 400);
+    }
+
+    // Validate replacement lines against the live catalogue — same rules
+    // as createRequisition (a deleted material must not survive an edit).
+    let lineData: { materialId: string; qtyRequested: Decimal; notes: string | null; preferredSupplierId: string | null; currentStock: Decimal; lastRate: Decimal | null; lastRateDate: Date | null }[] | null = null;
+    if (input.lines) {
+      if (input.lines.length === 0) throw new ServiceError("Indent must have at least one line");
+      const materialIds = input.lines.map((l) => l.materialId);
+      const materials = await tx.material.findMany({
+        where: { id: { in: materialIds }, companyId: reqCompanyId, deletedAt: null },
+        select: { id: true },
+      });
+      if (materials.length !== materialIds.length) {
+        throw new ServiceError("One or more materials not found or deleted — restore the material or remove the line", 404);
+      }
+      for (const line of input.lines) {
+        if (!new Decimal(line.qtyRequested).gt(0)) throw new ServiceError("Requested qty must be > 0");
+      }
+      // Fresh snapshots — the approver sees today's stock and last rate,
+      // not the numbers captured before rejection.
+      const stockSnapshots = await tx.stockLocationItem.groupBy({
+        by: ["materialId"],
+        where: { materialId: { in: materialIds }, location: { companyId: reqCompanyId, deletedAt: null } },
+        _sum: { qty: true },
+      });
+      const stockMap = new Map(stockSnapshots.map((s) => [s.materialId, s._sum.qty ?? new Decimal(0)]));
+      const lastReceipts = await tx.goodsReceiptLine.findMany({
+        where: { materialId: { in: materialIds }, goodsReceipt: { location: { companyId: reqCompanyId } } },
+        include: { goodsReceipt: { select: { receiptDate: true } } },
+        orderBy: { goodsReceipt: { receiptDate: "desc" } },
+        distinct: ["materialId"],
+      });
+      const lastRateMap = new Map(lastReceipts.map((r) => [r.materialId, { rate: r.unitCost, date: r.goodsReceipt.receiptDate }]));
+      lineData = input.lines.map((l) => ({
+        materialId: l.materialId,
+        qtyRequested: new Decimal(l.qtyRequested),
+        notes: l.notes ?? null,
+        preferredSupplierId: l.preferredSupplierId ?? null,
+        currentStock: stockMap.get(l.materialId) ?? new Decimal(0),
+        lastRate: lastRateMap.get(l.materialId)?.rate ?? null,
+        lastRateDate: lastRateMap.get(l.materialId)?.date ?? null,
+      }));
+    }
+
+    const updated = await tx.materialRequisition.update({
+      where: { id: reqId },
+      data: {
+        ...(input.phaseId !== undefined ? { phaseId: input.phaseId } : {}),
+        ...(input.neededByDate !== undefined ? { neededByDate: input.neededByDate } : {}),
+        ...(input.notes !== undefined ? { notes: input.notes } : {}),
+        // An edit on a rejected indent sends it back to draft — clears the
+        // rejection stamp so a stale banner can't linger after resubmission.
+        status: "DRAFT",
+        rejectedById: null,
+        rejectedAt: null,
+        rejectReason: null,
+        ...(lineData
+          ? { lines: { deleteMany: { requisitionId: reqId }, create: lineData } }
+          : {}),
+      },
+      include: { lines: true },
+    });
+
+    await logAction(tx, {
+      userId,
+      companyId: reqCompanyId,
+      action: "REQUISITION_EDIT",
+      entityType: "MaterialRequisition",
+      entityId: reqId,
+      before: { status: req.status, lineCount: req.lines.length, rejectReason: req.rejectReason },
+      after: { status: "DRAFT", lineCount: updated.lines.length },
+    });
+    return { updated, companyId: reqCompanyId };
+  });
+
+  return updated;
+}
+
 export async function submitRequisition(reqId: string, userId?: string) {
   const { updated, companyId } = await withSerializableTransaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({
@@ -390,6 +517,11 @@ export async function approveRequisition(reqId: string, approvedById?: string, a
 }
 
 export async function rejectRequisition(reqId: string, rejectedById?: string, rejectReason?: string) {
+  // A bare "Rejected" banner tells the requester nothing — the reason is how
+  // they know what to fix. Same rule DPR rejection already enforces.
+  if (!rejectReason?.trim()) {
+    throw new ServiceError("A rejection reason is required — tell the requester what to fix.", 400);
+  }
   const { updated, companyId } = await withSerializableTransaction(async (tx) => {
     const req = await tx.materialRequisition.findUnique({
       where: { id: reqId },

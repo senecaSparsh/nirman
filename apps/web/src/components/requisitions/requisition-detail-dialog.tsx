@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRight, Check, X, ShoppingCart, FileText, Truck, Trophy, Trash2 } from "lucide-react";
+import { ArrowRight, Check, X, ShoppingCart, FileText, Truck, Trophy, Trash2, Pencil } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -39,6 +39,9 @@ export function RequisitionDetailDialog({
   canApprove,
   canSelfApprove,
   currentUserId,
+  canEdit,
+  onEdit,
+  onReject,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -50,6 +53,11 @@ export function RequisitionDetailDialog({
   /** Tier-1 viewers (OWNER/ADMIN) may approve their own indent. */
   canSelfApprove?: boolean;
   currentUserId?: string | null;
+  /** Caller may open the line editor for draft/rejected indents. */
+  canEdit?: boolean;
+  onEdit?: (r: RequisitionRow) => void;
+  /** Routes to the caller's reject-reason dialog — rejection requires a reason. */
+  onReject?: (r: RequisitionRow) => void;
 }) {
   const router = useRouter();
   const [confirm, confirmDialog] = useConfirm();
@@ -86,7 +94,7 @@ export function RequisitionDetailDialog({
         doAction("approve");
       } else if (key === "r" && d.status === "SUBMITTED" && !acting && canApprove && (d.requestedById !== currentUserId || canSelfApprove)) {
         e.preventDefault();
-        doAction("reject");
+        if (onReject && requisition) onReject(requisition); else doAction("reject");
       } else if (key === "c" && d.status === "APPROVED" && !acting && (d.quotes?.waived || d.quotes?.selected)) {
         e.preventDefault();
         setConvertOpen(true);
@@ -209,6 +217,11 @@ export function RequisitionDetailDialog({
 
             {/* Action buttons */}
             <div className="flex flex-wrap gap-2">
+              {(detail.status === "DRAFT" || detail.status === "REJECTED") && canEdit && onEdit && requisition && (
+                <Button size="sm" variant="outline" onClick={() => onEdit(requisition)} disabled={acting}>
+                  <Pencil className="h-4 w-4" /> Edit
+                </Button>
+              )}
               {detail.status === "DRAFT" && (
                 <Button size="sm" onClick={() => doAction("submit")} disabled={acting}>
                   <ArrowRight className="h-4 w-4" /> Submit <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">S</kbd>
@@ -224,7 +237,7 @@ export function RequisitionDetailDialog({
                   <Button size="sm" onClick={() => doAction("approve")} disabled={acting}>
                     <Check className="h-4 w-4" /> Approve <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">A</kbd>
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => doAction("reject")} disabled={acting} className="text-muted-foreground hover:text-danger">
+                  <Button size="sm" variant="outline" onClick={() => (onReject && requisition ? onReject(requisition) : doAction("reject"))} disabled={acting} className="text-muted-foreground hover:text-danger">
                     <X className="h-4 w-4" /> Reject <kbd className="ml-1 rounded border border-border px-1 text-[0.625rem] text-muted-foreground">R</kbd>
                   </Button>
                 </>
@@ -240,7 +253,7 @@ export function RequisitionDetailDialog({
                 </span>
               )}
               {detail.status === "APPROVED" && canApprove && (detail.requestedById !== currentUserId || canSelfApprove) && (
-                <Button size="sm" variant="ghost" onClick={() => doAction("reject")} disabled={acting} title="Withdraw this indent — it won't be ordered" className="text-muted-foreground hover:text-danger">
+                <Button size="sm" variant="ghost" onClick={() => (onReject && requisition ? onReject(requisition) : doAction("reject"))} disabled={acting} title="Withdraw this indent — it won't be ordered" className="text-muted-foreground hover:text-danger">
                   <X className="h-4 w-4" /> Withdraw
                 </Button>
               )}

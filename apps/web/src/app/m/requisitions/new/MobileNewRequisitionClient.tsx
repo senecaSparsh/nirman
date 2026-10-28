@@ -84,10 +84,41 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
 
   const searchParams = useSearchParams();
 
+  // ── Edit mode: ?edit=<indentId> loads an existing draft/rejected indent
+  // for correction — the "fix the quantities and resubmit" path the flow-map
+  // promises. Draft autosave/restore is skipped so an edit can't poison the
+  // new-indent draft.
+  const editId = searchParams.get("edit");
+  const [editLoaded, setEditLoaded] = useState(false);
+  const [editReqNumber, setEditReqNumber] = useState("");
+  useEffect(() => {
+    if (!editId || editLoaded) return;
+    fetch(`/api/requisitions/${editId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.error) throw new Error(d.error);
+        setProjectId(d.projectId ?? "");
+        setEditReqNumber(d.reqNumber ?? "");
+        setNeededByDate(d.neededByDate ? String(d.neededByDate).slice(0, 10) : "");
+        setNotes(d.notes ?? "");
+        setLines(d.lines?.length
+          ? d.lines.map((l: { materialId: string; qtyRequested: number; notes: string | null; preferredSupplier: { id: string } | null }) => ({
+              materialId: l.materialId,
+              qty: String(l.qtyRequested),
+              notes: l.notes ?? "",
+              preferredSupplierId: l.preferredSupplier?.id ?? "",
+            }))
+          : [{ materialId: "", qty: "", notes: "", preferredSupplierId: "" }]);
+        setEditLoaded(true);
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not load indent"));
+     
+  }, [editId, editLoaded]);
+
   // Apply smart defaults on mount (if no draft to restore). A ?project=
   // deep-link (e.g. "New Indent" on a project page) wins over last-used.
   useEffect(() => {
-    if (hasDraft || draftRestored || defaultsApplied) return;
+    if (editId || hasDraft || draftRestored || defaultsApplied) return;
     const paramProject = searchParams.get("project");
     const defProject = getDefault("projectId");
     const pick =
@@ -100,14 +131,14 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
       setProjectId(pick);
       setDefaultsApplied(true);
     }
-  }, [hasDraft, draftRestored, defaultsApplied, getDefault, data.projects, searchParams]);
+  }, [editId, hasDraft, draftRestored, defaultsApplied, getDefault, data.projects, searchParams]);
 
   // ── Prefill a material from ?materialId= — e.g. "Raise indent" on a
   // low/out-of-stock material detail. Skipped when a draft is being restored.
   const prefillMaterialId = searchParams.get("materialId");
   const [prefilled, setPrefilled] = useState(false);
   useEffect(() => {
-    if (prefilled || hasDraft || draftRestored) return;
+    if (editId || prefilled || hasDraft || draftRestored) return;
     if (prefillMaterialId && data.materials.some((m) => m.id === prefillMaterialId)) {
       setLines((prev) =>
         prev.length === 1 && !prev[0]!.materialId
@@ -116,7 +147,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
       );
       setPrefilled(true);
     }
-  }, [prefilled, hasDraft, draftRestored, prefillMaterialId, data.materials]);
+  }, [editId, prefilled, hasDraft, draftRestored, prefillMaterialId, data.materials]);
 
   function addLine() {
     setLines([...lines, { materialId: "", qty: "", notes: "", preferredSupplierId: "" }]);
@@ -131,13 +162,14 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
     setLines(lines.map((l, i) => (i === idx ? { ...l, [field]: val } : l)));
   }
 
-  // Auto-save draft
+  // Auto-save draft (skipped in edit mode — the draft belongs to the new-indent form)
   useEffect(() => {
+    if (editId) return;
     const hasContent = projectId || neededByDate || notes ||
       lines.some((l) => l.materialId || l.qty);
     if (!hasContent) return;
     saveDraft({ projectId, neededByDate, notes, lines });
-  }, [projectId, neededByDate, notes, lines, saveDraft]);
+  }, [editId, projectId, neededByDate, notes, lines, saveDraft]);
 
   function restoreDraftState() {
     if (!draft) return;
@@ -160,6 +192,33 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
     }
     setSubmitting(true);
     try {
+      // Edit mode — patch the existing draft/rejected indent, then return to it.
+      if (editId) {
+        const res = await fetch(`/api/requisitions/${editId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "edit",
+            neededByDate: neededByDate || null,
+            notes: notes.trim() || null,
+            lines: validLines.map((l) => ({
+              materialId: l.materialId,
+              qtyRequested: Number(l.qty),
+              notes: l.notes.trim() || null,
+              preferredSupplierId: l.preferredSupplierId || null,
+            })),
+          }),
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(result.error ?? "Failed to update indent");
+        toast.success(`Indent ${editReqNumber} updated — resubmit it for approval`, {
+          action: { label: "View Indent", onClick: () => router.push(`/m/requisitions/${editId}`) },
+        });
+        router.push(`/m/requisitions/${editId}`);
+        router.refresh();
+        return;
+      }
+
       // Record smart defaults for next time
       recordDefaults({ projectId });
 
@@ -322,7 +381,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
 
   return (
     <div className="space-y-3">
-      {hasDraft && !draftRestored && (
+      {hasDraft && !draftRestored && !editId && (
         <DraftBanner
           formName="Material Indent"
           updatedAt={draftUpdatedAt}
@@ -340,6 +399,16 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
           {/* Project + Needed by date (side by side) */}
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
+              {editId ? (
+                <div>
+                  <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-700)" }}>
+                    Project
+                  </label>
+                  <div className="h-7 flex items-center px-1 text-m-body" style={{ color: "var(--color-ink-950)" }}>
+                    {data.projects.find((p) => p.id === projectId)?.name ?? editReqNumber}
+                  </div>
+                </div>
+              ) : (
               <MobileSelectWithCreate
             createEntity="project"
                 label="Project"
@@ -361,6 +430,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                   </MobileFabModal>
                 )}
               />
+              )}
             </div>
             <UnderlineInput
               label="Needed by date"
@@ -538,7 +608,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
             ) : (
               <>
                 <Send className="size-4" />
-                <span>Submit Indent</span>
+                <span>{editId ? "Save changes" : "Submit Indent"}</span>
               </>
             )}
           </button>

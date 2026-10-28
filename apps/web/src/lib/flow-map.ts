@@ -238,7 +238,7 @@ const REQUISITION_FLOW: FlowDef = {
       label: "Fix & resubmit",
       verb: "Fix",
       reason: "This indent was rejected — correct the quantities or notes and resubmit.",
-      action: { type: "anchor", hash: "#submit" },
+      action: { type: "navigate", href: "/m/requisitions/new?edit={id}" },
       perm: PERM.REQUISITION_CREATE,
       tone: "signal",
     },

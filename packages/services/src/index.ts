@@ -526,6 +526,7 @@ export type { LogEquipmentUsageInput, EquipmentUsageSummary, ServiceStatus } fro
 export {
   createRequisition,
   submitRequisition,
+  updateRequisition,
   approveRequisition,
   rejectRequisition,
   convertRequisitionToPo,

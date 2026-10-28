@@ -6,6 +6,7 @@ import {
   convertRequisitionToPo,
   rejectRequisition,
   submitRequisition,
+  updateRequisition,
   waiveQuoteRequirement,
   logAction,
   canWaiveSelfApproval,
@@ -119,6 +120,19 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   });
 });
 
+const editSchema = z.object({
+  action: z.literal("edit"),
+  phaseId: z.string().nullable().optional(),
+  neededByDate: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  lines: z.array(z.object({
+    materialId: z.string().min(1),
+    qtyRequested: z.coerce.number().positive("Requested qty must be > 0"),
+    notes: z.string().nullable().optional(),
+    preferredSupplierId: z.string().nullable().optional(),
+  })).optional(),
+});
+
 const convertSchema = z.object({
   supplierId: z.string().min(1, "Supplier is required"),
   procurementScope: z.enum(["COMPANY", "PROJECT"]),
@@ -201,6 +215,39 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         return json({ error: "You cannot reject your own indent. Ask another approver to review it." }, { status: 403 });
       }
       await rejectRequisition(id, user.id, body?.rejectReason);
+      revalidatePath("/requisitions");
+      revalidatePath("/m/procurement");
+      return json({ ok: true });
+    }
+    if (action === "edit") {
+      const user = await requireAnyPermission(PERM.PROCUREMENT_MANAGE, PERM.REQUISITION_CREATE);
+      // Same ownership rule as submit: field creators edit only their own
+      // indents; procurement managers can fix anyone's draft.
+      const perms = await getUserPermissions();
+      if (!perms.includes("*") && !perms.includes(PERM.PROCUREMENT_MANAGE)) {
+        const own = await prisma.materialRequisition.findFirst({
+          where: { id, OR: [{ requestedById: user.id }, { submittedById: user.id }] },
+          select: { id: true },
+        });
+        if (!own) {
+          return json({ error: "You can only edit your own indents." }, { status: 403 });
+        }
+      }
+      const parsed = editSchema.safeParse(body);
+      if (!parsed.success) {
+        return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+      }
+      await updateRequisition(id, {
+        phaseId: parsed.data.phaseId,
+        neededByDate: parsed.data.neededByDate ? new Date(parsed.data.neededByDate) : null,
+        notes: parsed.data.notes,
+        lines: parsed.data.lines?.map((l) => ({
+          materialId: l.materialId,
+          qtyRequested: l.qtyRequested,
+          notes: l.notes ?? undefined,
+          preferredSupplierId: l.preferredSupplierId ?? undefined,
+        })),
+      }, user.id);
       revalidatePath("/requisitions");
       revalidatePath("/m/procurement");
       return json({ ok: true });

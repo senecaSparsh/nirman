@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUrlFilter } from "@/lib/use-url-filter";
 import { toast } from "sonner";
-import { Plus, ClipboardList, X, Check, ShoppingCart, Trash2, Zap, Loader2, Printer, FileText, FileSpreadsheet, ChevronDown } from "lucide-react";
+import { Plus, ClipboardList, X, Check, ShoppingCart, Trash2, Zap, Loader2, Printer, FileText, FileSpreadsheet, ChevronDown, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
@@ -29,17 +29,31 @@ type MaterialOption = { id: string; code: string; name: string; unit: string; gs
 type SupplierOption = { id: string; name: string };
 type LocationOption = { id: string; name: string; type: "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT"; projectId: string | null };
 type CategoryOption = { id: string; name: string; unit: string };
+/** Shape returned by GET /api/requisitions/[id] — used to prefill the edit dialog. */
+type RequisitionDetail = {
+  id: string;
+  reqNumber: string;
+  status: string;
+  projectId: string | null;
+  phaseId: string | null;
+  neededByDate: string | null;
+  notes: string | null;
+  lines: { materialId: string; qtyRequested: number; notes: string | null; preferredSupplier: { id: string } | null }[];
+};
 
 /** Column definitions for the requisitions DataTable. */
 function buildReqColumns(opts: {
   canApprove: boolean;
   /** Tier-1 viewers may approve their own indent. */
   canSelfApprove?: boolean;
+  /** Holds requisition.create / procurement.manage — may open the line editor. */
+  canEdit?: boolean;
   currentUserId?: string;
   onApprove: (r: RequisitionRow) => void;
   onReject: (r: RequisitionRow) => void;
   onConvert: (r: RequisitionRow) => void;
   onSubmit: (r: RequisitionRow) => void;
+  onEdit?: (r: RequisitionRow) => void;
   onDelete: (r: RequisitionRow) => void;
   onPrint: (r: RequisitionRow) => void;
   onView: (r: RequisitionRow) => void;
@@ -128,10 +142,19 @@ function buildReqColumns(opts: {
       const isOwner = r.requestedById === opts.currentUserId;
       return (
         <div className="flex items-center justify-end gap-1">
-          {(r.status === "DRAFT" || r.status === "REJECTED") && isOwner && (
-            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); opts.onSubmit(r); }}>
-              <Check className="h-3 w-3" /> {r.status === "REJECTED" ? "Resubmit" : "Submit"}
-            </Button>
+          {(r.status === "DRAFT" || r.status === "REJECTED") && (isOwner || opts.canEdit) && (
+            <>
+              {opts.onEdit && (
+                <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); opts.onEdit!(r); }}>
+                  <Pencil className="h-3 w-3" /> Edit
+                </Button>
+              )}
+              {isOwner && (
+                <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); opts.onSubmit(r); }}>
+                  <Check className="h-3 w-3" /> {r.status === "REJECTED" ? "Resubmit" : "Submit"}
+                </Button>
+              )}
+            </>
           )}
           {r.status === "SUBMITTED" && opts.canApprove && (!isOwner || opts.canSelfApprove) && (
             <>
@@ -199,6 +222,7 @@ export function RequisitionsView({
   const canApprove = permissions?.canApprove ?? false;
   const canSelfApprove = permissions?.canSelfApprove ?? false;
   const [formOpen, setFormOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<RequisitionDetail | null>(null);
   const [detailTarget, setDetailTarget] = useState<RequisitionRow | null>(null);
   const [convertTarget, setConvertTarget] = useState<RequisitionRow | null>(null);
   const [deleting, setDeleting] = useState<RequisitionRow | null>(null);
@@ -234,6 +258,19 @@ export function RequisitionsView({
     { status: "APPROVED", label: "Approved", color: "var(--color-stage-procure)" },
   ];
 
+  /** Fetch full detail then open the form in edit mode — drafts and rejected indents only. */
+  async function openEdit(row: RequisitionRow) {
+    try {
+      const res = await fetch(`/api/requisitions/${row.id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not load indent");
+      setDetailTarget(null);
+      setEditTarget(data as RequisitionDetail);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Could not load indent");
+    }
+  }
+
   async function action(reqId: string, action: string, extra?: Record<string, unknown>) {
     try {
       const res = await fetch(`/api/requisitions/${reqId}`, {
@@ -263,7 +300,8 @@ export function RequisitionsView({
 
   async function confirmReject() {
     if (!rejectTarget) return;
-    await action(rejectTarget.id, "reject", { rejectReason: rejectReason.trim() || undefined });
+    if (!rejectReason.trim()) return toast.error("Tell the requester what to fix — a reason is required.");
+    await action(rejectTarget.id, "reject", { rejectReason: rejectReason.trim() });
     setRejectTarget(null);
     setRejectReason("");
   }
@@ -391,11 +429,13 @@ export function RequisitionsView({
                 columns={buildReqColumns({
                   canApprove,
                   canSelfApprove,
+                  canEdit: canCreate,
                   currentUserId,
                   onApprove: (r) => action(r.id, "approve"),
                   onReject: (r) => { setRejectTarget(r); },
                   onConvert: (r) => setConvertTarget(r),
                   onSubmit: (r) => action(r.id, "submit"),
+                  onEdit: (r) => openEdit(r),
                   onDelete: (r) => setDeleting(r),
                   onPrint: (r) => window.open(`/print/requisition/${r.id}`, "_blank"),
                   onView: (r) => setDetailTarget(r),
@@ -675,6 +715,18 @@ export function RequisitionsView({
           categories={categories}
         />
       )}
+      {editTarget && (
+        <RequisitionFormDialog
+          open
+          editing={editTarget}
+          onOpenChange={(o) => !o && setEditTarget(null)}
+          projects={projects}
+          phases={phases}
+          materials={materials}
+          suppliers={suppliers}
+          categories={categories}
+        />
+      )}
       {convertTarget && (
         <ConvertDialog
           requisition={convertTarget}
@@ -706,6 +758,9 @@ export function RequisitionsView({
         canApprove={canApprove}
         canSelfApprove={canSelfApprove}
         currentUserId={currentUserId}
+        canEdit={canCreate}
+        onEdit={(r) => openEdit(r)}
+        onReject={(r) => { setDetailTarget(null); setRejectTarget(r); setRejectReason(""); }}
       />
 
       <Dialog
@@ -772,6 +827,7 @@ function RequisitionFormDialog({
   materials,
   suppliers,
   categories,
+  editing,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -780,16 +836,22 @@ function RequisitionFormDialog({
   materials: MaterialOption[];
   suppliers: SupplierOption[];
   categories: CategoryOption[];
+  /** When set, the dialog edits this indent (draft/rejected only) instead of creating a new one. */
+  editing?: RequisitionDetail | null;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    projectId: "",
-    phaseId: "",
-    neededByDate: "",
-    notes: "",
+    projectId: editing?.projectId ?? "",
+    phaseId: editing?.phaseId ?? "",
+    neededByDate: editing?.neededByDate ? editing.neededByDate.slice(0, 10) : "",
+    notes: editing?.notes ?? "",
   });
-  const [lines, setLines] = useState<{ id: string; materialId: string; qty: string; notes: string; preferredSupplierId: string; stockLoading: boolean; currentStock: number | null; stockUnit: string | null }[]>([{ id: crypto.randomUUID(), materialId: "", qty: "", notes: "", preferredSupplierId: "", stockLoading: false, currentStock: null, stockUnit: null }]);
+  const [lines, setLines] = useState<{ id: string; materialId: string; qty: string; notes: string; preferredSupplierId: string; stockLoading: boolean; currentStock: number | null; stockUnit: string | null }[]>(
+    editing
+      ? editing.lines.map((l) => ({ id: crypto.randomUUID(), materialId: l.materialId, qty: String(l.qtyRequested), notes: l.notes ?? "", preferredSupplierId: l.preferredSupplier?.id ?? "", stockLoading: false, currentStock: null, stockUnit: null }))
+      : [{ id: crypto.randomUUID(), materialId: "", qty: "", notes: "", preferredSupplierId: "", stockLoading: false, currentStock: null, stockUnit: null }],
+  );
   // Local copies so freshly created masters appear in their dropdowns without
   // waiting for router.refresh.
   const [localProjects, setLocalProjects] = useState<ProjectOption[]>(projects);
@@ -828,27 +890,46 @@ function RequisitionFormDialog({
     if (validLines.length === 0) return toast.error("At least one valid line is required");
     setSaving(true);
     try {
-      const res = await fetch("/api/requisitions", {
-        method: "POST",
+      const res = await fetch(editing ? `/api/requisitions/${editing.id}` : "/api/requisitions", {
+        method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId: form.projectId,
-          phaseId: form.phaseId || null,
-          neededByDate: form.neededByDate || null,
-          notes: form.notes.trim() || null,
-          lines: validLines.map((l) => ({
-            materialId: l.materialId,
-            qtyRequested: Number(l.qty),
-            notes: l.notes.trim() || null,
-            preferredSupplierId: l.preferredSupplierId || null,
-          })),
-        }),
+        body: JSON.stringify(editing
+          ? {
+              action: "edit",
+              phaseId: form.phaseId || null,
+              neededByDate: form.neededByDate || null,
+              notes: form.notes.trim() || null,
+              lines: validLines.map((l) => ({
+                materialId: l.materialId,
+                qtyRequested: Number(l.qty),
+                notes: l.notes.trim() || null,
+                preferredSupplierId: l.preferredSupplierId || null,
+              })),
+            }
+          : {
+              projectId: form.projectId,
+              phaseId: form.phaseId || null,
+              neededByDate: form.neededByDate || null,
+              notes: form.notes.trim() || null,
+              lines: validLines.map((l) => ({
+                materialId: l.materialId,
+                qtyRequested: Number(l.qty),
+                notes: l.notes.trim() || null,
+                preferredSupplierId: l.preferredSupplierId || null,
+              })),
+            }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success(`Indent ${data.reqNumber ?? ""} created`, {
-        action: { label: "View Indent", onClick: () => router.push(`/requisitions?req=${data.id}`) },
-      });
+      if (editing) {
+        toast.success(`Indent ${editing.reqNumber} updated`, {
+          description: "Back to draft — submit it again for approval.",
+        });
+      } else {
+        toast.success(`Indent ${data.reqNumber ?? ""} created`, {
+          action: { label: "View Indent", onClick: () => router.push(`/requisitions?req=${data.id}`) },
+        });
+      }
       onOpenChange(false);
       setForm({ projectId: "", phaseId: "", neededByDate: "", notes: "" });
       setLines([{ id: crypto.randomUUID(), materialId: "", qty: "", notes: "", preferredSupplierId: "", stockLoading: false, currentStock: null, stockUnit: null }]);
@@ -865,8 +946,8 @@ function RequisitionFormDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="New Material Indent (Demand Slip)"
-      description="Request materials for a project site. The approver sees current stock and last purchase rate to decide."
+      title={editing ? `Edit Indent ${editing.reqNumber}` : "New Material Indent (Demand Slip)"}
+      description={editing ? "Fix what the approver flagged, save, then resubmit — the rejection note is cleared." : "Request materials for a project site. The approver sees current stock and last purchase rate to decide."}
       className="max-w-2xl"
     >
       <form onSubmit={save} className="space-y-3">
@@ -877,6 +958,7 @@ function RequisitionFormDialog({
               value={form.projectId}
               onChange={(v) => setForm((f) => ({ ...f, projectId: v, phaseId: "" }))}
               required
+              disabled={!!editing}
               placeholder="Select…"
               createLabel="project"
               options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
@@ -961,7 +1043,7 @@ function RequisitionFormDialog({
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="submit" disabled={saving}>{saving ? "Creating…" : "Create"}</Button>
+          <Button type="submit" disabled={saving}>{saving ? (editing ? "Saving…" : "Creating…") : (editing ? "Save changes" : "Create")}</Button>
         </div>
       </form>
     </Dialog>

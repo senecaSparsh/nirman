@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Crown,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
@@ -177,6 +178,15 @@ export function MobileRequisitionActions({
           icon={Send}
           label={requisition.status === "REJECTED" ? "Resubmit for approval" : "Submit for approval"}
           variant="primary"
+        />
+      )}
+      {showSubmit && (
+        <BarButton
+          onClick={() => router.push(`/m/requisitions/new?edit=${requisition.id}`)}
+          busy={false}
+          icon={Pencil}
+          label="Edit indent"
+          variant="outline"
         />
       )}
       {showApproveReject && (
@@ -363,11 +373,11 @@ export function MobileRequisitionActions({
                 </button>
                 <button
                   onClick={() => {
-                    act("reject", `Indent ${requisition.reqNumber} rejected`, rejectReason.trim() ? { rejectReason: rejectReason.trim() } : undefined);
+                    act("reject", `Indent ${requisition.reqNumber} rejected`, { rejectReason: rejectReason.trim() });
                     setShowReject(false);
                   }}
-                  disabled={busy === "reject"}
-                  className="flex-1 h-10 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1.5"
+                  disabled={busy === "reject" || !rejectReason.trim()}
+                  className="flex-1 h-10 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1.5 disabled:opacity-50"
                   style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
                 >
                   {busy === "reject" ? <Loader2 className="size-3.5 animate-spin" /> : <XCircle className="size-3.5" />}

@@ -14,6 +14,7 @@ import { resetDb, createTestFixture, seedTestAccounts } from "./test/setup";
 import { createQuotationRequest, addQuoteToRequest, approveQuotation } from "./quotation";
 import { convertRequisitionToPo } from "./requisition";
 import { createDirectPurchase, cancelDirectPurchase } from "./direct-purchase";
+import { updateRequisition, rejectRequisition, submitRequisition } from "./requisition";
 
 async function seedProcurement() {
   const { company, user, project, stockLocation } = await createTestFixture();
@@ -205,5 +206,66 @@ describe("one-fulfilment-per-indent invariant", () => {
     await cancelDirectPurchase(first.purchase.id, fx.user.id);
     const after = await prisma.materialRequisition.findUniqueOrThrow({ where: { id: req.id } });
     expect(after.status).toBe("APPROVED");
+  });
+});
+
+/**
+ * Rejected-indent rework path (EGM B4/M8) — "fix the quantities and resubmit"
+ * is a real path: edit bounces REJECTED → DRAFT, clears the rejection stamp,
+ * and a fresh submit can be approved.
+ */
+describe("rejected-indent edit & resubmit", () => {
+  async function makeSubmittedIndent(fx: Awaited<ReturnType<typeof seedProcurement>>, n: string) {
+    return prisma.materialRequisition.create({
+      data: {
+        reqNumber: n,
+        projectId: fx.project.id,
+        requestedById: fx.user.id,
+        status: "SUBMITTED",
+        submittedById: fx.user.id,
+        lines: { create: [{ materialId: fx.material.id, qtyRequested: 10 }] },
+      },
+    });
+  }
+
+  it("rejection requires a reason — the requester must know what to fix", async () => {
+    const fx = await seedProcurement();
+    const req = await makeSubmittedIndent(fx, "REQ-E1");
+    await expect(rejectRequisition(req.id, fx.approver.id)).rejects.toThrow(/reason is required/i);
+    await expect(rejectRequisition(req.id, fx.approver.id, "   ")).rejects.toThrow(/reason is required/i);
+  });
+
+  it("editing a rejected indent returns it to DRAFT, clears the stamp, replaces lines; resubmit then approve works", async () => {
+    const fx = await seedProcurement();
+    const req = await makeSubmittedIndent(fx, "REQ-E2");
+    await rejectRequisition(req.id, fx.approver.id, "Qty too high — order 5 not 10");
+
+    const edited = await updateRequisition(req.id, {
+      notes: "Corrected per approver note",
+      lines: [{ materialId: fx.material.id, qtyRequested: 5 }],
+    }, fx.user.id);
+    expect(edited.status).toBe("DRAFT");
+
+    const after = await prisma.materialRequisition.findUniqueOrThrow({
+      where: { id: req.id },
+      include: { lines: true },
+    });
+    expect(after.rejectedById).toBeNull();
+    expect(after.rejectReason).toBeNull();
+    expect(after.lines).toHaveLength(1);
+    expect(Number(after.lines[0]!.qtyRequested)).toBe(5);
+
+    await submitRequisition(req.id, fx.user.id);
+    const resubmitted = await prisma.materialRequisition.findUniqueOrThrow({ where: { id: req.id } });
+    expect(resubmitted.status).toBe("SUBMITTED");
+  });
+
+  it("refuses to edit a SUBMITTED or CONVERTED indent", async () => {
+    const fx = await seedProcurement();
+    const req = await makeSubmittedIndent(fx, "REQ-E3");
+    await expect(updateRequisition(req.id, { notes: "sneaky" }, fx.user.id)).rejects.toThrow(/status SUBMITTED/);
+
+    const converted = await makeIndent(fx, "REQ-E4");
+    await expect(updateRequisition(converted.id, { notes: "sneaky" }, fx.user.id)).rejects.toThrow(/status APPROVED/);
   });
 });
