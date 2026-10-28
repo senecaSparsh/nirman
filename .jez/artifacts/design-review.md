@@ -411,3 +411,32 @@ on some return rows — traced to two `SupplierReturnLine` rows with
 `qty = 99,999,999` (boundary-test seed residue). Formatter was correct;
 cleaned qty → 10 in the demo DB. Register now renders consistent
 ₹1.1K rows.
+
+## Round 22 — report exports + notifications + approvals (live mutations)
+
+**Report export verified:** /m/reports/issue-register Export →
+"Download CSV — 38 rows" popover → real download
+`issue-register-report-2026-10-28.csv`, 39 lines (header + 38 rows —
+exact tie with the page's TOTAL ISSUES strip), proper headers, Excel
+BOM. Share button degrades gracefully in headless (toast: "Couldn't
+copy the link — long-press the address bar instead"; real phones get
+the Web Share API).
+
+**Notifications verified:** 27 rows for the owner user (page correctly
+scopes by userId — other demo users' unread piles don't leak).
+Unread-dot + bold-title styling, "N unread" count + Mark-all button,
+IMMEDIATE-urgency priority section — all conditionally rendered and
+correct. Tap → fire-and-forget PATCH /api/notifications/in-app →
+deep-link navigation (verified: "Ncr Raised" → NCR detail). readAt
+persists.
+
+**Approval mutation verified end-to-end:** /m/approvals showed
+GP-261025-0021 (Supplier Return, 3-day aging badge). Row expands
+inline to item detail + Approve/Reject/Snooze. Approve →
+PATCH /api/gate-passes/:id → 200 → "Gate Passes (0) · All gate passes
+reviewed" + success toast with "View Gate Passes" link. DB confirms:
+status APPROVED, approvedById set, approvedAt timestamped.
+
+**Data cleanup:** the pending gate pass carried qty=99,999,999 kg
+(same boundary-test residue as the supplier-return lines) — cleaned
+to 10 kg before approving so the workflow moved sane data.
