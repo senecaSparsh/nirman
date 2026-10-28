@@ -491,3 +491,22 @@ Build ↵) → Enter navigates to /gate-passes. Async entity search shows
 - `/m/approvals` → friendly "No access — you do not have permission to
   approve any items (POs, requisitions, gate passes, DPRs, expenses,
   RA bills, or leave requests)" — explains scope instead of erroring.
+
+## Round 25 — light theme sweep
+
+Both themes verified. Light mode renders identically-structured
+surfaces on paper background:
+
+- **Mobile `/m/stock`**: tab strip (On Hand 7 · Ledger 80 · Transfers
+  11 · Counts 17 · Scrap 5), ITEMS/VALUE/LOW-OUT stat cards, search +
+  Low-only filter, material cards with stock-level edge stripes.
+  Earlier +5 stock-adjust mutation visible (Brick 1,905 nos).
+- **Desktop `/finance`**: KPI strip (Inventory ₹37.3K · Unsold
+  ₹33.56Cr · Revenue ₹25L · Outstanding ₹25L · Costs ₹5.51Cr), live
+  journal-entry ticker, green cash-forecast card ("In 30 days:
+  ₹74.37L — in hand / expected / committed / statutory breakdown"),
+  amber outstanding card with Record Payment CTA, 9 finance tabs +
+  Project P&L/Money Flow/Audit Log sub-tabs, P&L table with red
+  negatives and -187.2% margin pill on Godrej Park.
+
+CSS-var theming holds — no hard-coded color leaks found in either mode.
