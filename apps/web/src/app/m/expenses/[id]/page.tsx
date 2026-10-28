@@ -1,7 +1,7 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { canAutoApprove } from "@nirman/services";
+import { canWaiveSelfApproval } from "@nirman/services";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileExpenseDetailClient } from "./MobileExpenseDetailClient";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -29,11 +29,12 @@ export default function MobileExpenseDetailPage({
             createdBy: { select: { id: true, name: true } }}});
 
         const currentUser = await getCurrentUser();
-        // Hide Approve from the submitter/creator — self-approval is blocked
-        // server-side — unless they're a tier-1 approver (OWNER/ADMIN), where
-        // no higher reviewer exists.
+        // Hide Approve from the submitter/creator — self-approval is waived
+        // server-side only for OWNER (canWaiveSelfApproval). Self-rejection is
+        // refused unconditionally, so the client also needs the raw isSelf flag
+        // to keep Reject hidden for everyone.
         const isSelfExpense = !!expense && (expense.submittedById === currentUser?.id || expense.createdById === currentUser?.id);
-        const canApprove = perms.includes(PERM.EXPENSE_APPROVE) && (!isSelfExpense || canAutoApprove(actingRole));
+        const canApprove = perms.includes(PERM.EXPENSE_APPROVE) && (!isSelfExpense || canWaiveSelfApproval(actingRole));
         const canManage = perms.includes(PERM.FINANCE_MANAGE);
         const canCreate = perms.includes(PERM.EXPENSE_CREATE);
 
@@ -109,6 +110,7 @@ export default function MobileExpenseDetailPage({
               canApprove={canApprove}
               canManage={canManage}
               canCreate={canCreate}
+              isSelf={isSelfExpense}
             />
           </PageContextProvider>
         );

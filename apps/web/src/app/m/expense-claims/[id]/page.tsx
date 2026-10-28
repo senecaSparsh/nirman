@@ -1,7 +1,7 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { canAutoApprove } from "@nirman/services";
+import { canAutoApprove, canWaiveSelfApproval } from "@nirman/services";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileExpenseClaimDetailClient } from "./MobileExpenseClaimDetailClient";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -35,11 +35,14 @@ export default function MobileExpenseClaimDetailPage({
               include: { categoryMaster: { select: { id: true, name: true } } },
               orderBy: { date: "desc" }}}});
 
-        // Self-approval is blocked server-side for non-tier-1 — mirror that so
-        // the claimant doesn't see an Approve button that will fail. Tier-1
-        // approvers (OWNER/ADMIN) CAN approve their own claim — no higher reviewer.
+        // Mirror the service gates exactly: self-APPROVE is waived only for
+        // OWNER (canWaiveSelfApproval), while self-REJECT is waived for all
+        // tier-1 roles (canAutoApprove) — different thresholds, separate flags.
+        const isSelfClaim = claim?.claimantId === currentUser?.id;
         const canApprove = perms.includes(PERM.EXPENSE_APPROVE) &&
-          (claim?.claimantId !== currentUser?.id || canAutoApprove(actingRole));
+          (!isSelfClaim || canWaiveSelfApproval(actingRole));
+        const canReject = perms.includes(PERM.EXPENSE_APPROVE) &&
+          (!isSelfClaim || canAutoApprove(actingRole));
         const canManage = perms.includes(PERM.FINANCE_MANAGE);
         // Match the list/new pages — claim filers hold CLAIM_CREATE (own
         // claims), finance holds EXPENSE_CREATE (all claims). Gating on
@@ -75,6 +78,7 @@ export default function MobileExpenseClaimDetailPage({
               submittedByName={null}
               lines={[]}
               canApprove={false}
+              canReject={false}
               canManage={false}
               canCreate={false}
               createdAt=""
@@ -116,6 +120,7 @@ export default function MobileExpenseClaimDetailPage({
                 receiptUrl: l.receiptUrl,
                 notes: l.notes}))}
               canApprove={canApprove}
+              canReject={canReject}
               canManage={canManage}
               canCreate={canCreate}
               createdAt={claim.createdAt.toISOString()}

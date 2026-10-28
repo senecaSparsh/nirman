@@ -55,7 +55,7 @@ export function ExpenseClaimsView({
   employees: { id: string; name: string }[];
   projects: ProjectOption[];
   categories: ExpenseCategoryRow[];
-  permissions: { canCreate: boolean; canApprove: boolean; canManage: boolean; canSelfApprove?: boolean };
+  permissions: { canCreate: boolean; canApprove: boolean; canManage: boolean; canSelfApprove?: boolean; canSelfReject?: boolean };
   currentUserId?: string | null;
 }) {
   const router = useRouter();
@@ -242,28 +242,29 @@ export function ExpenseClaimsView({
                     {actionLoading === `${c.id}-submit` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                   </button>
                 )}
-                {/* Hide Approve from the claimant — self-approval is blocked server-side —
-                    unless a tier-1 approver (OWNER/ADMIN), where no higher reviewer exists. */}
+                {/* Different self-waivers per action: approve is waived only
+                    for OWNER (canSelfApprove = canWaiveSelfApproval), reject for
+                    all tier-1 roles (canSelfReject = canAutoApprove). */}
+                {c.status === "SUBMITTED" && permissions.canApprove && (c.claimantId !== currentUserId || permissions.canSelfReject) && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setRejecting(c); setRejectReason(""); }}
+                    className="rounded p-1.5 text-muted-foreground hover:bg-danger-soft hover:text-danger"
+                    title="Reject"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 {c.status === "SUBMITTED" && permissions.canApprove && (c.claimantId !== currentUserId || permissions.canSelfApprove) && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setRejecting(c); setRejectReason(""); }}
-                      className="rounded p-1.5 text-muted-foreground hover:bg-danger-soft hover:text-danger"
-                      title="Reject"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); doAction(c, "approve"); }}
-                      disabled={actionLoading === `${c.id}-approve`}
-                      className="rounded p-1.5 text-muted-foreground hover:bg-success-soft hover:text-success"
-                      title="Approve"
-                    >
-                      {actionLoading === `${c.id}-approve` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); doAction(c, "approve"); }}
+                    disabled={actionLoading === `${c.id}-approve`}
+                    className="rounded p-1.5 text-muted-foreground hover:bg-success-soft hover:text-success"
+                    title="Approve"
+                  >
+                    {actionLoading === `${c.id}-approve` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  </button>
                 )}
                 {c.status === "APPROVED" && permissions.canManage && (
                   <button

@@ -62,6 +62,7 @@ type Props = {
   submittedByName: string | null;
   lines: ClaimLine[];
   canApprove: boolean;
+  canReject: boolean;
   canManage: boolean;
   canCreate: boolean;
   createdAt: string;
@@ -95,6 +96,7 @@ export function MobileExpenseClaimDetailClient({
   submittedByName,
   lines,
   canApprove,
+  canReject,
   canManage,
   canCreate,
   createdAt,
@@ -283,7 +285,7 @@ export function MobileExpenseClaimDetailClient({
 
   const canSubmit = (status === "DRAFT" || status === "REJECTED") && canCreate;
   const canApproveAction = status === "SUBMITTED" && canApprove;
-  const canRejectAction = status === "SUBMITTED" && canApprove;
+  const canRejectAction = status === "SUBMITTED" && canReject;
   const canPayAction = status === "APPROVED" && canManage;
   const hasAction = canSubmit || canApproveAction || canRejectAction || canPayAction;
 

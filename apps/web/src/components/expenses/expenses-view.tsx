@@ -360,10 +360,12 @@ function ExpenseActions({
   const isLoading = (a: string) => actionLoading === `${expense.id}-${a}`;
   const canEdit = (expense.status === "DRAFT" || expense.status === "REJECTED") && permissions.canCreate;
   const canSubmit = (expense.status === "DRAFT" || expense.status === "REJECTED") && permissions.canCreate;
-  // Hide Approve from the submitter — self-approval is blocked server-side —
-  // unless a tier-1 approver (OWNER/ADMIN), where no higher reviewer exists.
+  // Hide Approve from the submitter — self-approval is waived server-side only
+  // for OWNER (canWaiveSelfApproval; callers pass it as canSelfApprove).
+  // Self-REJECTION is refused unconditionally — Reject stays hidden for all.
   const isSelfSubmitted = expense.submittedById === currentUserId;
   const canApprove = expense.status === "PENDING" && permissions.canApprove && (!isSelfSubmitted || permissions.canSelfApprove);
+  const canReject = expense.status === "PENDING" && permissions.canApprove && !isSelfSubmitted;
   const canDelete = permissions.canManage && expense.status !== "PENDING";
 
   return (
@@ -407,7 +409,7 @@ function ExpenseActions({
           {isLoading("approve") ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
         </button>
       )}
-      {canApprove && (
+      {canReject && (
         <button type="button" onClick={(e) => { e.stopPropagation(); onReject(); }} className="rounded p-1.5 text-muted-foreground hover:bg-danger-soft hover:text-danger" title="Reject">
           <X className="h-3.5 w-3.5" />
         </button>

@@ -11,7 +11,7 @@ import {
   STATUTORY_KINDS,
   type ExpenseBudgetVariance} from "@nirman/services";
 import { getActingRole, getCompany, toNum, scopeWhere, getCurrentUser, getUserPermissions, getUserScope } from "@/lib/server";
-import { canAutoApprove } from "@nirman/services";
+import { canAutoApprove, canWaiveSelfApproval } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { saleDuesSummary } from "@/lib/sale-dues";
@@ -385,7 +385,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
             projects={projectOptions}
             suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
             glAccounts={glAccountOptions}
-            permissions={{ canCreate: __effPerms.includes(PERM.EXPENSE_CREATE), canApprove: __effPerms.includes(PERM.EXPENSE_APPROVE), canManage: __effPerms.includes(PERM.FINANCE_MANAGE), canView: true, canSelfApprove: canAutoApprove(actingRole) }}
+            permissions={{ canCreate: __effPerms.includes(PERM.EXPENSE_CREATE), canApprove: __effPerms.includes(PERM.EXPENSE_APPROVE), canManage: __effPerms.includes(PERM.FINANCE_MANAGE), canView: true, canSelfApprove: canWaiveSelfApproval(actingRole) }}
             currentUserId={currentUser?.id ?? null}
           />
         }
@@ -401,7 +401,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
             employees={employeeOptions}
             projects={projectOptions}
             categories={categoryRows}
-            permissions={{ canCreate: __effPerms.includes(PERM.EXPENSE_CREATE), canApprove: __effPerms.includes(PERM.EXPENSE_APPROVE), canManage: __effPerms.includes(PERM.FINANCE_MANAGE), canSelfApprove: canAutoApprove(actingRole) }}
+            permissions={{ canCreate: __effPerms.includes(PERM.EXPENSE_CREATE), canApprove: __effPerms.includes(PERM.EXPENSE_APPROVE), canManage: __effPerms.includes(PERM.FINANCE_MANAGE), canSelfApprove: canWaiveSelfApproval(actingRole), canSelfReject: canAutoApprove(actingRole) }}
             currentUserId={currentUser?.id ?? null}
           />
         }

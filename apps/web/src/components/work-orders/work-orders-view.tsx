@@ -663,9 +663,13 @@ function WorkOrderDetailDialog({
 
   // Self-payment is forbidden server-side (SoD) — never offer the button to
   // the bill's creator/submitter, it would only 403.
-  const { userId: currentUserId } = usePermissions();
+  const { userId: currentUserId, actingRole } = usePermissions();
   const canPayBill = (b: { createdById?: string | null; submittedById?: string | null }) =>
     !currentUserId || (b.createdById !== currentUserId && b.submittedById !== currentUserId);
+  // approveRaBill waives self-approval for OWNER only (canWaiveSelfApproval).
+  const canSelfApprove = actingRole === "OWNER";
+  const canApproveBill = (b: { createdById?: string | null; submittedById?: string | null }) =>
+    !currentUserId || canSelfApprove || (b.createdById !== currentUserId && b.submittedById !== currentUserId);
 
   if (!wo) return null;
 
@@ -871,7 +875,7 @@ function WorkOrderDetailDialog({
                     <Send className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {canCreate && permissions.canApprove && rb.status === "SUBMITTED" && (
+                {canCreate && permissions.canApprove && rb.status === "SUBMITTED" && canApproveBill(rb) && (
                   <button disabled={actionLoading} onClick={() => onRaBillAction(rb.id, "approve", onRefresh)} className="p-1 text-muted-foreground hover:text-success disabled:opacity-50" title="Approve">
                     <ShieldCheck className="h-3.5 w-3.5" />
                   </button>
@@ -1545,9 +1549,12 @@ function RaBillDetailDialog({
 
   // Same SoD guard as the server: the creator/submitter can't pay — hide the
   // affordance instead of letting it 403.
-  const { userId: currentUserId } = usePermissions();
+  const { userId: currentUserId, actingRole } = usePermissions();
   const selfBilled = !!currentUserId && !!detail &&
     (detail.createdById === currentUserId || detail.submittedById === currentUserId);
+  // approveRaBill waives self-approval for OWNER only (canWaiveSelfApproval);
+  // rejectRaBill refuses self-rejection unconditionally.
+  const canSelfApprove = actingRole === "OWNER";
 
   return (
     <Dialog
@@ -1737,12 +1744,16 @@ function RaBillDetailDialog({
               )}
               {canCreate && permissions.canApprove && detail.status === "SUBMITTED" && (
                 <>
-                  <Button size="sm" variant="ghost" disabled={actionLoading} onClick={() => { setRejectReason(""); setRejectOpen(true); }}>
-                    <XCircle className="mr-1 h-3.5 w-3.5" /> Reject
-                  </Button>
-                  <Button size="sm" disabled={actionLoading} onClick={() => { setActionLoading(true); onAction("approve"); }}>
-                    <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Approve
-                  </Button>
+                  {!selfBilled && (
+                    <Button size="sm" variant="ghost" disabled={actionLoading} onClick={() => { setRejectReason(""); setRejectOpen(true); }}>
+                      <XCircle className="mr-1 h-3.5 w-3.5" /> Reject
+                    </Button>
+                  )}
+                  {(!selfBilled || canSelfApprove) && (
+                    <Button size="sm" disabled={actionLoading} onClick={() => { setActionLoading(true); onAction("approve"); }}>
+                      <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Approve
+                    </Button>
+                  )}
                   {canCreate && permissions.canPay && !selfBilled && (
                     <Button size="sm" disabled={actionLoading} onClick={() => { setActionLoading(true); onAction("approve"); setPayOpen(true); }}>
                       <Banknote className="mr-1 h-3.5 w-3.5" /> Approve & Pay

@@ -1,7 +1,7 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { canAutoApprove } from "@nirman/services";
+import { canWaiveSelfApproval } from "@nirman/services";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber, formatEnumLabel } from "@/lib/utils";
 import {
@@ -260,7 +260,7 @@ export default function MobileWorkOrderDetailPage({
                         canPay={canPay}
                         isCreator={bill.createdById === currentUserId}
                         isSubmitter={bill.submittedById === currentUserId}
-                        canSelfApprove={canAutoApprove(actingRole)}
+                        canSelfApprove={canWaiveSelfApproval(actingRole)}
                       />
                     </div>
                   ))}

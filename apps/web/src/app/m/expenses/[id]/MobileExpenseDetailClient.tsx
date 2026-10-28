@@ -63,6 +63,10 @@ type Props = {
   canApprove: boolean;
   canManage: boolean;
   canCreate: boolean;
+  /** Expense submitted/created by the current user — the service refuses
+   *  self-rejection unconditionally (no tier-1 waiver), so Reject stays
+   *  hidden even when Approve is waived for OWNER. */
+  isSelf?: boolean;
 };
 
 export function MobileExpenseDetailClient(props: Props) {
@@ -228,18 +232,21 @@ export function MobileExpenseDetailClient(props: Props) {
             </button>
           )}
 
-          {/* Approve + Reject: PENDING */}
+          {/* Approve + Reject: PENDING — Reject hidden on own expenses
+              (self-rejection is refused unconditionally server-side). */}
           {isPending && props.canApprove && (
             <div className="flex gap-2">
-              <button
-                disabled={acting !== null}
-                onClick={() => { setShowReject(true); setRejectReason(""); }}
-                className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-[0.5rem] border text-m-section font-bold press"
-                style={{ borderColor: "var(--color-stop)", color: "var(--color-stop)" }}
-              >
-                <XCircle className="size-4" />
-                Reject
-              </button>
+              {!props.isSelf && (
+                <button
+                  disabled={acting !== null}
+                  onClick={() => { setShowReject(true); setRejectReason(""); }}
+                  className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-[0.5rem] border text-m-section font-bold press"
+                  style={{ borderColor: "var(--color-stop)", color: "var(--color-stop)" }}
+                >
+                  <XCircle className="size-4" />
+                  Reject
+                </button>
+              )}
               <button
                 disabled={acting !== null}
                 onClick={() => handleAction("approve")}
