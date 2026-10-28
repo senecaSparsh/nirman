@@ -456,17 +456,22 @@ export function MobileGatePassList({
                       the pass, unless they're a tier-1 approver (OWNER/ADMIN)
                       where no higher reviewer exists. For non-tier-1 creators a
                       hint is shown instead so they know it's awaiting someone
-                      else (self-approval is blocked server-side too). */}
+                      else (self-approval is blocked server-side too).
+                      Reject has no tier-1 waiver — the server refuses
+                      self-rejection unconditionally (a creator withdraws
+                      instead), so it keys on creator alone. */}
                   {gp.status === "PENDING" && canApprove && (gp.createdById !== currentUserId || canSelfApprove) && (
                     <>
-                      <button
-                        disabled={actionLoading === gp.id}
-                        onClick={() => { setRejectTarget(gp); setRejectReason(""); }}
-                        className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption press"
-                        style={{ borderColor: "var(--color-stop)", color: "var(--color-stop)" }}
-                      >
-                        <XCircle className="size-3" /> Reject
-                      </button>
+                      {gp.createdById !== currentUserId && (
+                        <button
+                          disabled={actionLoading === gp.id}
+                          onClick={() => { setRejectTarget(gp); setRejectReason(""); }}
+                          className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption press"
+                          style={{ borderColor: "var(--color-stop)", color: "var(--color-stop)" }}
+                        >
+                          <XCircle className="size-3" /> Reject
+                        </button>
+                      )}
                       <button
                         disabled={actionLoading === gp.id}
                         onClick={() => handleAction(gp.id, "approve")}

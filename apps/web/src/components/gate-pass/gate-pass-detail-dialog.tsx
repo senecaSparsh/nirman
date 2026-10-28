@@ -219,9 +219,13 @@ export function GatePassDetailDialog({
 
             {gatePass.status === "PENDING" && permissions.canApprove && (gatePass.createdById !== currentUserId || permissions.canSelfApprove) && (
               <>
-                <Button size="sm" variant="outline" disabled={actionLoading} onClick={() => setRejectOpen(true)}>
-                  <XCircle className="mr-1 h-3.5 w-3.5" /> Reject
-                </Button>
+                {/* Self-reject has no tier-1 waiver — the API refuses it
+                    unconditionally; a creator cancels instead. */}
+                {gatePass.createdById !== currentUserId && (
+                  <Button size="sm" variant="outline" disabled={actionLoading} onClick={() => setRejectOpen(true)}>
+                    <XCircle className="mr-1 h-3.5 w-3.5" /> Reject
+                  </Button>
+                )}
                 <Button size="sm" disabled={actionLoading} onClick={() => onAction(gatePass.id, "approve")}>
                   <CheckCircle className="mr-1 h-3.5 w-3.5" /> Approve
                 </Button>
