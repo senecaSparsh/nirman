@@ -119,12 +119,15 @@ export function MobileCustomerDetailClient({
     }
   };
 
+  const notAdded = (
+    <span style={{ color: "var(--color-ink-300)" }}>Not added</span>
+  );
   const contactEntries = [
-    data.phone ? { label: "Phone", value: data.phone } : null,
-    data.email ? { label: "Email", value: data.email } : null,
-    data.gstin ? { label: "GSTIN", value: data.gstin, mono: true } : null,
-    data.address ? { label: "Address", value: data.address } : null,
-  ].filter((e): e is NonNullable<typeof e> => e !== null);
+    { label: "Phone", value: data.phone ?? notAdded },
+    { label: "Email", value: data.email ?? notAdded },
+    { label: "GSTIN", value: data.gstin ?? notAdded, mono: true },
+    { label: "Address", value: data.address ?? notAdded },
+  ];
 
   const hasSales = data.totals.saleCount > 0;
 
@@ -137,7 +140,7 @@ export function MobileCustomerDetailClient({
             <TrackedCallButton
               phone={data.phone}
               relatedCustomerId={data.id}
-              label={data.phone}
+              label="Call"
               className="flex items-center gap-1 text-m-caption font-semibold text-m-body press"
               style={{ color: "var(--color-steel)" }}
             />
