@@ -378,3 +378,36 @@ hit).
 
 **`/change-orders` desktop:** stat tiles, filter row, typed rows, signed
 deltas, TOTAL — shared table conventions hold.
+
+## Round 21 — Reports hub (mobile 20 + desktop 9)
+
+**All 20 mobile report routes verified in a real browser** (visible
+innerText, not raw HTML — RSC payloads embed "Page not found" boundary
+markup that false-positives): balance-sheet (₹5.84C assets),
+cash-flow, comparative (₹5.26C), department-consumption (legit empty
+state), expenses (₹5.88L), gst (ITC ₹951/output ₹140), inventory-value,
+issue-register (1.7K chars of rows), job-costing (₹5.94L + proportional
+cost bars), payroll-expense (₹9.26L), pending-payments (₹24.69L),
+profit, project-progress (₹5.51C portfolio), purchase-register,
+purchase-trends, purchaser-performance (legit empty state),
+real-estate-inventory (₹71.80L), sales-revenue (₹25L),
+stock-movement-summary, tds-certificates (₹71.50L deducted).
+
+**Earlier "batch timeouts" fully explained:** cold Turbopack compiles
+(3–28s each once the persistent cache survived a server restart). A
+sequential 20-route batch wedged next-server into the idle-unresponsive
+state — killed the PID, wrapper respawned healthy (documented dev-only
+gap).
+
+**Desktop spot-check (1440px):** profit, balance-sheet, gst,
+pending-payments, job-costing, purchase-register, cash-book,
+land-aging, calls — all OK. P&L renders KPI strip + Net Profit Trend +
+Revenue vs Expenses charts; Cash Book renders opening/in/out/closing
+tiles, date filter, Export CSV, and a true running-balance ledger with
+negative balances correctly red.
+
+**Data fix (not code):** mobile purchase-register showed `₹1100.00Cr`
+on some return rows — traced to two `SupplierReturnLine` rows with
+`qty = 99,999,999` (boundary-test seed residue). Formatter was correct;
+cleaned qty → 10 in the demo DB. Register now renders consistent
+₹1.1K rows.
