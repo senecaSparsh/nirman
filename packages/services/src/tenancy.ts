@@ -1344,8 +1344,29 @@ export async function sendRentDueReminders(companyId?: string) {
     take: 100,
   });
 
+  // Failure backoff — reminderSentAt only stamps on success, so a payment
+  // whose send keeps failing (bad number, provider down) would otherwise be
+  // retried every sweep forever. Any unsent/failed attempt in the last 24h
+  // skips this run; success still cools down 72h via reminderSentAt.
+  const failedOrQueued = new Set(
+    (
+      await prisma.notificationLog.findMany({
+        where: {
+          eventType: "RENT_DUE_REMINDER",
+          status: { not: "SENT" },
+          createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+          ...(companyId ? { companyId } : {}),
+        },
+        select: { metadata: true },
+      })
+    )
+      .map((l) => (l.metadata as { paymentId?: string } | null)?.paymentId)
+      .filter((v): v is string => Boolean(v)),
+  );
+
   let sent = 0;
   for (const p of overduePayments) {
+    if (failedOrQueued.has(p.id)) continue;
     try {
       const recipient = p.tenancy.tenantPhone ?? p.tenancy.tenantEmail;
       if (!recipient) continue;

@@ -25,6 +25,10 @@ import {
  *   9. StockMovement qty > 0
  *  10. MaterialRequisitionLine qtyIssued ≤ qtyRequested
  *  11. RateContract.totalReleasedQty ≤ maxQty
+ *  12. ACTIVE tenancy with escalationPercent > 0 has a nextEscalationDate
+ *  13. COMPLETED inter-company STO transferPriceTotal matches booked receipt value
+ *  14. BankSms MATCHED rows reference non-VOID payment records
+ *  15. NotificationLog has no FAILED/stale PENDING/SENDING backlog
  */
 
 const TOL = "0.01";
@@ -258,6 +262,99 @@ export async function checkRateContractCeiling(companyId: string) {
   });
 }
 
+/** 12. A tenancy with escalation configured but no next date never escalates. */
+export async function checkEscalationConfig(companyId: string) {
+  const rows = await prisma.$queryRaw<RawRow[]>`
+    SELECT id, "tenantName", "escalationPercent"
+    FROM "Tenancy"
+    WHERE "companyId" = ${companyId}
+      AND status = 'ACTIVE'
+      AND "escalationPercent" IS NOT NULL AND "escalationPercent" > 0
+      AND "nextEscalationDate" IS NULL`;
+  return countCheck({
+    id: "escalation-config-drift",
+    name: "Escalation configured but unscheduled",
+    description: "ACTIVE tenancies with escalationPercent > 0 must carry a nextEscalationDate — a NULL means the contracted rent rise silently never fires",
+    rows: rows.map((r) => ({ entityId: String(r.id), message: `${r.tenantName} escalation=${r.escalationPercent}% but no next date` })),
+  });
+}
+
+/** 13. COMPLETED inter-company STOs must carry the transfer price the
+ *  destination booked — the qty ledger reconciles either way, the price
+ *  doesn't. */
+export async function checkStoTransferPrice(companyId: string) {
+  const rows = await prisma.$queryRaw<RawRow[]>`
+    SELECT t.id, t."transferNumber", t."transferPriceTotal",
+      COALESCE(SUM(CASE WHEN m."movementType" = 'TRANSFER_IN' THEN m.qty * m."unitCost" END), 0) AS booked_in
+    FROM "StockTransfer" t
+    JOIN "StockLocation" dest ON dest.id = t."toLocationId"
+    LEFT JOIN "StockMovement" m ON m."refId" = t.id AND m."refType" = 'StockTransfer'
+    WHERE t."isInterCompany" = true AND t.status = 'COMPLETED' AND dest."companyId" = ${companyId}
+    GROUP BY t.id
+    HAVING t."transferPriceTotal" IS NULL
+       OR ABS(COALESCE(SUM(CASE WHEN m."movementType" = 'TRANSFER_IN' THEN m.qty * m."unitCost" END), 0) - t."transferPriceTotal") > 1`;
+  return countCheck({
+    id: "sto-transfer-price",
+    name: "STO transfer price reconciles",
+    description: "COMPLETED inter-company transfers: transferPriceTotal must exist and equal the booked TRANSFER_IN value (qty × unitCost)",
+    rows: rows.map((r) => ({ entityId: String(r.id), message: `${r.transferNumber ?? r.id} header=${r.transferPriceTotal} booked=${r.booked_in}` })),
+  });
+}
+
+/** 14. A bank-SMS row marked MATCHED must still point at a live payment —
+ *  a voided receipt with a MATCHED marker double-counts nothing but lies
+ *  about the collection trail. */
+export async function checkSmsMatchedVoided(companyId: string) {
+  const rows = await prisma.$queryRaw<RawRow[]>`
+    SELECT s.id, s.amount, s."matchedEntityType", s."paymentRecordId"
+    FROM "BankSms" s
+    WHERE s."companyId" = ${companyId} AND s.status = 'MATCHED' AND s."paymentRecordId" IS NOT NULL AND (
+      (s."matchedEntityType" = 'ASSET_SALE'    AND EXISTS (SELECT 1 FROM "AssetSalePayment"    p WHERE p.id = s."paymentRecordId" AND p.status = 'VOID')) OR
+      (s."matchedEntityType" = 'MATERIAL_SALE' AND EXISTS (SELECT 1 FROM "MaterialSalePayment" p WHERE p.id = s."paymentRecordId" AND p.status = 'VOID')) OR
+      (s."matchedEntityType" = 'TENANCY'       AND EXISTS (SELECT 1 FROM "RentalPayment"       p WHERE p.id = s."paymentRecordId" AND p.status = 'VOID'))
+    )`;
+  return countCheck({
+    id: "sms-matched-voided",
+    name: "Matched SMS points at live payment",
+    description: "BankSms MATCHED rows must reference a non-VOID payment record — the match marker survives a voided receipt",
+    rows: rows.map((r) => ({ entityId: String(r.id), message: `₹${r.amount} ${r.matchedEntityType} → voided payment ${r.paymentRecordId}` })),
+  });
+}
+
+/** 15. Notification dispatch backlog — FAILED rows and PENDING/SENDING rows
+ *  stuck >1h mean messages the business thinks were sent never left. Warn
+ *  band keeps ordinary provider flakes out of the FAIL list. */
+export async function checkNotificationBacklog(companyId: string) {
+  const stuck = await prisma.$queryRaw<RawRow[]>`
+    SELECT status, COUNT(*) AS n, MIN("createdAt") AS oldest
+    FROM "NotificationLog"
+    WHERE "companyId" = ${companyId} AND (
+      status = 'FAILED' OR
+      (status = 'PENDING' AND "createdAt" < now() - interval '1 hour') OR
+      (status = 'SENDING' AND "createdAt" < now() - interval '1 hour')
+    )
+    GROUP BY status`;
+  const rows = stuck.map((r) => ({
+    entityId: String(r.status),
+    message: `${r.n} × ${r.status} (oldest ${new Date(String(r.oldest)).toISOString().slice(0, 16)}Z)`,
+  }));
+  const n = rows.length;
+  const details: ReconciliationDetail[] = rows.map((r) => ({ id: r.entityId, label: r.message, expected: "0 backlogged", actual: r.message, delta: r.message }));
+  return buildCheck({
+    id: "notification-backlog",
+    name: "Notification dispatch backlog",
+    description: "FAILED sends plus PENDING/SENDING claims older than 1h — a provider outage or stuck flush leaves rows here",
+    expected: "0",
+    actual: String(n),
+    tolerance: "0",
+    // ≤3 categories of backlog = drift to investigate; beyond that the
+    // pipeline itself is likely down.
+    warnAt: "2",
+    details,
+    message: n ? `${n} notification backlog bucket(s): ${rows.map((r) => r.message).join("; ")}` : undefined,
+  });
+}
+
 /** Run all entity-level invariant checks for a company. */
 export async function runInvariantChecks(companyId: string): Promise<ReconciliationCheck[]> {
   return Promise.all([
@@ -272,6 +369,10 @@ export async function runInvariantChecks(companyId: string): Promise<Reconciliat
     checkPositiveMovements(companyId),
     checkRequisitionBounds(companyId),
     checkRateContractCeiling(companyId),
+    checkEscalationConfig(companyId),
+    checkStoTransferPrice(companyId),
+    checkSmsMatchedVoided(companyId),
+    checkNotificationBacklog(companyId),
   ]);
 }
 

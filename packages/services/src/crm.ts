@@ -882,12 +882,17 @@ export async function sendPaymentDueReminders(companyId?: string) {
     data: { status: "DUE" },
   });
   // Spam guard — a customer must not get the same installment reminder every
-  // sweep. Any item with a reminder or demand letter logged in the last 72h
-  // is skipped this run.
+  // sweep. A successful send cools down 72h; a queued-or-failed attempt only
+  // backs off 24h (transient failures retry daily instead of never). Keying
+  // on sentAt alone let FAILED rows (sentAt=null) retry every 15 minutes
+  // forever — a rejected WhatsApp template ran a permanent hot loop.
   const recentLogs = await prisma.notificationLog.findMany({
     where: {
       eventType: { in: ["SALE_PAYMENT_REMINDER", "SALE_PAYMENT_RECEIVED", "DEMAND_LETTER"] },
-      sentAt: { gte: new Date(now.getTime() - 72 * 3600000) },
+      OR: [
+        { sentAt: { gte: new Date(now.getTime() - 72 * 3600000) } },
+        { status: { not: "SENT" }, createdAt: { gte: new Date(now.getTime() - 24 * 3600000) } },
+      ],
       ...(companyId ? { companyId } : {}),
     },
     select: { metadata: true },

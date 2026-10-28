@@ -4,20 +4,22 @@ import { prisma } from "@nirman/db";
 import { sendRentDueReminders, sendPaymentDueReminders, processDueEscalations, checkMilestonePayments, processPendingNotifications, generateDueRentSchedules, markOverdueRentPayments, generateDueRecurringExpenses, checkExpiringLegalDocs, checkExpiringEmploymentTerms, checkExpiringEmployeeDocs, checkDueSupplierInvoices,
   checkStaleTransfers,
   checkApprovalBacklog,
-  checkBooksHealth,
   checkReraValidity, checkOverdueCapas, checkStaleStockCounts, checkEquipmentMaintenanceDue, checkRateContractExpiry } from "@nirman/services";
 import { apiHandler, json } from "@/lib/server";
 
 /**
  * POST /api/cron/reminders — cron-triggered reminder + escalation job.
  *
- * Runs four sweeps:
- * 1. checkMilestonePayments — for every active project, check if WBS nodes
- *    linked to CLP payment schedule items have reached 100% progress and
- *    mark the corresponding installments as DUE
- * 2. processDueEscalations — apply yearly rent increases that are due
- * 3. sendRentDueReminders — WhatsApp/Email tenants with overdue rent
- * 4. sendPaymentDueReminders — WhatsApp/Email customers with due BBA milestone payments
+ * Runs the full 15-minute sweep set: milestone→DUE marking, rent escalation,
+ * rent-schedule minting, overdue marking + rent/BBA reminders, notification
+ * flush, recurring expenses, doc-expiry warnings (legal/employment/employee),
+ * supplier-invoice + CAPA + stale-stock-count + equipment + transfer + approval
+ * backlogs, RERA validity, rate-contract expiry. Books-health is NOT here —
+ * /api/cron/reconciliation covers it nightly.
+ *
+ * Every sweep reports failure by name (console.error + failed flag); the
+ * response sets `ok:false` + `failedSweeps` so a monitor can alert on partial
+ * failure instead of reading a dead DB as an idle run.
  *
  * Auth: requires a valid CRON_SECRET header (or AUTH_BYPASS in dev).
  * This route is NOT behind the normal RBAC — it's meant for a scheduler.
@@ -34,6 +36,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   // 1. Check all active projects for milestone completions → mark payments DUE
+  const failures: string[] = [];
   const activeProjects = await prisma.project.findMany({
     where: { deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
     select: { id: true },
@@ -45,58 +48,80 @@ export const POST = apiHandler(async (req: NextRequest) => {
       const result = await checkMilestonePayments(p.id);
       milestoneChecked += result.checked;
       milestoneTriggered += result.newlyDue;
-    } catch {
-      // Skip failed project checks
+    } catch (err) {
+      console.error(`[cron/reminders] milestone check failed for project ${p.id}:`, err);
+      failures.push(`milestones:${p.id}`);
+    }
+  }
+
+  // Every sweep reports its own failure — a thrown error used to collapse into
+  // zeros identical to an idle run, so a dead DB looked exactly like a quiet
+  // day. `sweep` logs the real error and flags the result; the response's
+  // `ok`/`failedSweeps` lets an external monitor alert on partial failure.
+  async function sweep<T extends object>(name: string, fallback: T, fn: () => Promise<T>): Promise<T & { failed?: true }> {
+    try {
+      return await fn();
+    } catch (err) {
+      console.error(`[cron/reminders] ${name} failed:`, err);
+      failures.push(name);
+      return { ...fallback, failed: true };
     }
   }
 
   // 2-6. Run remaining sweeps in parallel
-  const [escalations, rentSchedule, rentReminders, saleReminders, notifications, recurringExpenses, legalDocs, employmentTerms, employeeDocs, supplierInvoices, overdueCapas, staleStockCounts, equipmentMaintenance, staleTransfers, approvalBacklog, booksHealth, reraValidity, rateContracts] = await Promise.all([
-    processDueEscalations().catch(() => ({ checked: 0, escalated: 0 })),
-    generateDueRentSchedules().catch(() => ({ checked: 0, created: 0 })),
+  const [escalations, rentSchedule, rentReminders, saleReminders, notifications, recurringExpenses, legalDocs, employmentTerms, employeeDocs, supplierInvoices, overdueCapas, staleStockCounts, equipmentMaintenance, staleTransfers, approvalBacklog, reraValidity, rateContracts] = await Promise.all([
+    sweep("escalations", { checked: 0, escalated: 0, failed: 0 }, () => processDueEscalations()),
+    sweep("rentSchedule", { checked: 0, created: 0 }, () => generateDueRentSchedules()),
     // Flip freshly-past dues to OVERDUE before reminding — the reminder sweep
     // only sees OVERDUE rows, and PENDING→OVERDUE never transitions without this.
-    markOverdueRentPayments()
-      .catch(() => ({ marked: 0 }))
-      .then((mark) => sendRentDueReminders().catch(() => ({ checked: 0, sent: 0 })).then((remind) => ({ mark, remind }))),
-    sendPaymentDueReminders().catch(() => ({ checked: 0, sent: 0 })),
-    processPendingNotifications().catch(() => ({ processed: 0, sent: 0, failed: 0 })),
+    sweep("markOverdueRent", { marked: 0 }, () => markOverdueRentPayments())
+      .then(async (mark) => ({
+        mark,
+        remind: await sweep("rentReminders", { checked: 0, sent: 0 }, () => sendRentDueReminders()),
+      })),
+    sweep("saleReminders", { checked: 0, sent: 0 }, () => sendPaymentDueReminders()),
+    sweep("notifications", { processed: 0, sent: 0, failed: 0 }, () => processPendingNotifications()),
     // Generate due recurring expenses for all companies
-    prisma.company.findMany({ select: { id: true } })
-      .then((companies) => Promise.all(
-        companies.map((c) => generateDueRecurringExpenses(c.id).catch(() => ({ count: 0 }))),
-      ))
-      .then((results) => ({ generated: results.reduce((sum, r) => sum + toNum(r.count), 0) }))
-      .catch(() => ({ generated: 0 })),
+    sweep("recurringExpenses", { generated: 0 }, () =>
+      prisma.company.findMany({ select: { id: true } })
+        .then((companies) => Promise.all(
+          companies.map((c) => generateDueRecurringExpenses(c.id).catch((err) => {
+            console.error(`[cron/reminders] recurringExpenses failed for company ${c.id}:`, err);
+            failures.push(`recurringExpenses:${c.id}`);
+            return { count: 0 };
+          })),
+        ))
+        .then((results) => ({ generated: results.reduce((sum, r) => sum + toNum(r.count), 0) }))),
     // Check for legal documents expiring in the next 30 days
-    checkExpiringLegalDocs(30).catch(() => ({ checked: 0, expiring: 0, notified: 0 })),
+    sweep("legalDocs", { checked: 0, expiring: 0, notified: 0 }, () => checkExpiringLegalDocs(30)),
     // Contract / probation end dates approaching — HR needs the heads-up
-    checkExpiringEmploymentTerms(30).catch(() => ({ checked: 0, expiring: 0, notified: 0 })),
+    sweep("employmentTerms", { checked: 0, expiring: 0, notified: 0 }, () => checkExpiringEmploymentTerms(30)),
     // Employee compliance docs (medical certs, licences) expiring — same audience
-    checkExpiringEmployeeDocs(30).catch(() => ({ checked: 0, expiring: 0, notified: 0 })),
+    sweep("employeeDocs", { checked: 0, expiring: 0, notified: 0 }, () => checkExpiringEmployeeDocs(30)),
     // Supplier bills past dueDate unpaid — finance needs the escalation
-    checkDueSupplierInvoices().catch(() => ({ checked: 0, due: 0, notified: 0 })),
+    sweep("supplierInvoices", { checked: 0, due: 0, notified: 0 }, () => checkDueSupplierInvoices()),
     // Open CAPAs past corrective/preventive due date — QC needs the escalation
-    checkOverdueCapas().catch(() => ({ checked: 0, overdue: 0, notified: 0 })),
+    sweep("overdueCapas", { checked: 0, overdue: 0, notified: 0 }, () => checkOverdueCapas()),
     // Stock counts left in DRAFT/COUNTED >24h — a half-finished count blocks stock truth
-    checkStaleStockCounts().catch(() => ({ checked: 0, stale: 0, notified: 0 })),
+    sweep("staleStockCounts", { checked: 0, stale: 0, notified: 0 }, () => checkStaleStockCounts()),
     // Machines whose run-hours crossed their service interval — maintenance before breakdown
-    checkEquipmentMaintenanceDue().catch(() => ({ checked: 0, due: 0, notified: 0 })),
+    sweep("equipmentMaintenance", { checked: 0, due: 0, notified: 0 }, () => checkEquipmentMaintenanceDue()),
     // Transfers dispatched >48h with no receive — stock in no-man's-land
-    checkStaleTransfers().catch(() => ({ checked: 0, stale: 0, notified: 0 })),
+    sweep("staleTransfers", { checked: 0, stale: 0, notified: 0 }, () => checkStaleTransfers()),
     // Approval queues stuck >48h — the truck waits at the gate otherwise
-    checkApprovalBacklog().catch(() => ({ companies: 0, flagged: 0 })),
-    // Ledger drift found daily instead of at month-end
-    checkBooksHealth().catch(() => ({ companies: 0, failed: 0 })),
+    sweep("approvalBacklog", { companies: 0, flagged: 0 }, () => checkApprovalBacklog()),
     // RERA validity — selling past the registration date is a legal failure
-    checkReraValidity().catch(() => ({ companies: 0, flagged: 0 })),
+    sweep("reraValidity", { companies: 0, flagged: 0 }, () => checkReraValidity()),
     // Rate contracts lapsing silently = POs quietly buying at market rate
-    checkRateContractExpiry().catch(() => ({ flagged: 0, expired: 0 })),
+    sweep("rateContracts", { flagged: 0, expired: 0 }, () => checkRateContractExpiry()),
   ]);
 
   return json({
-    ok: true,
+    // checkBooksHealth deliberately absent — /api/cron/reconciliation runs the
+    // same ~20 heavy queries nightly; 96 extra runs/day here was pure DB cost.
+    ok: failures.length === 0,
     ranAt: new Date().toISOString(),
+    failedSweeps: failures.length ? failures : undefined,
     milestones: { checked: milestoneChecked, triggered: milestoneTriggered },
     escalations,
     rentSchedule,
@@ -113,7 +138,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
     equipmentMaintenance,
     staleTransfers,
     approvalBacklog,
-    booksHealth,
     reraValidity,
     rateContracts,
   });
