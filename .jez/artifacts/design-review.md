@@ -297,3 +297,24 @@ matches the dialog's helper text verbatim. CTA label is dynamic
 ("Add nos" → "Add 5 nos" once qty is entered) — good detail.
 Two real mutations now proven end-to-end (payment + stock adjust):
 dialog → validation → API → DB → audit row.
+
+## Round 17 — Export/share system + real mutations
+
+**CSV export (client-side):** `/m/material-issues` → Export icon → Download
+CSV → real `material-issues-2026-10-28.csv` with **38 rows — exact tie with
+the summary strip's "38 Issues"**. Headers proper, Indian dates, ₹ values,
+BOM for Excel.
+
+**Server exports via /api/export** (18 types supported): verified real files —
+trial-balance 8.5KB, gstr3b 7.2KB, **tally-xml 140KB**, issue-register,
+inventory-value, pending-payments, purchase-register — all valid xlsx/xml.
+
+**FIXED — PF-ECR empty file:** zero PF-eligible rows downloaded a 5-byte
+blank file; operator would discover it on the EPFO portal. Now 404s like the
+missing-period branch, naming the employees missing UAN (6 demo names
+surfaced). Commit af218e53.
+
+**Mutations proven end-to-end:** material-sale payment ₹224 →
+MaterialSalePayment row + balance cleared; stock adjust +5 →
+StockLocationItem.qty + StockMovement audit row. Full stack: dialog →
+validation → API → DB → audit.
