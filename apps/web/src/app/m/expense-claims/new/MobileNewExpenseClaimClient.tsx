@@ -64,7 +64,7 @@ export function MobileNewExpenseClaimClient({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState<{ id: string; submitted: boolean; lineCount: number; total: number; queued?: boolean } | null>(null);
+  const [success, setSuccess] = useState<{ id: string; submitted: boolean; lineCount: number; total: number; queued?: boolean; approved?: boolean } | null>(null);
   const { enqueue } = useOfflineQueue();
   const [uploading, setUploading] = useState(false);
   const [claimantId, setClaimantId] = useState("");
@@ -248,6 +248,7 @@ export function MobileNewExpenseClaimClient({
         submitted: createData.submitted !== false,
         lineCount: validLines.length,
         total: totalAmount,
+        approved: createData.approved === true,
       });
       clearDraft();
     } catch (err) {
@@ -300,9 +301,11 @@ export function MobileNewExpenseClaimClient({
         <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-500)" }}>
           {success.queued
             ? "You're offline — it's in the sync queue and will post automatically when you're back online."
-            : success.submitted
-              ? "It's now in the approval queue for a manager to review."
-              : "Submit it for approval from the claim detail page."}
+            : success.approved
+              ? "Approved instantly — you're an approver, so no further review is needed."
+              : success.submitted
+                ? "It's now in the approval queue for a manager to review."
+                : "Submit it for approval from the claim detail page."}
         </p>
         <div className="flex gap-3 w-full max-w-xs">
           {success.queued || !success.id ? (

@@ -107,17 +107,19 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     // Auto-submit when the client asked for it — keeps the whole
     // create→lines→submit lifecycle in one atomic request.
+    let autoApproved = false;
     if (parsed.data.submit) {
       await submitExpenseClaim(claim.id, company.id, user.id);
       // Same rule as PATCH submit: tier-1 creators (OWNER/ADMIN) auto-approve —
       // no higher approver exists above them.
       if (canWaiveSelfApproval(await getActingRole())) {
         await approveExpenseClaim(claim.id, company.id, user.id, await getActingRole());
+        autoApproved = true;
       }
     }
     revalidatePath("/expense-claims");
   revalidatePath("/m/expense-claims");
-    return json({ ok: true, id: claim.id, submitted: !!parsed.data.submit }, { status: 201 });
+    return json({ ok: true, id: claim.id, submitted: !!parsed.data.submit, approved: autoApproved }, { status: 201 });
   } catch (err) {
     if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
     throw err;
