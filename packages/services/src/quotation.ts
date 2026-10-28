@@ -465,7 +465,11 @@ export async function addQuoteToRequest(input: AddQuoteToRequestInput) {
 
     const quote = await tx.vendorQuote.create({
       data: {
-        requisitionId: null, // standalone — no requisition
+        // Propagate the request's indent link so QR-path quotes count toward
+        // the min-quotes gate and are visible to the winner lookup in
+        // convertRequisitionToPo — a quote attached to an indent-born request
+        // IS a quote for that indent.
+        requisitionId: request.requisitionId ?? null,
         quotationRequestId: input.quotationRequestId,
         supplierId: input.supplierId,
         fileUrl: input.fileUrl ?? null,
@@ -598,6 +602,28 @@ export async function approveQuotation(input: ApproveQuotationInput) {
     if (request.status === "APPROVED") throw new ServiceError("This request is already approved");
     if (request.status === "CLOSED" || request.status === "CANCELLED") {
       throw new ServiceError("Cannot approve a closed/cancelled request");
+    }
+
+    // ── ONE-FULFILMENT INVARIANT: claim the parent indent before minting ──
+    // Approving this request auto-creates the PO. Without the claim the
+    // indent stays APPROVED with convertedPoId null — convertRequisitionToPo
+    // would then mint a SECOND PO for the same demand. The atomic
+    // status+convertedPoId predicate also blocks a racing convert call.
+    if (request.requisitionId) {
+      const claim = await tx.materialRequisition.updateMany({
+        where: {
+          id: request.requisitionId,
+          status: "APPROVED",
+          convertedPoId: null,
+        },
+        data: { status: "CONVERTED" },
+      });
+      if (claim.count === 0) {
+        throw new ServiceError(
+          "This indent is already fulfilled — refresh to see its purchase order.",
+          409,
+        );
+      }
     }
 
     // ── SELF-APPROVAL PREVENTION: approver cannot be the submitter ──
@@ -775,6 +801,14 @@ export async function approveQuotation(input: ApproveQuotationInput) {
       where: { id: po.id },
       data: { selectedQuoteId: winningQuote.id },
     });
+
+    // Point the claimed indent at the PO it was converted through.
+    if (request.requisitionId) {
+      await tx.materialRequisition.update({
+        where: { id: request.requisitionId },
+        data: { convertedPoId: po.id },
+      });
+    }
 
     // ── Update the request ──
     const updated = await tx.quotationRequest.update({

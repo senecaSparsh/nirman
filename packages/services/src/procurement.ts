@@ -776,6 +776,18 @@ export async function cancelPurchaseOrder(poId: string, userId?: string) {
       poCreatedAt: po.createdAt,
       lines: po.lines.map((l) => ({ materialId: l.materialId, qty: l.qtyOrdered })),
     });
+    // Release the fulfilment links — a cancelled PO delivers nothing, so the
+    // indent goes back to the ready-to-order queue and the quotation request
+    // can be re-approved into a fresh PO. Without this both stay CONVERTED /
+    // APPROVED pointing at a dead PO — permanently un-actionable.
+    await tx.materialRequisition.updateMany({
+      where: { convertedPoId: poId },
+      data: { convertedPoId: null, status: "APPROVED" },
+    });
+    await tx.quotationRequest.updateMany({
+      where: { convertedPoId: poId },
+      data: { convertedPoId: null, status: "QUOTES_COLLECTED" },
+    });
     await logAction(tx, {
       userId,
       companyId: po.companyId,

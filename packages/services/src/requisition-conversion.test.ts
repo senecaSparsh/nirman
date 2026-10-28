@@ -29,6 +29,7 @@ const tx = {
   materialRequisition: { findUnique: vi.fn(), update: vi.fn() },
   material: { findMany: vi.fn() },
   purchaseOrder: { update: vi.fn() },
+  directPurchase: { findFirst: vi.fn() },
 };
 const input = {
   requisitionId: req.id, supplierId: "qa-supplier", procurementScope: "PROJECT" as const,
@@ -41,12 +42,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   tx.materialRequisition.findUnique.mockResolvedValue(req);
   tx.material.findMany.mockResolvedValue([{ id: "qa-material" }]);
+  tx.directPurchase.findFirst.mockResolvedValue(null);
   vi.mocked(withSerializableTransaction).mockImplementation(async fn => fn(tx as unknown as Prisma.TransactionClient));
   vi.mocked(createPurchaseOrderTx).mockResolvedValue(draft as never);
   vi.mocked(orderPurchaseOrder).mockResolvedValue({ ...draft, status: "ORDERED" } as never);
   vi.mocked(approvePurchaseOrder).mockResolvedValue({ ...draft, status: "ORDERED" } as never);
   vi.spyOn(prisma.vendorQuote, "findFirst").mockResolvedValue({
     id: "qa-quote", submittedById: "qa-purchaser", status: "SELECTED",
+    supplierId: "qa-supplier", supplier: { id: "qa-supplier", name: "QA Supplier" },
     lines: [{ materialId: "qa-material", unitPrice: new Decimal(100), gstRate: new Decimal(0) }],
   } as never);
   vi.spyOn(prisma.vendorQuote, "groupBy").mockResolvedValue([{ status: "SELECTED", _count: 1 }] as never);

@@ -164,6 +164,21 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
 
   if (hasStockLines) {
     return withStockTransaction(async (tx) => {
+      // ONE-FULFILMENT INVARIANT: a linked indent is consumed by this purchase —
+      // claim it atomically so a PO (or a second bill) can't also fulfil the
+      // same demand. Releasing happens in cancelDirectPurchase.
+      if (input.requisitionId) {
+        const claim = await tx.materialRequisition.updateMany({
+          where: { id: input.requisitionId, status: "APPROVED", convertedPoId: null },
+          data: { status: "CONVERTED" },
+        });
+        if (claim.count === 0) {
+          throw new ServiceError(
+            "This indent is already fulfilled or not approved — refresh to see what covered it.",
+            409,
+          );
+        }
+      }
       let subtotal = new Decimal(0);
       let gstTotal = new Decimal(0);
       const lineData: { materialId: string; qty: Decimal; unitCost: Decimal; gstRate: Decimal; lineTotal: Decimal }[] = [];
@@ -309,6 +324,18 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
   // No stock lines — just a log entry (e.g. a service purchase with no material)
   const billAmount = new Decimal(0);
   const purchase = await withSerializableTransaction(async (tx) => {
+    if (input.requisitionId) {
+      const claim = await tx.materialRequisition.updateMany({
+        where: { id: input.requisitionId, status: "APPROVED", convertedPoId: null },
+        data: { status: "CONVERTED" },
+      });
+      if (claim.count === 0) {
+        throw new ServiceError(
+          "This indent is already fulfilled or not approved — refresh to see what covered it.",
+          409,
+        );
+      }
+    }
     const dp = await tx.directPurchase.create({
       data: {
         billNumber,
@@ -446,6 +473,16 @@ export async function cancelDirectPurchase(id: string, userId?: string) {
         cancelledById: userId ?? null,
       },
     });
+
+    // Release the indent this bill claimed — only if no other fulfilment
+    // claimed it since (convertedPoId stays null on the direct-purchase
+    // path, so a PO-converted indent is untouched).
+    if (dp.requisitionId) {
+      await tx.materialRequisition.updateMany({
+        where: { id: dp.requisitionId, status: "CONVERTED", convertedPoId: null },
+        data: { status: "APPROVED" },
+      });
+    }
 
     if (userId) {
       await logAction(tx, {

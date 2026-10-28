@@ -503,8 +503,18 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
   // REJECTED at that point and would otherwise wrongly count against it).
   const winningQuote = await prisma.vendorQuote.findFirst({
     where: { requisitionId: input.requisitionId, status: "SELECTED" },
-    include: { lines: true },
+    include: { lines: true, supplier: { select: { id: true, name: true } } },
   });
+
+  // A winning quote IS the buy decision — converting with a different
+  // supplier would mint a PO priced at one vendor's terms but billed to
+  // another. Refuse rather than silently mix the two.
+  if (winningQuote && winningQuote.supplierId && input.supplierId !== winningQuote.supplierId) {
+    throw new ServiceError(
+      `The selected quote is from ${winningQuote.supplier?.name ?? "another supplier"} — convert the indent with that supplier, or re-open the comparison.`,
+      400,
+    );
+  }
 
   // ── Comparative Quote Engine gate ──
   // Enforce the min-quotes requirement before allowing conversion. The gate
@@ -541,6 +551,19 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
     }
     if (req.convertedPoId) {
       throw new ServiceError("Indent has already been converted to a PO.");
+    }
+    // Third fulfilment path: a live direct purchase linked to this indent
+    // means the material was already bought off-market — a PO on top would
+    // double-procure the same demand.
+    const fulfilment = await tx.directPurchase.findFirst({
+      where: { requisitionId: input.requisitionId, status: { not: "CANCELLED" } },
+      select: { billNumber: true },
+    });
+    if (fulfilment) {
+      throw new ServiceError(
+        `This indent is already fulfilled by purchase bill ${fulfilment.billNumber} — cancel that bill first if it was a mistake.`,
+        409,
+      );
     }
     // Resolve companyId from project or department (one must exist)
     const reqCompanyId = req.project?.companyId ?? req.department?.companyId;

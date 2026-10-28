@@ -4,7 +4,7 @@ const db = vi.hoisted(() => ({
   userCompany: { findMany: vi.fn() },
   notificationPreference: { findMany: vi.fn() },
   inAppNotification: { create: vi.fn(), findFirst: vi.fn() },
-  notificationLog: { create: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+  notificationLog: { create: vi.fn(), findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   notificationTemplate: { findMany: vi.fn() },
   user: { findMany: vi.fn() },
   pushSubscription: { findMany: vi.fn(), update: vi.fn() },
@@ -92,6 +92,8 @@ describe("processPendingNotifications — queued sends", () => {
   beforeEach(() => {
     db.notificationTemplate.findMany.mockResolvedValue([]);
     db.notificationLog.update.mockResolvedValue({});
+    // Claims always succeed in these tests — each pending row is flushable.
+    db.notificationLog.updateMany.mockResolvedValue({ count: 1 });
   });
 
   it("flushes a queued send to a live member", async () => {
