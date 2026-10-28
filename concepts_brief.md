@@ -230,8 +230,19 @@ converge on one write path.
    - Real-DB suite `transfer-reversal.test.ts` (5 cases incl. the GL
      split assertion). Zero completed IC transfers existed pre-fix, so no
      historical-journal repair was needed.
-   **Remaining M10 items** — the migration-side constraints (registry
-   timestamps, requisition exit, company-code sequencing).
+10. ~~**M10**~~ — **DONE** `1a52491e` + `79f64b67` + `043fa3f0`.
+    - `AssetSale.registryDate` + `registryPendingAt` persisted by
+      `markRegistryDone` (input was dropping `registryDate`; zero pending
+      rows so no backfill needed).
+    - `RequisitionStatus.CANCELLED` — owner withdraw on DRAFT/SUBMITTED
+      only (APPROVED may hold an auto-created QR). Service + API +
+      desktop/mobile UI + filters; real-DB tests incl. idempotent
+      re-withdraw and the APPROVED refusal.
+    - `Company.code` changes after numbered documents exist now 409 with
+      `requiresConfirm` unless `confirmCodeChange:true` — silent series
+      splits are impossible.
+    - STO era markers resolved structurally by M6's REVERSED + journal
+      reversal (append-only, no back-edits).
 
 Each fix PR opens with `SELECT COUNT(*)` audits of pre-fix rows (Migration
 lens: rows created now are tomorrow's legacy debt) and updates
