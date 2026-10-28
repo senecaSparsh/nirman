@@ -211,3 +211,9 @@ Cross-surface numbers reconcile: Receivables ₹25L = Finance "outstanding" card
 - **False alarms verified, not defects**: clipped bottom-left nav label = Next.js dev-tools badge (dev only); `/m/sales` "Pipeline" appearing twice = quick-actions module grid tab vs inner leads tab (coincidental naming); `/m/stock-out` bottom bar overlapping nav = deliberate (comment documents why — old position let the centre FAB cover submit); tall headers on projects/quality-control = real content (over-budget banner, inspection queue); `PageLead` description lines auto-hide after N visits (onboarding by design).
 - **All 9 main list pages screenshotted side-by-side** — expenses, stock, material-issues, material-sales, gate-pass, units, sales, rentals, pulse — consistent dark theme, nav, strip, row, card conventions.
 - **Detail + form verified** — `/m/material-issues/[id]` (status timeline, stat tiles, paired buttons), `/m/stock-out?mode=issue` (mode cards, route swap, receiver/vehicle sections, sticky CTA).
+
+### Round 12 — symmetry continuation (Oct 27)
+
+- **RegisterTabs label crush fixed (`122c7d88`)** — `/m/accounts` 8-tab row squeezed labels into collisions ("Petty CashPayments"). Tab row now holds a 4.5rem/tab floor and scrolls horizontally past it; equal widths preserved so the sliding underline math is unchanged. Few-tab pages render identically to before.
+- **Verified symmetric**: notifications list, attention queue (hero + category chips + grouped sections — best-composed page), offline queue, filter/sort dropdowns, issue detail, stock-out form, sales/units/rentals/pulse grids.
+- **Residual known-noise**: duplicate "Payroll Zero Gross" notifications (legit warnings about seeded zero-rate payroll drafts — data, not UI).
