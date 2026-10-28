@@ -37,6 +37,9 @@ const companyUpdateSchema = z.object({
   // Short code used in document numbers (e.g. "SRG" → PO-SRG-260914-0001).
   // Letters/digits only; stored uppercase. Uniqueness enforced by the DB.
   code: z.string().trim().min(1).max(10).regex(/^[A-Za-z0-9]+$/, "Code must be letters/digits only").optional().nullable(),
+  // Explicit ack when the code changes after numbered documents exist —
+  // the new code starts a fresh series and the operator must mean it.
+  confirmCodeChange: z.boolean().optional(),
   gstin: z.string().optional().nullable(),
   pan: z.string().optional().nullable(),
   // UPI VPA for payment links on demand notices (e.g. company@hdfcbank)
@@ -108,7 +111,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const data = parsed.data;
+  const { confirmCodeChange, ...data } = parsed.data;
 
   // Fail loudly on a no-op write — a PATCH whose keys were all stripped by
   // the schema must not report success while writing nothing.
@@ -149,6 +152,26 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     return json({ error: "Only the owner can change approval thresholds and tax identity." }, { status: 403 });
   }
   if (data.code) data.code = data.code.toUpperCase();
+  // Setting or changing the code after documents exist splits the numbering
+  // series (PO-… → PO-CODE-… restarts at 0001). That's sometimes intended
+  // (e.g. moving the entity onto its own GST series) but must never happen
+  // silently — require an explicit confirm flag once docs exist.
+  if (data.code !== undefined) {
+    const current = await prisma.company.findUnique({ where: { id }, select: { code: true } });
+    const next = data.code ?? null;
+    if (next !== (current?.code ?? null)) {
+      const [poCount, reqCount] = await Promise.all([
+        prisma.purchaseOrder.count({ where: { companyId: id } }),
+        prisma.materialRequisition.count({ where: { OR: [{ project: { companyId: id } }, { department: { companyId: id } }] } }),
+      ]);
+      if (poCount + reqCount > 0 && confirmCodeChange !== true) {
+        return json({
+          error: `This company already issued ${poCount + reqCount} numbered documents — changing the code starts a NEW series (old: ${current?.code ? `${current.code}-` : "no code"}PO-…, new: ${next ? `${next}-` : "no code"}PO-…). Pass confirmCodeChange:true to proceed.`,
+          requiresConfirm: true,
+        }, { status: 409 });
+      }
+    }
+  }
   if (data.glLockedUntil !== undefined) {
     const raw = data.glLockedUntil;
     const parsed = raw ? new Date(raw) : null;
