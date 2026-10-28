@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
-import { LayoutGrid, Plus } from "lucide-react";
+import { LayoutGrid, X } from "lucide-react";
 import { breadcrumbs, type RouteEntry } from "@/lib/route-manifest";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -130,10 +130,11 @@ export function DeptFab({ items, badges, onOpenAll }: DeptFabProps) {
             "0 6px 18px rgba(0, 0, 0, 0.28), 0 0 0 1px var(--color-line)",
         }}
       >
-        <Plus
-          className="size-6 transition-transform duration-200"
-          style={{ transform: open ? "rotate(135deg)" : "none" }}
-        />
+        {open ? (
+          <X className="size-6" />
+        ) : (
+          <LayoutGrid className="size-6" />
+        )}
       </button>
 
       {mounted &&
