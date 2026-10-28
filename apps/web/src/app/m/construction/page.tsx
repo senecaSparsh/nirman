@@ -8,7 +8,7 @@ import {
   BookOpen,
   FileText,
   Package} from "lucide-react";
-import { getCompany, toNum, scopeWhere, getActionPermissions, filterOptionsByScope, getEffectivePermissions } from "@/lib/server";
+import { getCompany, toNum, scopeWhere, getActionPermissions, filterOptionsByScope, getEffectivePermissions, projectScopeFilter } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
@@ -57,7 +57,19 @@ export default function MobileConstructionHubPage({
   return (
     <MobileHubPage perm={PERM.PROJECTS_VIEW} scopeAware what="construction" permission="projects.view">
       {async () => {
-        const { tab, project: projectId } = await searchParams;
+        const { tab, project: rawProjectId } = await searchParams;
+
+        // ?project= is user input — validate it belongs to this company and
+        // the viewer's scope before it reaches the tab queries, or a foreign
+        // id would render another tenant's BOQ/WBS/MB data.
+        let projectId = rawProjectId;
+        if (projectId) {
+          const valid = await prisma.project.findFirst({
+            where: { id: projectId, companyId: (await getCompany()).id, deletedAt: null, ...await projectScopeFilter() },
+            select: { id: true },
+          });
+          if (!valid) projectId = undefined;
+        }
 
         const validTabs = ["work-orders", "change-orders", "quality", "safety", "boq", "wbs", "mb"];
         const activeTab = validTabs.includes(tab ?? "") ? tab! : "work-orders";

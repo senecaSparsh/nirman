@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import { connection } from "next/server";
-import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions } from "@/lib/server";
+import { prisma } from "@nirman/db";
+import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions, projectScopeFilter } from "@/lib/server";
 import { holdsPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
@@ -87,7 +88,7 @@ export async function MobileProjectScopedPage({
   children: (ctx: MobileProjectScopedPageCtx) => Promise<ReactNode> | ReactNode;
 }) {
   const content = async () => {
-    const { project: projectId } = await searchParams;
+    const { project: rawProjectId } = await searchParams;
     await connection();
     const company = await getCompany();
     const role = await getUserRole();
@@ -99,7 +100,20 @@ export async function MobileProjectScopedPage({
       return <MobileNoAccess what={what ?? "this page"} permission={permission} />;
     }
 
-    return children({ company, role, actingRole, ownRole, perms: overrides, projectId: projectId ?? null });
+    // ?project= is user input — a foreign or out-of-scope id would otherwise
+    // flow straight into data queries and render another tenant's records.
+    // Invalid ids degrade to "no selection" so the page shows its picker.
+    let projectId: string | null = rawProjectId ?? null;
+    if (projectId) {
+      const scopeFilter = await projectScopeFilter();
+      const valid = await prisma.project.findFirst({
+        where: { id: projectId, companyId: company.id, deletedAt: null, ...scopeFilter },
+        select: { id: true },
+      });
+      if (!valid) projectId = null;
+    }
+
+    return children({ company, role, actingRole, ownRole, perms: overrides, projectId });
   };
 
   return (
