@@ -157,7 +157,8 @@ async function PoDetailContent({
       invoiceNumber: gr.invoiceNumber,
       ewayBillNumber: gr.ewayBillNumber,
       lrNumber: gr.lrNumber,
-      packageCount: gr.packageCount}))};
+      packageCount: gr.packageCount,
+      receivingPhotoUrl: gr.receivingPhotoUrl}))};
 
   return (
     <div className="space-y-6">

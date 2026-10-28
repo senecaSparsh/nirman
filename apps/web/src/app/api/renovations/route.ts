@@ -60,6 +60,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         vendor: c.vendor,
         notes: c.notes,
         date: c.date.toISOString(),
+        receiptUrl: c.receiptUrl,
       })),
     })),
   );

@@ -323,6 +323,7 @@ async function BuiltUnitsContent() {
       vendor: c.vendor,
       notes: c.notes,
       date: c.date.toISOString(),
+      receiptUrl: c.receiptUrl,
     })),
   }));
   const renovationProjects = renProjects.map((p) => ({ id: p.id, name: p.name }));

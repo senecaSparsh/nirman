@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Hammer, Plus, Trash2, Play, CheckCircle2, XCircle, TrendingUp, Pencil, SearchX } from "lucide-react";
+import { Hammer, Plus, Trash2, Play, CheckCircle2, XCircle, TrendingUp, Pencil, SearchX, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -46,6 +46,7 @@ export type RenovationRow = {
     vendor: string | null;
     notes: string | null;
     date: string;
+    receiptUrl: string | null;
   }[];
 };
 
@@ -106,6 +107,8 @@ export function RenovationsView({
   const [cAmount, setCAmount] = useState("");
   const [cVendor, setCVendor] = useState("");
   const [cNotes, setCNotes] = useState("");
+  const [cReceiptUrl, setCReceiptUrl] = useState<string | null>(null);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
 
   // Edit form state
   const [eTitle, setETitle] = useState("");
@@ -237,6 +240,22 @@ export function RenovationsView({
     }
   }
 
+  async function uploadCostReceipt(file: File) {
+    setUploadingReceipt(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/uploads", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed");
+      setCReceiptUrl(data.url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploadingReceipt(false);
+    }
+  }
+
   async function addCost(renovationId: string) {
     if (!cAmount || Number(cAmount) <= 0) return toast.error("Amount must be > 0");
     setSubmitting(true);
@@ -249,13 +268,14 @@ export function RenovationsView({
           amount: Number(cAmount),
           vendor: cVendor || null,
           notes: cNotes || null,
+          receiptUrl: cReceiptUrl,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to add cost");
       toast.success("Cost added");
       setCostFormOpen(false);
-      setCCostType("LABOUR"); setCAmount(""); setCVendor(""); setCNotes("");
+      setCCostType("LABOUR"); setCAmount(""); setCVendor(""); setCNotes(""); setCReceiptUrl(null);
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "An error occurred");
@@ -320,6 +340,11 @@ export function RenovationsView({
       { key: "amount", label: "Amount", align: "right", sortable: true, render: (c) => <MoneyCell value={c.amount} formatted={formatCurrency(c.amount)} />, sortValue: (c) => c.amount, exportValue: (c) => c.amount },
       { key: "vendor", label: "Vendor", sortable: true, filterable: true, render: (c) => <span className="text-muted-foreground">{c.vendor ?? "—"}</span>, filterValue: (c) => c.vendor ?? "—" },
       { key: "notes", label: "Notes", render: (c) => <span className="text-muted-foreground">{c.notes ?? "—"}</span> },
+      { key: "receiptUrl", label: "Receipt", render: (c) => c.receiptUrl ? (
+        <a href={c.receiptUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-micro text-primary hover:underline">
+          <ExternalLink className="h-3 w-3" /> View
+        </a>
+      ) : <span className="text-muted-foreground">—</span>, noExport: true },
       { key: "date", label: "Date", sortable: true, render: (c) => <span className="text-muted-foreground">{formatDate(c.date)}</span>, sortValue: (c) => c.date },
     ];
     if (canManage && renovation.status !== "COMPLETED") {
@@ -647,6 +672,17 @@ export function RenovationsView({
                   <Input aria-label="Amount" type="number" placeholder="Amount" value={cAmount} onChange={(e) => setCAmount(e.target.value)} />
                   <Input aria-label="Vendor" placeholder="Vendor" value={cVendor} onChange={(e) => setCVendor(e.target.value)} />
                   <Input aria-label="Notes" placeholder="Notes" value={cNotes} onChange={(e) => setCNotes(e.target.value)} />
+                </div>
+                <div className="flex items-center gap-2">
+                  {cReceiptUrl ? (
+                    <a href={cReceiptUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-caption text-primary hover:underline">
+                      <ExternalLink className="h-3 w-3" /> Receipt attached
+                    </a>
+                  ) : null}
+                  <label className={`inline-flex cursor-pointer items-center gap-1 text-caption text-muted-foreground hover:text-foreground ${uploadingReceipt ? "pointer-events-none opacity-60" : ""}`}>
+                    {uploadingReceipt ? <><Loader2 className="h-3 w-3 animate-spin" /> Uploading…</> : <><ExternalLink className="h-3 w-3" /> Upload receipt</>}
+                    <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCostReceipt(f); }} />
+                  </label>
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="ghost" onClick={() => setCostFormOpen(false)}>Cancel</Button>

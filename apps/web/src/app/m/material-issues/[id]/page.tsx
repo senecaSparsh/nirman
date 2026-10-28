@@ -77,6 +77,7 @@ export default function MobileMaterialIssueDetailPage({
           receiverMobile: issue.receiverMobile,
           vehicleNumber: issue.vehicleNumber,
           vehicleType: issue.vehicleType,
+          vehiclePhotoUrl: issue.vehiclePhotoUrl,
           driverName: issue.driverName,
           driverPhone: issue.driverPhone,
           gatePassStatus: linkedGp?.status ?? null,

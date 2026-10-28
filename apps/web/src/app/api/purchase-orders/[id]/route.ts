@@ -97,6 +97,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     ewayBillNumber: gr.ewayBillNumber,
     lrNumber: gr.lrNumber,
     packageCount: gr.packageCount,
+    receivingPhotoUrl: gr.receivingPhotoUrl,
   }));
 
   return json({

@@ -137,6 +137,7 @@ async function MaterialSalesContent() {
     notes: s.notes,
     vehicleNumber: s.vehicleNumber,
     vehicleType: s.vehicleType,
+    vehiclePhotoUrl: s.vehiclePhotoUrl,
     driverName: s.driverName,
     driverPhone: s.driverPhone,
     irn: s.irn,

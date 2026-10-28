@@ -217,6 +217,7 @@ export type PurchaseOrderDetail = {
     ewayBillNumber: string | null;
     lrNumber: string | null;
     packageCount: number | null;
+    receivingPhotoUrl: string | null;
   }[];
 };
 
@@ -476,6 +477,7 @@ export type DirectPurchaseRow = {
   // Vehicle / dispatch
   vehicleNumber: string | null;
   vehicleType: string | null;
+  vehiclePhotoUrl: string | null;
   driverName: string | null;
   driverPhone: string | null;
   lines: {

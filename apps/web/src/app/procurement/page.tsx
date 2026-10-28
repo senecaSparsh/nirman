@@ -282,6 +282,7 @@ async function ProcurementContent() {
     cancelledAt: p.cancelledAt?.toISOString() ?? null,
     vehicleNumber: p.vehicleNumber,
     vehicleType: p.vehicleType,
+    vehiclePhotoUrl: p.vehiclePhotoUrl,
     driverName: p.driverName,
     driverPhone: p.driverPhone,
     lines: p.lines.map((l) => ({

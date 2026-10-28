@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Package, Printer, MapPin, User, Truck, Phone,
-  AlertCircle, Loader2, Ban, CheckCircle2, FileText,
+  AlertCircle, Loader2, Ban, CheckCircle2, FileText, Camera,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
@@ -46,6 +46,7 @@ interface IssueData {
   receiverMobile: string | null;
   vehicleNumber: string | null;
   vehicleType: string | null;
+  vehiclePhotoUrl: string | null;
   driverName: string | null;
   driverPhone: string | null;
   totalCost: number;
@@ -258,7 +259,7 @@ export function MobileMaterialIssueDetailClient({
       </div>
 
       {/* ── Receiver & Vehicle ── */}
-      {(issue.receiverName || issue.vehicleNumber || issue.driverName) ? (
+      {(issue.receiverName || issue.vehicleNumber || issue.driverName || issue.vehiclePhotoUrl) ? (
         <div>
           <MobileSectionTitle>Receiver & Transport</MobileSectionTitle>
           <div className="flex flex-col gap-2.5">
@@ -270,6 +271,18 @@ export function MobileMaterialIssueDetailClient({
             ) : null}
             {issue.vehicleNumber ? (
               <MobileRow icon={Truck} title="Vehicle" meta={`${issue.vehicleNumber}${issue.vehicleType ? ` · ${issue.vehicleType}` : ""}`} />
+            ) : null}
+            {issue.vehiclePhotoUrl ? (
+              <a
+                href={`/api/uploads/${issue.vehiclePhotoUrl.replace(/^.*\//, "")}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 rounded-[0.5rem] border px-2.5 py-2"
+                style={{ borderColor: "var(--color-line)", color: "var(--color-action)" }}
+              >
+                <Camera size={14} />
+                <span className="text-m-label font-semibold">Vehicle photo</span>
+              </a>
             ) : null}
             {issue.driverName ? (
               <MobileRow icon={User} title="Driver" meta={`${issue.driverName}${issue.driverPhone ? ` · ${issue.driverPhone}` : ""}`} />

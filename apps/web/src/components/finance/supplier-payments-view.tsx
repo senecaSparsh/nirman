@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useUrlQuery, useUrlFilter } from "@/lib/use-url-filter";
-import { Plus, Search, Printer } from "lucide-react";
+import { Plus, Search, Printer, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTable, type Column } from "@/components/ui/data-table";
@@ -105,7 +105,16 @@ export function SupplierPaymentsView({
     {
       key: "referenceNo",
       label: "Reference",
-      render: (p) => p.referenceNo ? <span className="font-mono text-xs">{p.referenceNo}</span> : <span className="text-muted-foreground">—</span>,
+      render: (p) => (
+        <span className="inline-flex items-center gap-1.5">
+          {p.referenceNo ? <span className="font-mono text-xs">{p.referenceNo}</span> : (p.chequePhotoUrl ? null : <span className="text-muted-foreground">—</span>)}
+          {p.chequePhotoUrl && (
+            <a href={p.chequePhotoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-micro text-primary hover:underline">
+              <ExternalLink className="h-3 w-3" /> Photo
+            </a>
+          )}
+        </span>
+      ),
     },
     {
       key: "amount",

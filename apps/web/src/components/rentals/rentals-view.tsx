@@ -1321,7 +1321,14 @@ function TenancyDetailDialog({
           )}
         </div>
 
-        <AttachmentList entityType="Tenancy" entityId={tenancy.id} />
+        <AttachmentList
+          entityType="Tenancy"
+          entityId={tenancy.id}
+          extraDocuments={[
+            { url: tenancy.rentAgreementDocumentUrl, label: tenancy.rentAgreementDocumentName ?? "Rent Agreement", category: "Agreement" },
+            { url: tenancy.draftDocumentUrl, label: tenancy.draftDocumentName ?? "Deal Draft / LOI", category: "Draft" },
+          ]}
+        />
 
         {/* Actions */}
         {canManage && (

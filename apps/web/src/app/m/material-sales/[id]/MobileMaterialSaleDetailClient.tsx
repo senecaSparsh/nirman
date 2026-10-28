@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Phone, Printer, XCircle, Banknote,
-  Loader2, IndianRupee, ShieldCheck,
+  Loader2, IndianRupee, ShieldCheck, Camera,
 } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatEnumLabel, formatNumber, formatPaymentMode, toNum} from "@/lib/utils";
 import { toast } from "sonner";
@@ -74,6 +74,7 @@ export function MobileMaterialSaleDetailClient({
   notes,
   vehicleNumber,
   vehicleType,
+  vehiclePhotoUrl,
   driverName,
   driverPhone,
   customer,
@@ -104,6 +105,7 @@ export function MobileMaterialSaleDetailClient({
   notes: string | null;
   vehicleNumber: string | null;
   vehicleType: string | null;
+  vehiclePhotoUrl: string | null;
   driverName: string | null;
   driverPhone: string | null;
   customer: { id: string; name: string; phone: string | null } | null;
@@ -534,7 +536,7 @@ export function MobileMaterialSaleDetailClient({
           </div>
         ) : null}
 
-        {(vehicleNumber || driverName) ? (
+        {(vehicleNumber || driverName || vehiclePhotoUrl) ? (
           <div className="px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
             <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>
               Dispatch
@@ -546,6 +548,17 @@ export function MobileMaterialSaleDetailClient({
               {driverName && (
                 <span>Driver: <span className="font-bold">{driverName}</span>{driverPhone ? ` (${driverPhone})` : ""}</span>
               )}
+              {vehiclePhotoUrl ? (
+                <a
+                  href={`/api/uploads/${vehiclePhotoUrl.replace(/^.*\//, "")}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1"
+                  style={{ color: "var(--color-action)" }}
+                >
+                  <Camera size={12} /> Vehicle photo
+                </a>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -663,7 +676,6 @@ export function MobileMaterialSaleDetailClient({
                   {p.paymentMode === "CHEQUE" && p.chequeNo && (
                     <p className="text-m-caption font-mono" style={{ color: "var(--color-ink-500)" }}>
                       Chq: {p.chequeNo}{p.chequeBank ? ` · ${p.chequeBank}` : ""}
-                      {p.chequePhotoUrl ? " · 📷" : ""}
                     </p>
                   )}
                 </div>
@@ -671,6 +683,18 @@ export function MobileMaterialSaleDetailClient({
                   {formatCurrencyCompact(p.amount)}
                 </p>
                 </button>
+                {p.chequePhotoUrl ? (
+                  <a
+                    href={`/api/uploads/${p.chequePhotoUrl.replace(/^.*\//, "")}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 grid place-items-center size-9 rounded-full border"
+                    style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
+                    aria-label="View cheque photo"
+                  >
+                    <Camera className="size-4" />
+                  </a>
+                ) : null}
                 {canManage && p.status !== "VOID" && !isCancelled ? (
                   <button
                     type="button"

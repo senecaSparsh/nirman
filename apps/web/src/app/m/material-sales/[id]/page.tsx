@@ -53,6 +53,7 @@ export default function MobileMaterialSaleDetailPage({
               notes={null}
               vehicleNumber={null}
               vehicleType={null}
+              vehiclePhotoUrl={null}
               driverName={null}
               driverPhone={null}
               customer={null}
@@ -122,6 +123,7 @@ export default function MobileMaterialSaleDetailPage({
             notes={sale.notes}
             vehicleNumber={sale.vehicleNumber}
             vehicleType={sale.vehicleType}
+            vehiclePhotoUrl={sale.vehiclePhotoUrl}
             driverName={sale.driverName}
             driverPhone={sale.driverPhone}
             customer={sale.customer ? { id: sale.customer.id, name: sale.customer.name, phone: sale.customer.phone } : null}

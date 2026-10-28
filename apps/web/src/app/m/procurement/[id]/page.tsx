@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@nirman/db";
 import {
   ScanLine, Truck,
-  Building2, IndianRupee, ClipboardList, Printer,
+  Building2, IndianRupee, ClipboardList, Printer, Camera,
 } from "lucide-react";
 import { getCompanyGroupIds, getCurrentUser, getEffectivePermissions, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -133,6 +133,7 @@ export default function MobilePoDetailPage({
           receiptDate: gr.receiptDate.toISOString(),
           inspectionStatus: gr.inspectionStatus,
           qty: gr.lines.reduce((s, l) => s + toNum(l.qtyReceived), 0),
+          receivingPhotoUrl: gr.receivingPhotoUrl,
         }));
 
         const payments = po.supplierPayments.map((p) => ({
@@ -613,6 +614,18 @@ export default function MobilePoDetailPage({
                           </p>
                         </div>
                         <div className="shrink-0 flex items-center gap-1">
+                          {r.receivingPhotoUrl ? (
+                            <a
+                              href={`/api/uploads/${r.receivingPhotoUrl.replace(/^.*\//, "")}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex h-9 w-9 items-center justify-center rounded-full border"
+                              style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
+                              title="View receiving photo"
+                            >
+                              <Camera size={16} />
+                            </a>
+                          ) : null}
                           <DetailPrintButton href={`/m/print/goods-receipt/${r.id}`} title="Goods Receipt" />
                           {canManagePayments ? <MobileGrnBillButton goodsReceiptId={r.id} /> : null}
                           {canInspect && r.inspectionStatus === "PENDING" ? <MobileGrnInspectButton goodsReceiptId={r.id} /> : null}

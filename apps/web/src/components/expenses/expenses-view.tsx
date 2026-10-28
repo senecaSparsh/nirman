@@ -6,7 +6,7 @@ import { useUrlFilter } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import {
   Plus, Settings2, RefreshCw, Pencil, Send, Check, X, Trash2,
-  FileText, Receipt as ReceiptIcon, Loader2,
+  FileText, Receipt as ReceiptIcon, Loader2, Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -378,6 +378,18 @@ function ExpenseActions({
           title="View receipt"
         >
           <FileText className="h-3.5 w-3.5" />
+        </a>
+      )}
+      {expense.chequePhotoUrl && (
+        <a
+          href={expense.chequePhotoUrl}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          title="View cheque photo"
+        >
+          <Camera className="h-3.5 w-3.5" />
         </a>
       )}
       {canEdit && (

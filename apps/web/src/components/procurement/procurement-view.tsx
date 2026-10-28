@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import {
   Plus, Pencil, Trash2, ShoppingCart, Tags, Download,
   Printer, FileSpreadsheet, ChevronDown, Ban,
-  ClipboardList, FileText, Undo2, Trophy, AlertCircle, Check,
+  ClipboardList, FileText, Undo2, Trophy, AlertCircle, Check, ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -310,7 +310,16 @@ const directPurchaseColumns: Column<DirectPurchaseRow>[] = [
     key: "vehicleNumber",
     label: "Vehicle",
     sortable: true,
-    render: (p) => p.vehicleNumber ? <span className="font-mono text-caption text-muted-foreground">{p.vehicleNumber}</span> : <span className="text-faint">—</span>,
+    render: (p) => (p.vehicleNumber || p.vehiclePhotoUrl) ? (
+      <span className="inline-flex items-center gap-1.5">
+        {p.vehicleNumber && <span className="font-mono text-caption text-muted-foreground">{p.vehicleNumber}</span>}
+        {p.vehiclePhotoUrl && (
+          <a href={p.vehiclePhotoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-micro text-primary hover:underline">
+            <ExternalLink className="h-3 w-3" /> Photo
+          </a>
+        )}
+      </span>
+    ) : <span className="text-faint">—</span>,
     defaultHidden: true,
   },
   {

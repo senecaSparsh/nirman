@@ -480,7 +480,17 @@ export function PurchaseOrderDetailView({
         </div>
       )}
 
-      <AttachmentList entityType="PurchaseOrder" entityId={detail.id} />
+      <AttachmentList
+        entityType="PurchaseOrder"
+        entityId={detail.id}
+        extraDocuments={detail.receipts
+          .filter((r) => r.receivingPhotoUrl)
+          .map((r) => ({
+            url: r.receivingPhotoUrl,
+            label: `Receiving photo — ${formatDate(r.receiptDate)}`,
+            category: "GRN",
+          }))}
+      />
 
       <ReceiveGoodsDialog open={recvOpen} onOpenChange={setRecvOpen} po={detail} />
       <PoAddLineDialog

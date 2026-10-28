@@ -57,6 +57,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       vehicleNumber: s.vehicleNumber,
       ewayBillNo: s.ewayBillNo,
       vehicleType: s.vehicleType,
+      vehiclePhotoUrl: s.vehiclePhotoUrl,
       driverName: s.driverName,
       driverPhone: s.driverPhone,
       lineCount: s.lines.length,

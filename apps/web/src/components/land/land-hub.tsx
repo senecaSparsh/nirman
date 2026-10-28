@@ -943,7 +943,12 @@ export function LandHub({ data }: { data: LandHubData }) {
                                 {p.chequeStatus === "BOUNCED" && (
                                   <span className="inline-flex items-center rounded bg-red-100 px-1.5 py-0.5 text-micro font-medium text-red-700 dark:bg-red-950 dark:text-red-300">Bounced</span>
                                 )}
-                                {!p.chequeStatus && <span className="text-muted-foreground">—</span>}
+                                {!p.chequeStatus && !p.chequePhotoUrl && <span className="text-muted-foreground">—</span>}
+                                {p.chequePhotoUrl && (
+                                  <a href={p.chequePhotoUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 inline-flex items-center gap-0.5 text-micro text-primary hover:underline">
+                                    <ExternalLink className="h-3 w-3" /> Photo
+                                  </a>
+                                )}
                               </TD>
                             </TR>
                           ))}

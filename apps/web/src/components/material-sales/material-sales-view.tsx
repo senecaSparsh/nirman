@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Plus, Trash2, Printer, CreditCard, SearchX, ShieldCheck, RotateCcw, Zap, CheckCircle2, Undo2 } from "lucide-react";
+import { Package, Plus, Trash2, Printer, CreditCard, SearchX, ShieldCheck, RotateCcw, Zap, CheckCircle2, Undo2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -172,6 +172,7 @@ export type MaterialSaleRow = {
   vehicleNumber: string | null;
   ewayBillNo?: string | null;
   vehicleType: string | null;
+  vehiclePhotoUrl: string | null;
   driverName: string | null;
   driverPhone: string | null;
   // e-Invoice (IRN) — B2B sales need this before the invoice is valid
@@ -1062,7 +1063,7 @@ function MaterialSaleDetailDialog({
         </div>
 
         {/* Vehicle / dispatch info */}
-        {(sale.vehicleNumber || sale.driverName) && (
+        {(sale.vehicleNumber || sale.driverName || sale.vehiclePhotoUrl) && (
           <div className="rounded-lg border border-border bg-muted/20 p-3">
             <div className="text-label font-medium text-muted-foreground mb-1.5">Dispatch Details</div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-body">
@@ -1084,6 +1085,13 @@ function MaterialSaleDetailDialog({
                 <div>
                   <span className="text-muted-foreground">E-way bill: </span>
                   <span className="font-mono font-medium">{sale.ewayBillNo}</span>
+                </div>
+              )}
+              {sale.vehiclePhotoUrl && (
+                <div>
+                  <a href={sale.vehiclePhotoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-caption text-primary hover:underline">
+                    <ExternalLink className="h-3 w-3" /> Vehicle photo
+                  </a>
                 </div>
               )}
             </div>
