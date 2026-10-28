@@ -48,18 +48,22 @@ export function RegisterTabs<T extends string>({
       style={{ backgroundColor: "var(--color-paper-2)" }}
     >
       <div className="flex items-center gap-1">
-        <div className="relative flex flex-1 min-w-0">
-          {tabs.map((tab) => {
-            const active = tab.value === value;
-            const showCount = tab.count !== undefined && tab.count > 0;
-            return (
-              <button
-                key={tab.value}
-                onClick={() => onChange(tab.value)}
-                data-focus-ring="none"
-                className="relative flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-1.5 transition-colors press"
-                style={{ outline: "none" }}
-              >
+        <div className="relative flex-1 min-w-0 overflow-x-auto scrollbar-none">
+          <div
+            className="relative flex w-full"
+            style={{ minWidth: `${tabs.length * 4.5}rem` }}
+          >
+            {tabs.map((tab) => {
+              const active = tab.value === value;
+              const showCount = tab.count !== undefined && tab.count > 0;
+              return (
+                <button
+                  key={tab.value}
+                  onClick={() => onChange(tab.value)}
+                  data-focus-ring="none"
+                  className="relative flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 py-1.5 transition-colors press"
+                  style={{ outline: "none" }}
+                >
                 <span
                   className="text-m-caption leading-tight truncate"
                   style={{
@@ -100,6 +104,7 @@ export function RegisterTabs<T extends string>({
                 backgroundColor: "var(--color-go)",
               }}
             />
+          </div>
           </div>
         </div>
         {trailing}
