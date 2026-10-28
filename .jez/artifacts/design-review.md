@@ -357,3 +357,24 @@ compiles on first hit.
 (status/search/Columns/CSV/Save View/Views/New CO), typed rows
 (Modification/Addition), signed cost deltas (+₹5K red, ₹0), status badges,
 TOTAL +₹5.0K — holds the shared table conventions.
+
+## Round 20 — Sahayak assistant + redirects + change-orders
+
+**Assistant verified live:** floating bubble → Sahayak chat → "Cash
+position" chip → `/api/assistant` 200 → real Hinglish answer with live
+numbers (Cash ₹75.10L, Receivable ₹25.01L, Payable ₹15.2K — ties to More
+hub card exactly, Net ₹99.96L) + follow-up chips. Bilingual greeting,
+type-or-speak input — exactly right for the audience.
+
+**FIXED — raw markdown in bubbles:** assistant replies showed literal
+`**Cash Position:**` — API returns markdown-lite, TTS path stripped it,
+visual path didn't. Added a split-map renderer: `**x**` → real bold.
+Commit 6218e687.
+
+**Redirects verified intentional:** `/m/settings/team` → `/m/hr/employees`,
+`/m/settings/company` → company profile (they surface as fake "cold
+compile timeouts" in sweeps since the redirect target compiles on first
+hit).
+
+**`/change-orders` desktop:** stat tiles, filter row, typed rows, signed
+deltas, TOTAL — shared table conventions hold.
