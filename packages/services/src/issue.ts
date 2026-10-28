@@ -782,7 +782,7 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
 }
 
 /** Cancel a material issue — reverse stock, GL, and project cost allocation. */
-export async function cancelMaterialIssue(id: string, userId?: string) {
+export async function cancelMaterialIssue(id: string, userId?: string, reason?: string) {
   return withStockTransaction(async (tx) => {
     const issue = await tx.materialIssue.findFirst({
       where: { id },
@@ -790,6 +790,14 @@ export async function cancelMaterialIssue(id: string, userId?: string) {
     });
     if (!issue) throw new ServiceError("Material issue not found", 404);
     if (issue.status === "CANCELLED") throw new ServiceError("Issue is already cancelled");
+
+    // A COMPLETED-issue cancel restores stock + unwinds GL — an audit reason
+    // is mandatory (same contract as transfer reversal). A PENDING issue never
+    // moved stock, so its cancel stays frictionless.
+    const trimmedReason = reason?.trim();
+    if (issue.status === "COMPLETED" && !trimmedReason) {
+      throw new ServiceError("A reason is required to cancel a completed material issue", 400);
+    }
 
     const companyId = issue.project?.companyId ?? issue.department?.companyId;
     if (!companyId) throw new ServiceError("Cannot determine company for this issue");
@@ -806,7 +814,7 @@ export async function cancelMaterialIssue(id: string, userId?: string) {
           toLocationId: issue.fromLocationId,
           qty: line.qty,
           unitCost: line.unitCost, // restore at original MAC
-          reason: `Reversal of material issue ${issue.issueNumber ?? id.slice(-6)}`,
+          reason: `Reversal of material issue ${issue.issueNumber ?? id.slice(-6)}${trimmedReason ? ` — ${trimmedReason}` : ""}`,
           refType: "MATERIAL_ISSUE",
           refId: issue.id,
           userId,
@@ -887,7 +895,7 @@ export async function cancelMaterialIssue(id: string, userId?: string) {
         entityType: "MaterialIssue",
         entityId: issue.id,
         before: { status: "COMPLETED" },
-        after: { status: "CANCELLED" },
+        after: { status: "CANCELLED", ...(trimmedReason ? { reason: trimmedReason } : {}) },
       });
     }
 

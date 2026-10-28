@@ -50,22 +50,24 @@ export function IssuesTab({
   const [projectFilter, setProjectFilter] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<MaterialIssueListRow | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
   const issueDisabled = (projects.length === 0 && departments.length === 0) || materialOptions.length === 0;
 
   // Execute a PENDING issue (moves stock) or cancel a COMPLETED one
   // (reverses stock + GL) — the same actions the mobile issue detail offers.
-  async function issueAction(id: string, action: "execute" | "cancel") {
+  async function issueAction(id: string, action: "execute" | "cancel", reason?: string) {
     setBusyId(id);
     try {
       const res = await fetch(`/api/issue-materials/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...(reason ? { reason } : {}) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? `Failed to ${action}`);
       toast.success(action === "execute" ? "Issue executed — stock moved" : "Issue cancelled — stock + ledger reversed");
       setCancelTarget(null);
+      setCancelReason("");
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -260,12 +262,29 @@ export function IssuesTab({
 
       <ConfirmDialog
         open={cancelTarget != null}
-        onOpenChange={(o) => { if (!o) setCancelTarget(null); }}
+        onOpenChange={(o) => { if (!o) { setCancelTarget(null); setCancelReason(""); } }}
         title={`Cancel issue ${cancelTarget?.issueNumber ?? ""}?`}
-        description="This returns the issued quantity to the source location and posts a reversing ledger entry. The issue stays on the register marked Cancelled."
+        description={
+          <span className="block space-y-3">
+            <span>This returns the issued quantity to the source location and posts a reversing ledger entry. The issue stays on the register marked Cancelled.</span>
+            {cancelTarget?.status === "COMPLETED" ? (
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold">Reason (required — recorded in the stock ledger)</span>
+                <textarea
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="e.g. Issued to the wrong site — materials returned to store"
+                  rows={2}
+                  className="w-full rounded-md border border-border bg-paper px-3 py-2 text-sm"
+                />
+              </label>
+            ) : null}
+          </span>
+        }
         confirmLabel="Cancel Issue"
         variant="destructive"
-        onConfirm={async () => { if (cancelTarget) await issueAction(cancelTarget.id, "cancel"); }}
+        confirmDisabled={cancelTarget?.status === "COMPLETED" && !cancelReason.trim()}
+        onConfirm={async () => { if (cancelTarget) await issueAction(cancelTarget.id, "cancel", cancelReason.trim() || undefined); }}
       />
     </div>
   );

@@ -67,7 +67,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   if (action === "cancel") {
     try {
-      const result = await cancelMaterialIssue(id, user.id);
+      const result = await cancelMaterialIssue(id, user.id, typeof body?.reason === "string" ? body.reason : undefined);
       revalidatePath("/stock");
       revalidatePath("/m/stock");
       revalidatePath("/projects");

@@ -21,6 +21,7 @@ export function ConfirmDialog({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   variant = "destructive",
+  confirmDisabled = false,
   onConfirm,
 }: {
   open: boolean;
@@ -30,6 +31,7 @@ export function ConfirmDialog({
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: "destructive" | "default" | "outline";
+  confirmDisabled?: boolean;
   onConfirm: () => void | Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -50,7 +52,7 @@ export function ConfirmDialog({
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
           {cancelLabel}
         </Button>
-        <Button type="button" variant={variant} onClick={handleConfirm} disabled={busy}>
+        <Button type="button" variant={variant} onClick={handleConfirm} disabled={busy || confirmDisabled}>
           {busy ? "Working…" : confirmLabel}
         </Button>
       </div>

@@ -78,6 +78,7 @@ export function MobileMaterialIssueDetailClient({
   const docViewer = useDocumentViewer();
   const [showCancel, setShowCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [executing, setExecuting] = useState(false);
 
   if (notFound || !issue) {
@@ -100,7 +101,7 @@ export function MobileMaterialIssueDetailClient({
       const res = await fetch(`/api/issue-materials/${issueId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel" }),
+        body: JSON.stringify({ action: "cancel", reason: cancelReason.trim() || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to cancel");
@@ -351,6 +352,22 @@ export function MobileMaterialIssueDetailClient({
               <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
                 This will reverse the stock issue, restore materials to the source location, and reverse GL entries. This cannot be undone.
               </p>
+              {issue.status === "COMPLETED" ? (
+                <div className="mb-3">
+                  <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-700)" }} htmlFor="cancel-reason">
+                    Reason <span style={{ color: "var(--color-stop)" }}>*</span>
+                  </label>
+                  <textarea
+                    id="cancel-reason"
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    placeholder="e.g. Issued to the wrong site — materials returned to store"
+                    rows={2}
+                    className="mt-1 w-full rounded-[0.5rem] border px-3 py-2 text-m-body"
+                    style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                  />
+                </div>
+              ) : null}
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowCancel(false)}
@@ -362,7 +379,7 @@ export function MobileMaterialIssueDetailClient({
                 </button>
                 <button
                   onClick={handleCancel}
-                  disabled={cancelling}
+                  disabled={cancelling || (issue.status === "COMPLETED" && !cancelReason.trim())}
                   className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1"
                   style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
                 >
