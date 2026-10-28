@@ -204,3 +204,10 @@ Cross-surface numbers reconcile: Receivables ₹25L = Finance "outstanding" card
 - **Header-depth audit** — measured search-row top offset across all list pages: dprs 83, materials 85, expenses/material-issues 139, gate-pass 161, safety 185, units 202, projects 309, quality-control 311. The >200px ones carry real content (over-budget banner, portfolio card, inspection queue) — judged legitimate, not defects.
 - **Dev server stall diagnosed** — Turbopack wedged (health endpoint timing out, near-idle CPU), masking several commits as "unchanged" to the user. Killed PID; wrapper respawned healthy. Documented gap in `AGENTS.md` — the wrapper catches crashes, not CPU-bound compile stalls.
 - **Route sweep**: all 35 real `/m/*` routes render 200 with real content or honest empty states. Earlier 404s were guessed-URL artifacts (`/m/payroll`→`/m/hr`, `/m/purchase-orders`→`/m/procurement`), not dead links.
+
+### Round 11 — visual symmetry pass (Oct 27)
+
+- **Duplicate "+" glyph collision fixed (`386aaa2d`)** — the nav centre DeptFab ("More departments" fan) and every page's create FAB both rendered `Plus` — two identical icons, unrelated actions. DeptFab now swaps `LayoutGrid`/`X`; "+" unambiguously means "create" app-wide.
+- **False alarms verified, not defects**: clipped bottom-left nav label = Next.js dev-tools badge (dev only); `/m/sales` "Pipeline" appearing twice = quick-actions module grid tab vs inner leads tab (coincidental naming); `/m/stock-out` bottom bar overlapping nav = deliberate (comment documents why — old position let the centre FAB cover submit); tall headers on projects/quality-control = real content (over-budget banner, inspection queue); `PageLead` description lines auto-hide after N visits (onboarding by design).
+- **All 9 main list pages screenshotted side-by-side** — expenses, stock, material-issues, material-sales, gate-pass, units, sales, rentals, pulse — consistent dark theme, nav, strip, row, card conventions.
+- **Detail + form verified** — `/m/material-issues/[id]` (status timeline, stat tiles, paired buttons), `/m/stock-out?mode=issue` (mode cards, route swap, receiver/vehicle sections, sticky CTA).
