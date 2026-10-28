@@ -217,3 +217,8 @@ Cross-surface numbers reconcile: Receivables ₹25L = Finance "outstanding" card
 - **RegisterTabs label crush fixed (`122c7d88`)** — `/m/accounts` 8-tab row squeezed labels into collisions ("Petty CashPayments"). Tab row now holds a 4.5rem/tab floor and scrolls horizontally past it; equal widths preserved so the sliding underline math is unchanged. Few-tab pages render identically to before.
 - **Verified symmetric**: notifications list, attention queue (hero + category chips + grouped sections — best-composed page), offline queue, filter/sort dropdowns, issue detail, stock-out form, sales/units/rentals/pulse grids.
 - **Residual known-noise**: duplicate "Payroll Zero Gross" notifications (legit warnings about seeded zero-rate payroll drafts — data, not UI).
+
+### Round 12b — symmetry continuation (Oct 27)
+
+- **Verified**: expense detail (rows + tracking timeline + documents — same convention as issue detail), work-orders (status tiles + card meta grid), `/m/requisitions` → procurement hub redirect (clean empty state), `/m/requisitions` earlier blank = cold-compile lag not a defect.
+- **Create FABs** navigate to entity forms (no modal) — consistent behavior across list pages.
