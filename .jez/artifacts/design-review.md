@@ -467,3 +467,27 @@ All verified live with real data:
 
 Note: bare `/attendance` 404s correctly — real route is `/hr/attendance`
 (no broken links; my probe used a guessed URL).
+
+## Round 24 — ⌘K palette + SITE_ENGINEER persona
+
+**⌘K verified end-to-end:** Meta+K → palette (input + ESC hint +
+↑↓/⏎ footer) → "gate pass" filters to route result (Gate Passes ·
+Build ↵) → Enter navigates to /gate-passes. Async entity search shows
+"Searching…" then resolves correctly.
+
+**SITE_ENGINEER persona verified — role-personalization is real:**
+
+- Bottom nav re-orders to `Home | Field | DPRs | Stock` (vs owner's
+  `Inventory | HR | Accounts`) — field-relevant sections only.
+- Home is a worker's day view, not a business dashboard: payroll-lock
+  banner rephrased for the worker ("Your supervisor can add an
+  adjustment in the next period" vs the admin phrasing on desktop),
+  "Good evening, Yash" greeting, Briefing card (low-stock alert),
+  TODAY vertical timeline (Check in → 1 open task → File today's DPR
+  → Check out, with lock states), 2×2 grid of permitted modules
+  (Gate Pass, Leaves, Procurement, Expenses).
+- `/m/reports/balance-sheet` → clean 404 with Back to Home
+  (FINANCE_VIEW gate).
+- `/m/approvals` → friendly "No access — you do not have permission to
+  approve any items (POs, requisitions, gate passes, DPRs, expenses,
+  RA bills, or leave requests)" — explains scope instead of erroring.
