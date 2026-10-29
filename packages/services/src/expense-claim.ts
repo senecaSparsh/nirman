@@ -425,7 +425,7 @@ export async function rejectExpenseClaim(claimId: string, companyId: string, rea
 export async function payExpenseClaim(
   claimId: string,
   companyId: string,
-  payment: { paymentMode: string; referenceNo?: string | null },
+  payment: { paymentMode: string; referenceNo?: string | null; settleAgainstAdvance?: boolean },
   userId?: string,
 ) {
   const updated = await withSerializableTransaction(async (tx) => {
@@ -442,16 +442,60 @@ export async function payExpenseClaim(
       new Decimal(0),
     );
 
-    // Post settlement: Dr Reimbursements Payable / Cr Cash
+    // Imprest netting — when the payer explicitly settles the claim against
+    // the claimant's open advance (₹20k issued for the trip, bills returned
+    // against it), the advance absorbs as much of the payable as it can
+    // cover, oldest first; payroll recovery sees the consumption via
+    // recoveredAmount like any other recovery. Opt-in because an advance
+    // carries no purpose field — a salary advance must never be silently
+    // consumed by an expense claim.
+    let advanceNetted = new Decimal(0);
+    if (payment.settleAgainstAdvance) {
+      const employee = await tx.employee.findFirst({
+        where: { userId: claim.claimantId, companyId, deletedAt: null },
+        select: { id: true },
+      });
+      if (employee) {
+        const advances = await tx.employeeAdvance.findMany({
+          where: { employeeId: employee.id, status: "ACTIVE" },
+          orderBy: { issueDate: "asc" },
+        });
+        let remaining = totalPayable;
+        for (const adv of advances) {
+          if (remaining.lte(0)) break;
+          const outstanding = new Decimal(adv.amount).minus(adv.recoveredAmount);
+          if (outstanding.lte(0)) continue;
+          const take = Decimal.min(remaining, outstanding);
+          await tx.employeeAdvance.update({
+            where: { id: adv.id },
+            data: {
+              recoveredAmount: new Decimal(adv.recoveredAmount).plus(take),
+              status: take.eq(outstanding) ? "SETTLED" : "ACTIVE",
+            },
+          });
+          remaining = remaining.minus(take);
+          advanceNetted = advanceNetted.plus(take);
+        }
+      }
+    }
+
+    // Post settlement: Dr Reimbursements Payable / Cr advances (netted
+    // portion, reduces the advance asset) / Cr Cash (the remainder).
+    const cashPaid = totalPayable.minus(advanceNetted);
     await postJournalEntry(tx, {
       companyId,
       sourceType: "EXPENSE_CLAIM_PAYMENT",
       sourceId: claimId,
-      memo: `Expense claim payment — ${claim.description ?? claim.id}`,
+      memo: `Expense claim payment — ${claim.description ?? claim.id}${advanceNetted.gt(0) ? " (settled against advance)" : ""}`,
       postedById: userId,
       lines: [
         { accountCode: ACCT.REIMBURSEMENTS_PAYABLE, debit: totalPayable, credit: 0, entityType: "ExpenseClaim", entityId: claimId },
-        { accountCode: ACCT.CASH, debit: 0, credit: totalPayable, entityType: "ExpenseClaim", entityId: claimId },
+        ...(advanceNetted.gt(0)
+          ? [{ accountCode: ACCT.ADVANCE_TO_EMP, debit: new Decimal(0), credit: advanceNetted, entityType: "ExpenseClaim", entityId: claimId, memo: "Settled against employee advance" }]
+          : []),
+        ...(cashPaid.gt(0)
+          ? [{ accountCode: ACCT.CASH, debit: new Decimal(0), credit: cashPaid, entityType: "ExpenseClaim", entityId: claimId }]
+          : []),
       ],
     });
 
@@ -468,7 +512,7 @@ export async function payExpenseClaim(
     await logAction(tx, {
       userId, companyId, action: "EXPENSE_CLAIM_PAY",
       entityType: "ExpenseClaim", entityId: claimId,
-      after: { status: "PAID", paymentMode: payment.paymentMode, totalPayable: totalPayable.toString() },
+      after: { status: "PAID", paymentMode: payment.paymentMode, totalPayable: totalPayable.toString(), advanceNetted: advanceNetted.toString(), cashPaid: cashPaid.toString() },
     });
     return updated;
   });

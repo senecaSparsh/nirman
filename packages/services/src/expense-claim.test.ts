@@ -33,6 +33,7 @@ vi.mock("./gl-posting", () => ({
     INPUT_GST: "1405",
     CASH: "1000",
     PETTY_CASH: "1010",
+    ADVANCE_TO_EMP: "1650",
   },
 }));
 
@@ -521,5 +522,102 @@ describe("payExpenseClaim — status guard", () => {
     } catch (err) {
       expect((err as Error).message).toContain("DRAFT");
     }
+  });
+});
+
+// ── payExpenseClaim — imprest netting (settleAgainstAdvance) ──────────
+
+describe("payExpenseClaim — advance netting", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const approvedClaim = {
+    id: "claim-1",
+    status: "APPROVED",
+    companyId: "c1",
+    claimantId: "user-9",
+    lines: [{ amount: new Decimal(1000), gstAmount: new Decimal(180) }],
+  };
+
+  function nettingTx(overrides: Record<string, unknown> = {}) {
+    const tx = makeMockTx({
+      employee: { findFirst: vi.fn().mockResolvedValue({ id: "emp-1" }) },
+      employeeAdvance: {
+        findMany: vi.fn().mockResolvedValue([]),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      ...overrides,
+    });
+    tx.expenseClaim.findFirst.mockResolvedValue(approvedClaim);
+    runWithTx(tx as ReturnType<typeof makeMockTx>);
+    return tx;
+  }
+
+  it("settles a claim fully against an open advance — advance leg only, no cash", async () => {
+    const { postJournalEntry } = await import("./gl-posting");
+    const advUpdate = vi.fn().mockResolvedValue({});
+    const tx = nettingTx({
+      employeeAdvance: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: "adv-1", amount: new Decimal(5000), recoveredAmount: new Decimal(1000), status: "ACTIVE" },
+        ]),
+        update: advUpdate,
+      },
+    });
+    await payExpenseClaim("claim-1", "c1", { paymentMode: "BANK", settleAgainstAdvance: true }, "user-1");
+
+    // ₹1,180 payable against ₹4,000 outstanding → fully netted, advance stays ACTIVE.
+    expect(advUpdate).toHaveBeenCalledWith({
+      where: { id: "adv-1" },
+      data: { recoveredAmount: expect.objectContaining({}), status: "ACTIVE" },
+    });
+    const lines = vi.mocked(postJournalEntry).mock.calls[0]![1].lines;
+    const advLeg = lines.find((l) => l.accountCode === "1650")!;
+    expect(advLeg.credit.toString()).toBe("1180");
+    expect(lines.find((l) => l.accountCode === "1000")).toBeUndefined();
+  });
+
+  it("partial netting: claim exceeds advance → advance SETTLED + cash remainder", async () => {
+    const { postJournalEntry } = await import("./gl-posting");
+    const advUpdate = vi.fn().mockResolvedValue({});
+    nettingTx({
+      employeeAdvance: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: "adv-1", amount: new Decimal(800), recoveredAmount: new Decimal(0), status: "ACTIVE" },
+        ]),
+        update: advUpdate,
+      },
+    });
+    await payExpenseClaim("claim-1", "c1", { paymentMode: "UPI", settleAgainstAdvance: true }, "user-1");
+
+    // ₹800 of ₹1,180 netted → advance closes, ₹380 still pays cash.
+    expect(advUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "SETTLED" }) }),
+    );
+    const lines = vi.mocked(postJournalEntry).mock.calls[0]![1].lines;
+    expect(lines.find((l) => l.accountCode === "1650")!.credit.toString()).toBe("800");
+    expect(lines.find((l) => l.accountCode === "1000")!.credit.toString()).toBe("380");
+  });
+
+  it("without the flag an open advance is untouched — pure cash (unchanged behavior)", async () => {
+    const { postJournalEntry } = await import("./gl-posting");
+    const advFind = vi.fn().mockResolvedValue([{ id: "adv-1" }]);
+    nettingTx({ employeeAdvance: { findMany: advFind, update: vi.fn() } });
+    await payExpenseClaim("claim-1", "c1", { paymentMode: "BANK" }, "user-1");
+    expect(advFind).not.toHaveBeenCalled();
+    const lines = vi.mocked(postJournalEntry).mock.calls[0]![1].lines;
+    expect(lines.find((l) => l.accountCode === "1650")).toBeUndefined();
+    expect(lines.find((l) => l.accountCode === "1000")!.credit.toString()).toBe("1180");
+  });
+
+  it("flag set but claimant has no employee record → full cash, no crash", async () => {
+    const { postJournalEntry } = await import("./gl-posting");
+    nettingTx({ employee: { findFirst: vi.fn().mockResolvedValue(null) } });
+    await expect(
+      payExpenseClaim("claim-1", "c1", { paymentMode: "CASH", settleAgainstAdvance: true }, "user-1"),
+    ).resolves.toBeDefined();
+    const lines = vi.mocked(postJournalEntry).mock.calls[0]![1].lines;
+    expect(lines.find((l) => l.accountCode === "1000")!.credit.toString()).toBe("1180");
   });
 });

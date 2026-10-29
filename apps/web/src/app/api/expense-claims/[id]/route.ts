@@ -130,7 +130,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     } else if (d.action === "pay") {
       const user = await requireEffectivePermission(PERM.FINANCE_MANAGE);
       if (!d.paymentMode) return json({ error: "Payment mode is required" }, { status: 400 });
-      await payExpenseClaim(id, company.id, { paymentMode: d.paymentMode, referenceNo: d.referenceNo ?? null }, user.id);
+      await payExpenseClaim(id, company.id, { paymentMode: d.paymentMode, referenceNo: d.referenceNo ?? null, settleAgainstAdvance: d.settleAgainstAdvance === true }, user.id);
     } else {
       return json({ error: "Unknown action" }, { status: 400 });
     }

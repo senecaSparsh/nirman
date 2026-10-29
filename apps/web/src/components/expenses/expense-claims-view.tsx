@@ -40,6 +40,7 @@ type ClaimRow = {
   paymentMode: string | null;
   referenceNo: string | null;
   lineCount: number;
+  advanceOutstanding?: number;
   createdAt: string;
 };
 
@@ -66,6 +67,7 @@ export function ExpenseClaimsView({
   const [paying, setPaying] = useState<ClaimRow | null>(null);
   const [payMode, setPayMode] = useState("NEFT");
   const [payRef, setPayRef] = useState("");
+  const [payNetAdvance, setPayNetAdvance] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState({ claimantId: "", projectId: "", description: "" });
 
@@ -107,6 +109,7 @@ export function ExpenseClaimsView({
         paymentMode: null,
         referenceNo: null,
         lineCount: 0,
+        advanceOutstanding: 0,
         createdAt: new Date().toISOString(),
       });
       router.refresh();
@@ -269,7 +272,7 @@ export function ExpenseClaimsView({
                 {c.status === "APPROVED" && permissions.canManage && (
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); setPaying(c); setPayMode("NEFT"); setPayRef(""); }}
+                    onClick={(e) => { e.stopPropagation(); setPaying(c); setPayMode("NEFT"); setPayRef(""); setPayNetAdvance(false); }}
                     className="rounded p-1.5 text-muted-foreground hover:bg-brand-soft hover:text-brand"
                     title="Mark as paid"
                   >
@@ -372,9 +375,23 @@ export function ExpenseClaimsView({
                 <Input id="pay-ref" value={payRef} onChange={(e) => setPayRef(e.target.value)} placeholder="UTR / Txn ID" />
               </div>
             </div>
+            {(paying.advanceOutstanding ?? 0) > 0 && (
+              <label className="flex items-start gap-2 rounded-md border border-border px-3 py-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={payNetAdvance}
+                  onChange={(e) => setPayNetAdvance(e.target.checked)}
+                  className="mt-0.5 rounded"
+                />
+                <span className="text-[0.75rem]">
+                  Settle against {paying.claimantName}&apos;s advance — {formatCurrency(paying.advanceOutstanding!)} outstanding.
+                  The claim absorbs into the advance first; only the remainder pays out as {payMode.toLowerCase()}.
+                </span>
+              </label>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setPaying(null)}>Cancel</Button>
-              <Button onClick={() => doAction(paying, "pay", { paymentMode: payMode, referenceNo: payRef || null })} disabled={actionLoading === `${paying.id}-pay`}>
+              <Button onClick={() => doAction(paying, "pay", { paymentMode: payMode, referenceNo: payRef || null, settleAgainstAdvance: payNetAdvance })} disabled={actionLoading === `${paying.id}-pay`}>
                 {actionLoading === `${paying.id}-pay` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                 Mark as Paid
               </Button>

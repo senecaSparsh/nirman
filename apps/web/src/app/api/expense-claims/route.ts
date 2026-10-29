@@ -45,6 +45,23 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       lines: true,
     },
   });
+  // Outstanding employee advance per claimant — lets the pay dialog offer
+  // imprest netting (settle the claim against an open advance) when one
+  // exists. Two batched lookups, not a per-row query.
+  const claimantIds = [...new Set(claims.map((c) => c.claimantId))];
+  const claimantEmployees = await prisma.employee.findMany({
+    where: { userId: { in: claimantIds }, companyId: company.id, deletedAt: null },
+    select: { id: true, userId: true },
+  });
+  const empIdByUser = new Map(claimantEmployees.map((e) => [e.userId, e.id]));
+  const openAdvances = await prisma.employeeAdvance.findMany({
+    where: { employeeId: { in: claimantEmployees.map((e) => e.id) }, status: "ACTIVE" },
+    select: { employeeId: true, amount: true, recoveredAmount: true },
+  });
+  const outstandingByEmp = new Map<string, number>();
+  for (const a of openAdvances) {
+    outstandingByEmp.set(a.employeeId, (outstandingByEmp.get(a.employeeId) ?? 0) + (toNum(a.amount) - toNum(a.recoveredAmount)));
+  }
   return json(claims.map((c) => ({
     id: c.id,
     claimantId: c.claimantId,
@@ -60,6 +77,10 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     paymentMode: c.paymentMode,
     referenceNo: c.referenceNo,
     lineCount: c.lines.length,
+    advanceOutstanding: (() => {
+      const empId = empIdByUser.get(c.claimantId);
+      return empId ? (outstandingByEmp.get(empId) ?? 0) : 0;
+    })(),
     createdAt: c.createdAt.toISOString(),
   })));
 });
