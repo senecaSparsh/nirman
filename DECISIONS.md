@@ -3183,3 +3183,45 @@ construction MB→RA bill ✓, attendance→payroll engine ✓, task push ✓,
 block/unblock ✓, bank-SMS reconciliation ✓. Remaining unexercised:
 tenancy draft/escalation (no tenancies in SRG test co), e-invoice/IRN,
 bank statement CSV import UI, expense-claim advance netting.
+
+## Round 124 — GitHub-mined references mapped to remaining spines
+
+Mined GitHub for adoptable components/patterns. Key finding: the "e-invoice"
+gap is already ~90% built in-repo — `services/e-invoice.ts` has a pluggable
+`EInvoiceProvider` interface (setEInvoiceProvider/isEInvoiceConfigured,
+matching the WhatsApp stub pattern), NIC payload builders for material +
+asset sales, and `generateMaterialSaleIrn` with serializable GENERATING
+claims + stale-claim recovery. API routes + IRN UI exist on desktop and
+mobile sale pages. The only missing piece is a concrete NIC IRP provider —
+needs GSP/IRP credentials, so it stays a stub-config decision for the owner.
+
+References worth keeping (verified, not vendored):
+
+- `ambshah/GST-E-invoice` — documents the NIC IRP wire protocol: auth token
+  6h expiry (refresh ~10min early), request body = base64-encoded JSON
+  envelope {data}, response carries Irn + SignedInvoice + SignedQRCode
+  (JWT/JWS SHA256RSA). This is the spec for writing our NicIrpProvider
+  against EInvoiceProvider's generateIrn/cancelIrn contract. Official
+  sandbox spec: einv-apisandbox.nic.in (generate-irn.html documents the
+  AES Sek encryption + headers: client_id/secret, Gstin, user_name,
+  AuthToken).
+- `TwinTricks/gst-invoice` (@twin.techies/gst-invoice) — TS lib producing
+  NIC IRP v1.1 e-invoice JSON + GSTIN checksum validation + CGST/SGST-vs-
+  IGST state-code split + Indian amount-in-words. MIT but 0 stars / brand
+  new — do NOT add as a dependency; use its NIC v1.1 JSON shape as a
+  diff-check reference against our buildXxxEInvoicePayload outputs when
+  wiring the real provider.
+- `datadrivenconstruction/OpenConstructionERP` — 1k★ AGPL-3.0, 190+
+  modules, 120k priced positions incl. CPWD rate bases. AGPL: no vendored
+  code, but worth mining for BOQ takeoff structure + tendering/L1-chart
+  domain shape if the procurement spine ever extends to estimate-driven
+  indents.
+- `SiteWise/app` — PocketBase mobile-first site mgmt; O'Saasy license —
+  read for PWA/offline patterns only, no code reuse.
+- `Rajwada-Infotech/CivilierERP` — India construction ERP module map
+  (BRS, cheque cancellation, JV, year-end close, vehicle in/out,
+  L1 chart) — useful checklist when auditing feature coverage claims.
+
+Adoption rule: schema-first as usual — fields already exist; the next
+e-invoice step is owner-sourced GSP credentials, then a NicIrpProvider.
+No code changes this round.
