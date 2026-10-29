@@ -477,18 +477,27 @@ export async function confirmExit(id: string, securityId: string, exitDetails: C
     // recording it.
     if (gp.refType === "MaterialIssue" && gp.refId) {
       const issue = await tx.materialIssue.findUnique({ where: { id: gp.refId }, select: { status: true } });
+      if (issue?.status === "CANCELLED") {
+        throw new ServiceError("The linked material issue is cancelled — cancel this gate pass instead of confirming exit", 409);
+      }
       if (issue?.status === "PENDING") {
         const { executeMaterialIssue } = await import("./issue");
         await executeMaterialIssue(gp.refId, securityId);
       }
     } else if (gp.refType === "MaterialSale" && gp.refId) {
       const sale = await tx.materialSale.findUnique({ where: { id: gp.refId }, select: { status: true } });
+      if (sale?.status === "CANCELLED" || sale?.status === "RETURNED") {
+        throw new ServiceError(`The linked material sale is ${sale.status.toLowerCase()} — cancel this gate pass instead of confirming exit`, 409);
+      }
       if (sale?.status === "PENDING") {
         const { executeMaterialSale } = await import("./material-sale");
         await executeMaterialSale(gp.refId, securityId);
       }
     } else if (gp.refType === "StockTransfer" && gp.refId) {
       const tr = await tx.stockTransfer.findUnique({ where: { id: gp.refId }, select: { status: true } });
+      if (tr?.status === "CANCELLED" || tr?.status === "REVERSED") {
+        throw new ServiceError(`The linked transfer is ${tr.status.toLowerCase()} — cancel this gate pass instead of confirming exit`, 409);
+      }
       if (tr?.status === "DRAFT") {
         const { dispatchTransfer } = await import("./transfer");
         await dispatchTransfer(gp.refId, securityId, {
