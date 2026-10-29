@@ -45,6 +45,7 @@
  */
 
 import { spawn, execSync } from "node:child_process";
+import { get } from "node:http";
 import { existsSync, rmSync, watch, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, dirname } from "node:path";
@@ -71,6 +72,15 @@ const MAX_BACKOFF_MS = 4000;
 // the error is deterministic (code/config issue, not transient cache
 // desync). Fall back to webpack dev instead of looping.
 const DETERMINISTIC_ERROR_THRESHOLD = 3;
+
+// Stall detection: Turbopack can wedge into minutes-long CPU-bound
+// compiles where stdout goes quiet and even /api/health times out.
+// Crash signatures can't see this — poll liveness instead. Failures
+// only count AFTER the server has answered once, so cold starts and
+// first compiles never false-positive.
+const HEALTH_POLL_MS = 30_000;
+const HEALTH_TIMEOUT_MS = 15_000;
+const STALL_FAILURE_LIMIT = 3;
 
 // Self-sustaining watcher gates (prevent the restart loop caused by
 // macOS fs.watch spurious events + prisma generate touching files).
@@ -119,6 +129,53 @@ let fileWatcherDebounce = null;
 let lastErrorSignature = null;
 let consecutiveSameErrorCount = 0;
 let useWebpackFallback = false;
+
+// Stall-detection state.
+let serverPort = null;
+let serverHealthy = false;
+let healthFailures = 0;
+let healthTimer = null;
+
+function resetHealthState() {
+  serverPort = null;
+  serverHealthy = false;
+  healthFailures = 0;
+  if (healthTimer) {
+    clearInterval(healthTimer);
+    healthTimer = null;
+  }
+}
+
+// Poll /api/health; a wedged Turbopack process stays alive but never
+// answers. 3 consecutive failures (~90s unresponsive) → plain respawn
+// (no cache clear — a CPU stall isn't cache corruption).
+function startHealthMonitor() {
+  healthTimer = setInterval(() => {
+    if (isShuttingDown || isRestarting) return;
+    if (!childProcess || childProcess.exitCode !== null) return;
+    if (!serverPort) return;
+    const req = get(
+      { host: "127.0.0.1", port: serverPort, path: "/api/health", timeout: HEALTH_TIMEOUT_MS },
+      (res) => {
+        res.resume();
+        serverHealthy = true;
+        healthFailures = 0;
+      },
+    );
+    req.on("timeout", () => req.destroy());
+    req.on("error", () => {
+      if (!serverHealthy) return; // never answered yet — still starting
+      healthFailures++;
+      if (healthFailures >= STALL_FAILURE_LIMIT) {
+        logWarn(`health check failed ${healthFailures}x — server unresponsive (compile stall?), restarting`);
+        healthFailures = 0;
+        if (!canRestart()) return;
+        scheduleRestart("unresponsive", false);
+      }
+    });
+  }, HEALTH_POLL_MS);
+  healthTimer.unref?.();
+}
 
 // ── Schema-content tracking (prevents false-positive restart loops) ──
 // We hash the schema.prisma content and only restart when it ACTUALLY
@@ -303,11 +360,21 @@ function startDevServer(args = []) {
     detached: true, // so we can kill the process group
   });
 
+  resetHealthState();
   let stderrBuffer = "";
 
   childProcess.stdout.on("data", (data) => {
     const text = data.toString();
     process.stdout.write(text);
+    // Capture the bound port from Next's startup banner — it may differ
+    // from 3000 when the default port is taken.
+    if (!serverPort) {
+      const m = text.match(/Local:\s+https?:\/\/[^:]+:(\d+)/);
+      if (m) {
+        serverPort = Number(m[1]);
+        startHealthMonitor();
+      }
+    }
     // Check for error signatures in stdout too (Next.js logs some errors there).
     if (shouldRestart(text)) {
       handleTurbopackError(text, "stdout");
@@ -520,6 +587,7 @@ function shutdown(signal) {
 
   if (stableUptimeTimer) clearTimeout(stableUptimeTimer);
   if (fileWatcherDebounce) clearTimeout(fileWatcherDebounce);
+  if (healthTimer) clearInterval(healthTimer);
 
   if (childProcess?.pid) {
     killProcessTree(childProcess.pid);
