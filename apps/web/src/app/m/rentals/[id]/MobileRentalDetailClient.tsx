@@ -426,6 +426,10 @@ export function MobileRentalDetailClient({
         </div>
       </div>
 
+      {/* NextActionCard scroll targets — #pay = Record Rent,
+          #manage = the Activate/Terminate slot (same bar). */}
+      <div id="pay" />
+      <div id="manage" />
       <ActionBar>
         {/* ── Quick actions ── */}
         <div className="flex gap-2 mb-3">

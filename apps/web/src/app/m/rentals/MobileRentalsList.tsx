@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
+import { useUrlFilter } from "@/lib/use-url-filter";
+import { NextActionCard } from "@/components/mobile/v2/guidance";
+import { PERM } from "@nirman/rbac";
 import { useRouter } from "next/navigation";
 import {
   KeyRound, Phone, AlertCircle, Calendar,
@@ -73,18 +76,7 @@ const STATUS_META: Record<string, { color: string; label: string }> = {
  * The income banner shows monthly rent + overdue. Cards are grouped
  * by urgency: overdue first, then expiring, then normal active, then pending.
  */
-export function MobileRentalsList({
-  items,
-  stats,
-  canManage = false,
-  unitAssets = [],
-  parcelAssets = [],
-  customers = [],
-  exportTitle,
-  exportRows,
-  exportColumns,
-  exportSummary,
-}: {
+type MobileRentalsListProps = {
   items: RentalListItem[];
   stats: Stats;
   canManage?: boolean;
@@ -95,9 +87,37 @@ export function MobileRentalsList({
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
   exportSummary?: string;
-}) {
+};
+
+const FILTERS: Filter[] = ["all", "active", "pending", "overdue", "expiring"];
+
+export function MobileRentalsList(props: MobileRentalsListProps) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileRentalsListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileRentalsListInner({
+  items,
+  stats,
+  canManage = false,
+  unitAssets = [],
+  parcelAssets = [],
+  customers = [],
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: MobileRentalsListProps) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
+  // URL-synced so the queue card's ?status=PENDING lands on the chip.
+  const [filterParam, setFilterParam] = useUrlFilter<string>("status", "all");
+  const filter = (FILTERS.includes(filterParam.toLowerCase() as Filter)
+    ? filterParam.toLowerCase() : "all") as Filter;
+  const setFilter = (v: Filter) => setFilterParam(v);
   const [showNew, setShowNew] = useState(false);
 
   const filtered = useMemo(() => {
@@ -191,6 +211,13 @@ export function MobileRentalsList({
           ) : null}
         </div>
       </div>
+
+      {/* Queue card — pending leases awaiting activation */}
+      <NextActionCard
+        flow="tenancy"
+        count={{ PENDING: stats.pendingCount }}
+        can={(perm) => perm === PERM.SALES_MANAGE ? canManage : false}
+      />
 
       {/* ── Search + filter + export ── */}
       <MobileSearchHeader

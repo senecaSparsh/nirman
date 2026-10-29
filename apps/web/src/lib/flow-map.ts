@@ -47,7 +47,8 @@ export type FlowId =
   | "ncr"
   | "builtUnit"
   | "expenseClaim"
-  | "gatePass";
+  | "gatePass"
+  | "tenancy";
 
 /** A node in a flow — a screen the user can be on. */
 export interface FlowNode {
@@ -648,6 +649,52 @@ const GATE_PASS_FLOW: FlowDef = {
 };
 
 // ─────────────────────────────────────────────────────────────────
+// TENANCY — lease → active → expired/terminated. The standing action
+// on an active lease is recording rent; overdue rent is already
+// surfaced by the detail hero, the card's job is pointing at the
+// button that collects it.
+// ─────────────────────────────────────────────────────────────────
+
+const TENANCY_FLOW: FlowDef = {
+  id: "tenancy",
+  listHref: "/m/rentals",
+  listLead: "Leases on your units and land. Pending leases need activating; active ones collect rent monthly.",
+  nodes: [
+    { status: "PENDING", label: "Pending", detailHref: "/m/rentals/{id}" },
+    { status: "ACTIVE", label: "Active", detailHref: "/m/rentals/{id}" },
+    { status: "EXPIRED", label: "Expired", detailHref: "/m/rentals/{id}" },
+    { status: "TERMINATED", label: "Terminated", detailHref: "/m/rentals/{id}" },
+  ],
+  next: [
+    {
+      when: "PENDING",
+      label: "Activate the lease",
+      verb: "Activate",
+      reason: "Signed but not started — activate it so rent schedules begin.",
+      action: { type: "anchor", hash: "#manage" },
+      perm: PERM.SALES_MANAGE,
+      tone: "go",
+    },
+    {
+      when: "ACTIVE",
+      label: "Record a rent payment",
+      verb: "Record",
+      reason: "Rent comes in against this lease — log it here to keep the ledger right.",
+      action: { type: "anchor", hash: "#pay" },
+      perm: PERM.SALE_CREATE,
+      tone: "signal",
+    },
+  ],
+  listNext: {
+    countStatuses: ["PENDING"],
+    label: (n) => `${n} lease${n !== 1 ? "s" : ""} to activate`,
+    reason: "Signed leases don't bill rent until they're activated.",
+    filterChip: "PENDING",
+    perm: PERM.SALES_MANAGE,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────
 // REGISTRY + LOOKUP HELPERS
 // ─────────────────────────────────────────────────────────────────
 
@@ -662,6 +709,7 @@ export const FLOWS: Record<FlowId, FlowDef> = {
   builtUnit: BUILT_UNIT_FLOW,
   expenseClaim: EXPENSE_CLAIM_FLOW,
   gatePass: GATE_PASS_FLOW,
+  tenancy: TENANCY_FLOW,
 };
 
 /**
@@ -682,6 +730,7 @@ const ROUTE_TO_FLOW: Record<string, FlowId> = {
   "/m/real-estate?tab=units": "builtUnit",
   "/m/expense-claims": "expenseClaim",
   "/m/gate-pass": "gatePass",
+  "/m/rentals": "tenancy",
 };
 
 export function flowForRoute(route: string): FlowDef | undefined {

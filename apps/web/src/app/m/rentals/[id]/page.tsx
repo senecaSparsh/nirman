@@ -1,6 +1,8 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere } from "@/lib/server";
+import { toNum, scopeWhere, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { resolveNextAction } from "@/lib/flow-map";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileRentalDetailClient } from "./MobileRentalDetailClient";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -21,9 +23,10 @@ export default function MobileRentalDetailPage({
 }) {
   return (
     <MobileDetailPage params={params} scopeAware perm={PERM.SALES_VIEW} what="rentals" permission="sales.view">
-      {async ({ id, company, perms }) => {
+      {async ({ id, company, role, perms }) => {
         const canManage = perms.includes(PERM.SALES_MANAGE);
         const canSell = perms.includes(PERM.SALE_CREATE);
+        const overrides = await getUserPermissions();
 
         const tenancy = await prisma.tenancy.findFirst({
           where: {...await scopeWhere("Tenancy"),  id, companyId: company.id },
@@ -120,13 +123,25 @@ export default function MobileRentalDetailPage({
             reference: p.reference,
             status: p.status}))};
 
+        const nextAction = resolveNextAction("tenancy", tenancy.status, role, overrides);
+
         return (
           <PageContextProvider value={{
             entityType: "rental",
+            flowId: "tenancy",
             status: tenancy.status,
             label: tenancy.tenantName,
             subtitle: tenancy.project?.name ?? undefined,
             recordId: tenancy.id}}>
+          {nextAction && (
+            <NextActionCardView
+              label={nextAction.label}
+              actionVerb={nextAction.verb}
+              reason={nextAction.reason}
+              tone={nextAction.tone ?? "signal"}
+              hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+            />
+          )}
           <MobileRentalDetailClient
             data={data}
             canManage={canManage}
