@@ -169,4 +169,52 @@ export async function initNativeApp(): Promise<void> {
   } catch {
     // Push unavailable (e.g. simulator without APNs entitlement).
   }
+
+  // SMS device self-registration — no-op on web/iOS.
+  void initSmsDevice();
+}
+
+// ── SMS device ───────────────────────────────────────────────
+// The app doubles as the company's SMS device (zero setup): on login it
+// self-registers via POST /api/sms/devices, hands the key to the native
+// SmsBridge plugin, and asks the OS for SMS permission once. After that
+// the phone forwards bank SMS to /api/sms/intake and polls
+// /api/sms/outbox to send queued SMS on its own SIM. Android-only —
+// iOS can't read or send SMS programmatically.
+
+interface SmsBridgePlugin {
+  configure(opts: { key: string; baseUrl: string }): Promise<void>;
+  getDeviceKey(): Promise<{ key?: string }>;
+  requestPermissions(): Promise<{ requested: boolean }>;
+  status(): Promise<{ hasKey: boolean; canReadSms: boolean; canSendSms: boolean }>;
+}
+
+export async function initSmsDevice(): Promise<void> {
+  if (!isNativeApp() || nativePlatform() !== "android") return;
+  try {
+    const { registerPlugin } = await import("@capacitor/core");
+    const sms = registerPlugin<SmsBridgePlugin>("SmsBridge");
+
+    const existing = await sms.getDeviceKey();
+    let key = existing.key;
+    if (!key) {
+      // Same-origin fetch inside the WebView carries the session cookie —
+      // mints a per-device key labelled so admins can see/revoke it.
+      const res = await fetch("/api/sms/devices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: `${nativePlatform()} app phone` }),
+      });
+      if (!res.ok) return; // signed-out or server down — retry next launch
+      key = (await res.json()).key as string;
+    }
+
+    await sms.configure({ key, baseUrl: window.location.origin });
+    const st = await sms.status();
+    if (!st.canReadSms || !st.canSendSms) {
+      await sms.requestPermissions(); // OS prompt — one tap, first run only
+    }
+  } catch {
+    // Plugin absent (old APK / browser) — SMS features stay off silently.
+  }
 }

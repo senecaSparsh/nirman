@@ -20,6 +20,19 @@
             </intent-filter>
         </activity>
 
+        <!-- Bank-SMS intake: stays disabled until the SmsBridge plugin is
+             configured (PackageManager flips it on) — zero wake-ups before
+             the app has a device key. -->
+        <receiver
+            android:name=".SmsReceiver"
+            android:enabled="false"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -40,4 +53,9 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- SMS device: read incoming bank SMS → intake; send queued SMS on
+         this phone's SIM via the outbox poller -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
 </manifest>

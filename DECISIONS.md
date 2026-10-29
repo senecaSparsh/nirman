@@ -3654,3 +3654,19 @@ Remaining native piece (next round): Capacitor plugin — SMS_RECEIVED
 receiver → /api/sms/intake, outbox poller + SmsManager.sendTextMessage.
 Caveat: READ_SMS/SEND_SMS need default-handler status on Play Store;
 sideloaded/enterprise APK distribution is unrestricted.
+
+## Round 143 — Native SmsBridge: the app IS the SMS device (zero setup)
+
+The Capacitor app itself is now the SMS device — no companion app, no
+config. Native: SmsBridgePlugin (configure/getDeviceKey/requestPermissions/
+sendSms/status + 60s outbox poller via HandlerThread → SmsManager,
+multipart-aware), SmsReceiver (manifest SMS_RECEIVED, disabled until
+configured; full-match sender filter forwards ONLY bank/UPI shortcodes —
+personal SMS never leaves the phone), SmsHttp (device-key authed client).
+Web: initSmsDevice() in native.ts — Android-only, self-mints the key via
+POST /api/sms/devices (session cookie inside WebView), configure()s the
+plugin, fires the OS permission prompt once. Enabled receiver via
+PackageManager; perms RECEIVE/READ/SEND_SMS in manifest. Sender regex
+verified vs 9 cases (bank+personal). Java not compiled locally (no JDK/
+SDK) — verify on an SDK machine before APK release. iOS untouched (no
+programmatic SMS).

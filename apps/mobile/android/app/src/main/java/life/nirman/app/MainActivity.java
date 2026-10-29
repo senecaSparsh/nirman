@@ -11,5 +11,6 @@ public class MainActivity extends BridgeActivity {
         // App-local plugin — registered explicitly because sync regenerates
         // capacitor.settings.gradle from node_modules plugins only.
         registerPlugin(PrintPlugin.class);
+        registerPlugin(SmsBridgePlugin.class);
     }
 }
