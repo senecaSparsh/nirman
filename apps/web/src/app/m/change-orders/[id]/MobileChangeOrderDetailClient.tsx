@@ -369,7 +369,7 @@ export function MobileChangeOrderDetailClient({
               Auto-implementing…
             </span>
           )}
-          {(co.status === "DRAFT" || co.status === "REJECTED") && (
+          {(co.status === "DRAFT" || co.status === "REJECTED" || (co.status === "SUBMITTED" && co.submittedById === currentUserId)) && (
             <ActionButton
               onClick={async () => { if (await confirm({ title: "Cancel change order?", description: "This cannot be undone.", confirmLabel: "Cancel", variant: "destructive" })) doAction("cancel"); }}
               loading={acting === "cancel"}
