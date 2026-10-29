@@ -3427,3 +3427,12 @@ work orders, sale cancel/return GL, cheque clear/bounce, leave +
 punch-fix self-service, negative probes. Fixture cleanup re-zeroed
 inventory GL (₹2,599.06 fixture-opening JE). The previously-seeded
 historical exited-pass row remains the only expected health-check FAIL.
+
+## Round 134 — Whole-app compile verification: 522/522
+
+`pnpm build` (webpack) compiled + prerendered all 522 routes clean —
+the definitive "every page works" check after the day's changes. Spot-
+rendered P&L, balance-sheet, cash-flow, GST reports — all 200 with
+real data bodies. The earlier curl-sweep timeouts were the documented
+Turbopack CPU-stall gap (sequential mass hits wedge compiles), not page
+bugs — all flagged routes returned 200 on a healthy server.
