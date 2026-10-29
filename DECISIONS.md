@@ -3620,3 +3620,19 @@ back to MSG91→Twilio; portal/supplier/verify-phone OTP routes pass
 companyId. Auto-forward dialog points users at Settings → Integrations.
 Verified: 10 vitest cases + live DB config → verifyIntegration → stub
 phone received the real OTP payload; test config cleaned up.
+
+## Round 141 verification — real-identity scenario matrix
+
+Tested with a real seeded user (sparshagarwal351@gmail.com /
++918273850155, SITE_SUPERVISOR): OTP send→verify issues a real
+better-auth session cookie; wrong code decrements attempts (4 left);
+code reuse rejected; per-phone quota (2 recent) + per-IP quota both
+fire; +91/9182…/spaced formats normalize to the same phone; unknown
+phone returns ok:true with userId:null (no enumeration). Provider
+chain: gateway-env sent the real OTP payload to a stub phone;
+gateway-down→honest failure; gateway-down+Twilio→real fallback
+attempt. Config list masks passwords (••••••••); verifyIntegration
+surfaces raw errors. Bank SMS containing VPA 8273850155@ybl parsed
+(₹1,250, correct UNMATCHED reason) and resend deduped. Email stub
+fails honestly unconfigured; real gmail delivery needs an SMTP
+credential (Gmail App Password) in EMAIL_SMTP.
