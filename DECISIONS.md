@@ -3155,3 +3155,31 @@ test-env provisioning gap.
 Pattern: `aria-label=<placeholder>` — likely a broken transform. Remaining
 short labels (Qty/Hrs/To) verified intentional. Watch for the same class in
 title/alt attributes.
+
+## Round 123 — Bank-SMS → receivable → GL spine verified live end-to-end
+
+Exercised on mobile `/m/sms` with a pasted HDFC credit SMS (₹5,000, UPI ref):
+
+- Parser handled the real bank format (sender VK-HDFCBK, UPI ref extraction,
+  credit vs debit classification — debit/card SMS correctly show "Not a
+  credit transaction").
+- Auto-match: "Matched to asset sale SAL-20261029-0001 — installment 1
+  amount" (exact-outstanding matching). KPI cards updated live (MATCHED 7,
+  COLLECTED ₹2.98L).
+- DB chain: BankSms MATCHED → AssetSalePayment ₹5,000 BANK/RECEIVED →
+  PaymentScheduleItem 1 → PAID (paidAmount synced) → JournalEntry
+  JE-20261029-00012 ASSET_SALE_DEPOSIT ₹5,000 POSTED.
+- GL routing is saleStage-aware: pre-completion receipts go to Customer
+  Deposits (verified), post-completion to AR via postPaymentReceived.
+- Safety: serializable claim on the SMS row (concurrent double-match →
+  409); cancelled-sale and already-fully-paid targets rejected with
+  explicit guidance to use refund/customer-credit paths instead.
+- List also shows manual-match + dismiss flows and statement-CSV imports
+  (STMT-TESTSTMTCSV sender) alongside real SMS.
+
+Verification-only round; no code changes. Coverage status across
+transcript-weighted spines: collections ✓, procurement gate ✓,
+construction MB→RA bill ✓, attendance→payroll engine ✓, task push ✓,
+block/unblock ✓, bank-SMS reconciliation ✓. Remaining unexercised:
+tenancy draft/escalation (no tenancies in SRG test co), e-invoice/IRN,
+bank statement CSV import UI, expense-claim advance netting.
