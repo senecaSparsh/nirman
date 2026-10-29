@@ -53,7 +53,8 @@ export type FlowId =
   | "stockCount"
   | "incident"
   | "hazard"
-  | "workOrder";
+  | "workOrder"
+  | "leave";
 
 /** A node in a flow — a screen the user can be on. */
 export interface FlowNode {
@@ -958,6 +959,31 @@ const WORK_ORDER_FLOW: FlowDef = {
 };
 
 // ─────────────────────────────────────────────────────────────────
+// LEAVE — request → approve/reject. The lifecycle is one decision;
+// the card's job is pointing managers at the pending queue.
+// ─────────────────────────────────────────────────────────────────
+
+const LEAVE_FLOW: FlowDef = {
+  id: "leave",
+  listHref: "/m/hr/leaves",
+  listLead: "Leave requests from the team. Pending ones need a yes or no — the rest is history.",
+  nodes: [
+    { status: "PENDING", label: "Pending", detailHref: "/m/hr/leaves" },
+    { status: "APPROVED", label: "Approved", detailHref: "/m/hr/leaves" },
+    { status: "REJECTED", label: "Rejected", detailHref: "/m/hr/leaves" },
+    { status: "CANCELLED", label: "Cancelled", detailHref: "/m/hr/leaves" },
+  ],
+  next: [],
+  listNext: {
+    countStatuses: ["PENDING"],
+    label: (n) => `${n} leave request${n !== 1 ? "s" : ""} waiting`,
+    reason: "People are waiting to plan their days off — decide yes or no.",
+    filterChip: "PENDING",
+    perm: PERM.HR_MANAGE,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────
 // REGISTRY + LOOKUP HELPERS
 // ─────────────────────────────────────────────────────────────────
 
@@ -978,6 +1004,7 @@ export const FLOWS: Record<FlowId, FlowDef> = {
   incident: INCIDENT_FLOW,
   hazard: HAZARD_FLOW,
   workOrder: WORK_ORDER_FLOW,
+  leave: LEAVE_FLOW,
 };
 
 /**
@@ -1002,6 +1029,7 @@ const ROUTE_TO_FLOW: Record<string, FlowId> = {
   "/m/change-orders": "changeOrder",
   "/m/stock-counts": "stockCount",
   "/m/work-orders": "workOrder",
+  "/m/hr/leaves": "leave",
 };
 
 export function flowForRoute(route: string): FlowDef | undefined {

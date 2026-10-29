@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useUrlFilter } from "@/lib/use-url-filter";
+import { NextActionCard } from "@/components/mobile/v2/guidance";
+import { PERM } from "@nirman/rbac";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
@@ -50,24 +53,35 @@ const LEAVE_TYPE_LABELS: Record<string, string> = {
   PATERNITY: "Paternity",
 };
 
-export function MobileLeavesList({
-  items,
-  canManage = false,
-  exportTitle,
-  exportRows,
-  exportColumns,
-  exportSummary,
-}: {
+type MobileLeavesListProps = {
   items: LeaveListItem[];
   canManage?: boolean;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
   exportSummary?: string;
-}) {
+};
+
+export function MobileLeavesList(props: MobileLeavesListProps) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileLeavesListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileLeavesListInner({
+  items,
+  canManage = false,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: MobileLeavesListProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<LeaveFilter>("ALL");
+  const [filter, setFilter] = useUrlFilter<LeaveFilter>("status", "ALL");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
@@ -142,8 +156,17 @@ export function MobileLeavesList({
     return null;
   }
 
+  const pendingCount = items.filter((l) => l.status === "PENDING").length;
+
   return (
     <div>
+      {/* Queue card — pending leave requests awaiting a manager's decision */}
+      <NextActionCard
+        flow="leave"
+        count={{ PENDING: pendingCount }}
+        can={(perm) => perm === PERM.HR_MANAGE ? canManage : false}
+      />
+
       <MobileSearchHeader
         query={query}
         onQueryChange={setQuery}
