@@ -162,7 +162,7 @@ export function MobileMaterialSalePaymentDialog({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Buyer TDS deducted (optional)
             </label>
-            <input aria-label="Ay TDS"
+            <input aria-label="Buyer TDS"
               type="text"
               inputMode="decimal"
               value={payTds}

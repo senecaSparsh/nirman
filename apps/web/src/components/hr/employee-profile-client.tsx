@@ -3757,7 +3757,7 @@ function SetupDepositDialog({
         </div>
         <div className="space-y-1.5">
           <label className="text-label font-medium text-foreground">Pay Day (1-31) *</label>
-          <input aria-label="Ay Day"
+          <input aria-label="Pay Day"
             type="number"
             min={1}
             max={31}

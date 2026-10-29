@@ -177,7 +177,7 @@ export function MobileNewExpenseClient({
                   </span>
                 </button>
               ) : (
-                <input aria-label="Ategory"
+                <input aria-label="Category"
                   value={category}
                   onChange={(e) => { setCategory(e.target.value); setCategoryId(""); }}
                   placeholder="e.g. Transport, Fuel"
@@ -227,7 +227,7 @@ export function MobileNewExpenseClient({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <span className={labelClass} style={labelStyle}>Payee</span>
-              <input aria-label="Ayee Name"
+              <input aria-label="Payee"
                 value={payeeName}
                 onChange={(e) => setPayeeName(e.target.value)}
                 placeholder="Who was paid?"
