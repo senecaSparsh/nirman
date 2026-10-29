@@ -19,6 +19,7 @@ const actionSchema = z.object({
   reason: z.string().optional(),
   paymentMode: z.string().optional(),
   referenceNo: z.string().optional().nullable(),
+  settleAgainstAdvance: z.boolean().optional(),
 });
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
