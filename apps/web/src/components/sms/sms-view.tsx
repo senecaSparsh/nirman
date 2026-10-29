@@ -273,6 +273,10 @@ function AutoForwardDialog({ open, onOpenChange, canManage }: { open: boolean; o
           <li>On that phone, install <b>SMS Forwarder</b> (free, Play Store) — or use the Nirman app when SMS sync ships.</li>
           <li>Add a rule: senders matching <b>*-BANK, *-HDFCBK, *-ICICIB, *-SBIN, *-AXISB, UPI</b> → forward via HTTP POST to the URL below with header <code className="rounded bg-subtle px-1">x-sms-key: &lt;key&gt;</code>.</li>
         </ol>
+        <p className="rounded-md border border-border bg-subtle p-2.5 text-caption text-muted-foreground">
+          The same phone can also <b>send</b> your OTP codes and alerts for free with the <b>SMS Gateway for Android</b> app —
+          configure it under <b>Settings → Integrations → SMS Gateway</b>.
+        </p>
 
         <div className="rounded-md border border-border p-2.5">
           <p className="text-micro text-muted-foreground mb-1">Intake URL</p>

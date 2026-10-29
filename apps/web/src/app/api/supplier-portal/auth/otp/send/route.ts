@@ -52,7 +52,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (process.env.NODE_ENV !== "production") {
     console.log(`[Supplier Portal OTP] ${phone} → code: ${code} (expires in ${OTP_CONFIG.TTL_MINUTES} min) — ${suppliers.length} supplier(s) matched`);
   } else {
-    const sent = await sendOtpSms(phone, code);
+    const sent = await sendOtpSms(phone, code, { companyId: suppliers[0]?.companyId });
     if (!sent.sent) {
       console.error(`[Supplier Portal OTP] SMS send failed for ${phone}: ${sent.error}`);
       return json(

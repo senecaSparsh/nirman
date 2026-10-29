@@ -102,7 +102,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     // same sender as the portal OTP). A silent success here traps the user on
     // a code-entry screen for a code that never arrives — surface the failure.
     if (process.env.NODE_ENV === "production") {
-      const sent = await sendOtpSms(normalized, code);
+      const sent = await sendOtpSms(normalized, code, { companyId: company.id });
       if (!sent.sent) {
         console.error(`[phone-verify] SMS send failed for ${normalized}: ${sent.error}`);
         return json({ error: "SMS verification is not yet configured. Contact your administrator." }, { status: 501 });

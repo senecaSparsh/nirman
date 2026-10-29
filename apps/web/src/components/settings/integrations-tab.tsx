@@ -16,6 +16,7 @@ import {
   Plug,
   Power,
   RefreshCw,
+  Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -28,6 +29,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   MessageCircle,
   Mail,
   Building2,
+  Smartphone,
 };
 
 interface IntegrationField {

@@ -93,7 +93,7 @@ export const POST = async (req: NextRequest) => {
     } else {
       // Production: actually send. A silent success here traps the customer
       // on a code-entry screen for a code that never arrives.
-      const sent = await sendOtpSms(phone, code);
+      const sent = await sendOtpSms(phone, code, { companyId: customers[0]?.companyId });
       if (!sent.sent) {
         console.error(`[Portal OTP] SMS send failed for ${phone}: ${sent.error}`);
         return NextResponse.json(

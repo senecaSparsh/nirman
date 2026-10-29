@@ -1309,3 +1309,16 @@ export {
   recordEscrowWithdrawal,
   voidEscrowWithdrawal,
 } from "./escrow";
+
+// Self-hosted SMS gateway — send through an office Android phone, no per-SMS cost
+export {
+  sendSmsViaGateway,
+  testSmsGateway,
+  sendGatewaySms,
+  resolveSmsGatewayConfig,
+  smsGatewayConfigFromEnv,
+  isSmsGatewayConfiguredFromEnv,
+  normalizeGatewayBaseUrl,
+  type SmsGatewayConfig,
+  type SmsSendResult,
+} from "./gateway-sms";

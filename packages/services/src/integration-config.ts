@@ -225,6 +225,44 @@ export const INTEGRATION_SCHEMAS: IntegrationSchema[] = [
     ],
   },
   {
+    key: "SMS_GATEWAY",
+    label: "SMS Gateway (office phone)",
+    description:
+      "Send OTPs and alerts as SMS through an Android phone in your office using the free SMS Gateway app — no per-message cost, no third-party SMS provider.",
+    icon: "Smartphone",
+    fields: [
+      {
+        name: "gatewayUrl",
+        label: "Gateway URL",
+        type: "text",
+        required: true,
+        placeholder: "http://192.168.1.50:8080",
+        helpText:
+          "The URL shown in the SMS Gateway app on the office phone (local mode needs the phone on office Wi-Fi; for an always-on VPS use the app's private-server mode pointed at a URL on your server).",
+      },
+      {
+        name: "username",
+        label: "Username",
+        type: "text",
+        required: true,
+        helpText: "The login shown in the app's Server section.",
+      },
+      {
+        name: "password",
+        label: "Password",
+        type: "password",
+        required: true,
+        helpText: "The password shown in the app's Server section.",
+      },
+      {
+        name: "simNumber",
+        label: "SIM slot (optional)",
+        type: "number",
+        helpText: "Leave empty for the phone's default SIM. Set 1 or 2 to pick a slot on dual-SIM phones.",
+      },
+    ],
+  },
+  {
     key: "PORTAL_99ACRES",
     label: "99acres",
     description: "Auto-list and delist built units on 99acres property portal.",
@@ -567,6 +605,21 @@ export async function verifyIntegration(input: {
         } catch (_importErr) {
           error = "SMTP verification requires nodemailer. Install it with: pnpm --filter @nirman/services add nodemailer";
         }
+        break;
+      }
+      case "SMS_GATEWAY": {
+        const { testSmsGateway, normalizeGatewayBaseUrl } = await import("./gateway-sms");
+        const url = normalizeGatewayBaseUrl(String(config.config.gatewayUrl ?? ""));
+        const username = config.config.username as string;
+        const password = config.config.password as string;
+        if (!url || !username || !password) {
+          error = "Missing gateway URL, username, or password";
+          break;
+        }
+        const sim = Number(config.config.simNumber);
+        const result = await testSmsGateway({ url, username, password, ...(sim > 0 ? { simNumber: sim } : {}) });
+        success = result.sent;
+        error = result.error;
         break;
       }
       case "PORTAL_99ACRES":

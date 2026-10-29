@@ -2,22 +2,29 @@
  * OTP SMS sender — delivers login codes over a real provider in production.
  *
  * Provider resolution order:
- *   1. MSG91 (India-first, DLT-compliant) — needs MSG91_AUTH_KEY +
+ *   1. Self-hosted SMS gateway — the free "SMS Gateway for Android" app on
+ *      an office phone. Per-company IntegrationConfig (SMS_GATEWAY) when the
+ *      caller knows the company, else global SMS_GATEWAY_* env vars. Free,
+ *      no third-party provider.
+ *   2. MSG91 (India-first, DLT-compliant) — needs MSG91_AUTH_KEY +
  *      MSG91_TEMPLATE_ID (an approved DLT template containing {{otp}} or
  *      using MSG91's native OTP variable).
- *   2. Twilio SMS — needs TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN +
+ *   3. Twilio SMS — needs TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN +
  *      TWILIO_PHONE_NUMBER (an SMS-capable number on the account).
- *   3. Unconfigured — returns { sent: false }; the API route must fail
+ *   4. Unconfigured — returns { sent: false }; the API route must fail
  *      honestly instead of pretending the code was sent.
  *
  * In non-production nothing is sent — the route logs the code to the
  * server console instead.
  */
+import { isSmsGatewayConfiguredFromEnv, resolveSmsGatewayConfig, sendSmsViaGateway } from "@nirman/services";
+
 
 export function isOtpSmsConfigured(): boolean {
   if (process.env.NODE_ENV !== "production") return true; // dev console fallback
   return Boolean(
-    (process.env.MSG91_AUTH_KEY && process.env.MSG91_TEMPLATE_ID) ||
+    isSmsGatewayConfiguredFromEnv() ||
+      (process.env.MSG91_AUTH_KEY && process.env.MSG91_TEMPLATE_ID) ||
       (process.env.TWILIO_ACCOUNT_SID &&
         process.env.TWILIO_AUTH_TOKEN &&
         process.env.TWILIO_PHONE_NUMBER),
@@ -69,7 +76,24 @@ async function sendViaTwilio(phone: string, code: string): Promise<{ sent: boole
  * Send an OTP code by SMS. Returns { sent: true } only when a real provider
  * accepted the message. Callers must treat sent:false as a hard failure.
  */
-export async function sendOtpSms(phone: string, code: string): Promise<{ sent: boolean; error?: string }> {
+export async function sendOtpSms(
+  phone: string,
+  code: string,
+  opts?: { companyId?: string },
+): Promise<{ sent: boolean; error?: string }> {
+  // Self-hosted gateway first — free, and it's the same office phone that
+  // forwards incoming bank SMS to /api/sms/intake. A per-company config
+  // wins; the env-var gateway covers pre-login sends with no company.
+  const gateway = await resolveSmsGatewayConfig(opts?.companyId);
+  if (gateway) {
+    const result = await sendSmsViaGateway(
+      gateway,
+      phone,
+      `Your Nirman login code is ${code}. It expires in 5 minutes. Do not share it.`,
+    );
+    if (result.sent) return result;
+    console.warn(`[OTP] SMS gateway send failed (${result.error}) — falling back to provider if configured`);
+  }
   if (process.env.MSG91_AUTH_KEY && process.env.MSG91_TEMPLATE_ID) {
     return sendViaMsg91(phone, code);
   }

@@ -3600,3 +3600,23 @@ SMS permission later, email→webhook relays later — without the
 accountant ever pasting again. Verified live: minted key ingested an
 HDFC-format SMS (Rs50K parsed, correctly UNMATCHED), revoke returns
 401, test rows cleaned.
+
+## Round 141 — Outbound SMS through the office phone (self-hosted gateway)
+
+Inbound bank-SMS intake existed (round 140); outbound still required
+paid MSG91/Twilio. Added `SMS_GATEWAY` to INTEGRATION_SCHEMAS — a
+per-company config for the free "SMS Gateway for Android" app
+(capcom6/android-sms-gateway, MIT): URL + login + encrypted password +
+optional SIM slot. The integrations settings UI renders it for free
+with a Test Connection button (GET {base}/webhooks — proves auth +
+reachability without sending a real SMS).
+
+`gateway-sms.ts` (services): normalizeGatewayBaseUrl (accepts pasted
+/message or /webhooks URLs), sendSmsViaGateway (POST {base}/message,
+basic auth, E.164), testSmsGateway, resolveSmsGatewayConfig
+(company config → SMS_GATEWAY_* env fallback for pre-login OTPs),
+sendGatewaySms. `sendOtpSms` now tries the gateway first (free), falls
+back to MSG91→Twilio; portal/supplier/verify-phone OTP routes pass
+companyId. Auto-forward dialog points users at Settings → Integrations.
+Verified: 10 vitest cases + live DB config → verifyIntegration → stub
+phone received the real OTP payload; test config cleaned up.
