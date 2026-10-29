@@ -3273,3 +3273,26 @@ construction, attendance→payroll, tasks, block/unblock, SMS recon,
 statement-CSV import, tenancy (LOI→fit-out→escalation). Open: CO
 self-withdraw affordance, imprest netting, NIC provider (owner creds),
 real WhatsApp provider (owner creds).
+
+## Round 127 — CivilierERP/OpenConstructionERP coverage audit (github-mined)
+
+Audited Nirman against CivilierERP's published module map. Present: BRS
+(reconciliation-health + /health-books), JV (gl/journal), debit notes
+(supplier-returns), gate-pass vehicle in/out, trial balance, P&L, balance
+sheet (reports), NCR→CAPA quality chain, CRM campaigns/leads, customer
+portal, legal milestones (registry pipeline).
+
+Gaps filed:
+
+1. Year-end close / FY rollover — no fiscal-year concept at all (JE numbers
+   are date-based). Needed eventually for Apr–Mar Indian books: FY lock +
+   P&L→retained-earnings roll + opening balances. Large feature; queued,
+   not launch-blocking (reports are date-rangeable).
+2. Fund transfer — no dedicated contra/transfer voucher; covered
+   generically by manual JV between CASH/PETTY_CASH/bank/RERA accounts.
+   Optional UX sugar: a "transfer" form that writes the same JV.
+3. Imprest advance netting (from round 126) — claim→advance settlement
+   link missing.
+
+Not needed: L1 quote chart (quote-comparison already does it), vehicle
+in/out (gate passes), on-account adjustment (customer credit exists).
