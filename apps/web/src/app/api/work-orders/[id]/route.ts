@@ -16,6 +16,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       project: { select: { id: true, name: true } },
       phase: { select: { id: true, name: true } },
       lines: { include: { boqItem: { select: { id: true, serialNo: true, description: true, unit: true, estimatedQty: true, rate: true } } } },
+      milestones: { orderBy: { sortOrder: "asc" }, select: { id: true, name: true, pct: true, status: true, raBillId: true } },
       raBills: { orderBy: { billDate: "desc" }, select: { id: true, raBillNumber: true, billDate: true, status: true, grossAmount: true, netPayable: true, createdById: true, submittedById: true } },
     },
   });
@@ -26,6 +27,8 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     tdsPct: toNum(wo.tdsPct),
     advanceAmount: toNum(wo.advanceAmount),
     advanceRecoveryPct: toNum(wo.advanceRecoveryPct),
+    lumpSumAmount: wo.lumpSumAmount != null ? toNum(wo.lumpSumAmount) : null,
+    milestones: wo.milestones.map((m) => ({ ...m, pct: toNum(m.pct) })),
     totalWorkDone: toNum(wo.totalWorkDone),
     totalDeductions: toNum(wo.totalDeductions),
     totalPaid: toNum(wo.totalPaid),

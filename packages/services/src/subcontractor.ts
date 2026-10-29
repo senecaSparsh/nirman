@@ -64,8 +64,13 @@ export interface CreateWorkOrderInput {
   startDate?: Date;
   endDate?: Date;
   defectLiabilityMonths?: number;
-  // Lines: which BOQ items are subcontracted, at what agreed rate
-  lines: Array<{
+  // Contract type — ITEM_RATE bills measured quantities (lines + MB);
+  // LUMPSUM is a fixed-price contract billed by milestone completion.
+  contractType?: "ITEM_RATE" | "LUMPSUM";
+  lumpSumAmount?: Decimal | number | string; // required for LUMPSUM
+  milestones?: Array<{ name: string; pct: Decimal | number | string }>; // required for LUMPSUM, pct must total 100
+  // Lines: which BOQ items are subcontracted, at what agreed rate (ITEM_RATE only)
+  lines?: Array<{
     boqItemId: string;
     agreedRate: Decimal | number | string;
   }>;
@@ -89,12 +94,26 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
     });
     if (!sub) throw new ServiceError("Subcontractor not found or deleted", 404);
 
-    if (input.lines.length === 0) {
+    const isLumpsum = input.contractType === "LUMPSUM";
+    const lines = input.lines ?? [];
+    if (!isLumpsum && lines.length === 0) {
       throw new ServiceError("Work order must have at least one line (BOQ item)", 400);
+    }
+    if (isLumpsum) {
+      const lump = new Decimal(input.lumpSumAmount ?? 0);
+      if (lump.lte(0)) throw new ServiceError("Lump-sum contracts need a fixed contract amount", 400);
+      const milestones = input.milestones ?? [];
+      if (milestones.length === 0) {
+        throw new ServiceError("Lump-sum contracts need at least one billing milestone", 400);
+      }
+      const pctSum = milestones.reduce((s, m) => s.plus(new Decimal(m.pct)), new Decimal(0));
+      if (!pctSum.eq(100)) {
+        throw new ServiceError(`Milestone percentages must total exactly 100% (got ${pctSum.toString()}%)`, 400);
+      }
     }
 
     // Prevent duplicate BOQ items in the same work order
-    const boqItemIds = input.lines.map((l) => l.boqItemId);
+    const boqItemIds = lines.map((l) => l.boqItemId);
     const uniqueBoqItemIds = new Set(boqItemIds);
     if (uniqueBoqItemIds.size !== boqItemIds.length) {
       throw new ServiceError("Duplicate BOQ items detected — each BOQ item can only appear once in a work order", 400);
@@ -106,7 +125,7 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
       select: { id: true },
     });
     const foundIds = new Set(boqItems.map((b) => b.id));
-    for (const line of input.lines) {
+    for (const line of lines) {
       if (!foundIds.has(line.boqItemId)) {
         throw new ServiceError(`BOQ line item ${line.boqItemId} not found`, 404);
       }
@@ -144,12 +163,17 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
         startDate: input.startDate ?? null,
         endDate: input.endDate ?? null,
         defectLiabilityMonths: input.defectLiabilityMonths ?? 12,
+        contractType: isLumpsum ? "LUMPSUM" : "ITEM_RATE",
+        lumpSumAmount: isLumpsum ? new Decimal(input.lumpSumAmount!).toString() : null,
         lines: {
-          create: input.lines.map((l) => ({
+          create: lines.map((l) => ({
             boqItemId: l.boqItemId,
             agreedRate: new Decimal(l.agreedRate).toString(),
           })),
         },
+        milestones: isLumpsum
+          ? { create: (input.milestones ?? []).map((m, i) => ({ name: m.name, pct: new Decimal(m.pct).toString(), sortOrder: i })) }
+          : undefined,
       },
       include: { lines: true },
     });
@@ -179,7 +203,7 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
         action: "WORK_ORDER_CREATE",
         entityType: "SubcontractorWorkOrder",
         entityId: wo.id,
-        after: { workOrderNumber, subcontractorId: input.subcontractorId, lineCount: input.lines.length },
+        after: { workOrderNumber, subcontractorId: input.subcontractorId, lineCount: lines.length },
       });
     }
 
@@ -445,6 +469,8 @@ export interface CreateRaBillInput {
   periodTo: Date;
   // Which MB entries to include (must be APPROVED and not yet billed)
   mbEntryIds?: string[];
+  // Which milestones to bill (LUMPSUM work orders only — must be PENDING)
+  milestoneIds?: string[];
   otherDeductions?: Decimal | number | string;
   notes?: string;
   userId?: string;
@@ -481,7 +507,46 @@ export async function createRaBill(input: CreateRaBillInput) {
     }
 
     const raBillNumber = await generateRaBillNumber(tx, wo.companyId);
+    const isLumpsum = wo.contractType === "LUMPSUM";
+    let grossAmount = new Decimal(0);
+    let pendingMilestoneIds: string[] = [];
+    const lines: Array<{
+      boqItemId: string;
+      workOrderLineId: string;
+      prevQty: Decimal;
+      thisQty: Decimal;
+      totalQty: Decimal;
+      rate: Decimal;
+      prevAmount: Decimal;
+      thisAmount: Decimal;
+      totalAmount: Decimal;
+      mbEntryIds: string[];
+    }> = [];
 
+    // LUMPSUM: bill by milestone completion — gross = Σ(milestone % × fixed
+    // price). No MB entries, no BOQ lines; retention/TDS/advance machinery
+    // below is identical because deductions are bill-level.
+    if (isLumpsum) {
+      if (!input.milestoneIds || input.milestoneIds.length === 0) {
+        throw new ServiceError("Lump-sum billing needs at least one milestone", 400);
+      }
+      const milestones = await tx.workOrderMilestone.findMany({
+        where: { id: { in: input.milestoneIds }, workOrderId: wo.id, status: "PENDING" },
+      });
+      // Decoy-id guard — same contract as mbEntryIds: every supplied id must
+      // resolve to a PENDING milestone on THIS work order.
+      const resolved = new Set(milestones.map((m) => m.id));
+      const missing = [...new Set(input.milestoneIds)].filter((id) => !resolved.has(id));
+      if (missing.length > 0) {
+        throw new ServiceError("One or more milestones are not pending milestones of this work order", 404);
+      }
+      const lump = new Decimal(wo.lumpSumAmount ?? 0);
+      for (const m of milestones) {
+        grossAmount = grossAmount.plus(lump.times(new Decimal(m.pct)).div(100));
+      }
+      grossAmount = grossAmount.toDecimalPlaces(2);
+      pendingMilestoneIds = milestones.map((m) => m.id);
+    } else {
     // Get approved MB entries for this work order's BOQ items that haven't
     // been billed yet. Entries attributed to a different work order are
     // another subcontractor's measured work — never billable here.
@@ -520,21 +585,6 @@ export async function createRaBill(input: CreateRaBillInput) {
     }
 
     // Build RA bill lines
-    const lines: Array<{
-      boqItemId: string;
-      workOrderLineId: string;
-      prevQty: Decimal;
-      thisQty: Decimal;
-      totalQty: Decimal;
-      rate: Decimal;
-      prevAmount: Decimal;
-      thisAmount: Decimal;
-      totalAmount: Decimal;
-      mbEntryIds: string[];
-    }> = [];
-
-    let grossAmount = new Decimal(0);
-
     for (const woLine of wo.lines) {
       const entries = entriesByBoq.get(woLine.boqItemId);
       if (!entries || entries.length === 0) continue;
@@ -583,6 +633,7 @@ export async function createRaBill(input: CreateRaBillInput) {
 
     if (lines.length === 0) {
       throw new ServiceError("No billable quantities found in the selected MB entries", 400);
+    }
     }
 
     // Compute cumulative gross (all previous RA bills + this one)
@@ -713,6 +764,21 @@ export async function createRaBill(input: CreateRaBillInput) {
       if (claimResult.count !== line.mbEntryIds.length) {
         throw new ServiceError(
           `Some MB entries were claimed by another RA bill concurrently (expected ${line.mbEntryIds.length}, claimed ${claimResult.count}). Please retry.`,
+          409,
+        );
+      }
+    }
+
+    // Claim the billed milestones — same lost-update guard as MB entries:
+    // two concurrent bills must not collect the same stage.
+    if (pendingMilestoneIds.length > 0) {
+      const claim = await tx.workOrderMilestone.updateMany({
+        where: { id: { in: pendingMilestoneIds }, status: "PENDING" },
+        data: { status: "BILLED", raBillId: raBill.id },
+      });
+      if (claim.count !== pendingMilestoneIds.length) {
+        throw new ServiceError(
+          `Some milestones were claimed by another RA bill concurrently (expected ${pendingMilestoneIds.length}, claimed ${claim.count}). Please retry.`,
           409,
         );
       }

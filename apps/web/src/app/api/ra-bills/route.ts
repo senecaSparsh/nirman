@@ -11,6 +11,7 @@ const schema = z.object({
   periodFrom: z.string().datetime(),
   periodTo: z.string().datetime(),
   mbEntryIds: z.array(z.string()).optional(),
+  milestoneIds: z.array(z.string()).optional(),
   otherDeductions: z.coerce.number().optional(),
   notes: z.string().optional().nullable(),
   /** When true (default), the RA bill is auto-submitted for approval right
@@ -41,6 +42,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       periodFrom: new Date(d.periodFrom),
       periodTo: new Date(d.periodTo),
       mbEntryIds: d.mbEntryIds,
+      milestoneIds: d.milestoneIds,
       otherDeductions: d.otherDeductions,
       notes: d.notes ?? undefined,
       userId: user.id,
@@ -99,6 +101,32 @@ export const GET = apiHandler(async (req: NextRequest) => {
       },
     });
     if (!wo) return json({ error: "Work order not found" }, { status: 404 });
+
+    // Lump-sum preview: pending milestones are the billable pool — no MB
+    // entries exist on a fixed-price contract.
+    if (wo.contractType === "LUMPSUM") {
+      const milestones = await prisma.workOrderMilestone.findMany({
+        where: { workOrderId },
+        orderBy: { sortOrder: "asc" },
+        select: { id: true, name: true, pct: true, status: true },
+      });
+      const pending = milestones.filter((m) => m.status === "PENDING");
+      const lump = toNum(wo.lumpSumAmount);
+      return json({
+        workOrderNumber: wo.workOrderNumber,
+        contractType: "LUMPSUM",
+        lumpSumAmount: lump,
+        retentionPct: toNum(wo.retentionPct),
+        tdsPct: toNum(wo.tdsPct),
+        advanceAmount: toNum(wo.advanceAmount),
+        advanceRecoveryPct: toNum(wo.advanceRecoveryPct),
+        totalPaid: toNum(wo.totalPaid),
+        milestones: milestones.map((m) => ({ id: m.id, name: m.name, pct: toNum(m.pct), status: m.status, amount: lump != null ? Math.round(lump * toNum(m.pct)) / 100 : null })),
+        estimatedGross: lump != null ? pending.reduce((s, m) => s + (lump * toNum(m.pct)) / 100, 0) : 0,
+        lines: [],
+        previousBills: wo.raBills.map((b) => ({ id: b.id, raBillNumber: b.raBillNumber, grossAmount: toNum(b.grossAmount), netPayable: toNum(b.netPayable), status: b.status })),
+      });
+    }
 
     // Fetch unbilled approved MB entries for all BOQ items in this WO.
     // Entries attributed to a different work order are another

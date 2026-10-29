@@ -19,10 +19,16 @@ const schema = z.object({
   startDate: z.string().datetime().optional().nullable(),
   endDate: z.string().datetime().optional().nullable(),
   defectLiabilityMonths: z.coerce.number().optional(),
+  contractType: z.enum(["ITEM_RATE", "LUMPSUM"]).optional(),
+  lumpSumAmount: z.coerce.number().optional(),
+  milestones: z.array(z.object({
+    name: z.string().min(1),
+    pct: z.coerce.number().positive().max(100),
+  })).optional(),
   lines: z.array(z.object({
     boqItemId: z.string().min(1),
     agreedRate: z.coerce.number().min(0),
-  })).min(1),
+  })).optional(),
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
@@ -52,6 +58,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
       startDate: d.startDate ? new Date(d.startDate) : undefined,
       endDate: d.endDate ? new Date(d.endDate) : undefined,
       defectLiabilityMonths: d.defectLiabilityMonths,
+      contractType: d.contractType,
+      lumpSumAmount: d.lumpSumAmount,
+      milestones: d.milestones,
       lines: d.lines,
       userId: user.id,
     });
