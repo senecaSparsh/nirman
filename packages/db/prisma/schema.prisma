@@ -154,6 +154,7 @@ model Company {
   legalDocuments         LegalDocument[]
   brokers                Broker[]
   bankSms                BankSms[]
+  smsIngestTokens        SmsIngestToken[]
   uploads                Upload[]
   entityAttachments      EntityAttachment[]
   // ── Expenses module ──
@@ -7110,6 +7111,28 @@ model BankSms {
   @@index([status])
   @@index([receivedAt])
   @@index([matchedEntityType])
+}
+
+// ───────────────────────────────────────────────────────────
+//  SMS INGEST TOKEN — per-device bearer key for /api/sms/intake.
+//  An SMS-forwarder app on a company phone posts bank messages
+//  with `x-sms-key: <token>`; one token per device so a lost
+//  phone can be revoked without rotating every forwarder.
+// ───────────────────────────────────────────────────────────
+model SmsIngestToken {
+  id         String    @id @default(cuid())
+  companyId  String
+  token      String    @unique  // 48-hex bearer key, shown once at creation
+  label      String?            // "Accounts phone", "Site 2 phone"
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdById String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 // ───────────────────────────────────────────────────────────────

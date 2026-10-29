@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { MessageSquare, Plus, Link2, Check, X, AlertCircle, Loader2, Upload } from "lucide-react";
+import { MessageSquare, Plus, Link2, Check, X, AlertCircle, Loader2, Upload, Smartphone, Copy, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { useFetch } from "@/lib/use-fetch";
@@ -36,10 +36,11 @@ const STATUS_STYLES: Record<string, { color: string; label: string; icon: React.
   ERROR: { color: "text-danger bg-danger/10", label: "Error", icon: <AlertCircle className="h-3 w-3" /> },
 };
 
-export function SmsView({ items, canCreate }: { items: SmsRow[]; canCreate: boolean }) {
+export function SmsView({ items, canCreate, canManage }: { items: SmsRow[]; canCreate: boolean; canManage?: boolean }) {
   const router = useRouter();
   const [ingestOpen, setIngestOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [autoFwdOpen, setAutoFwdOpen] = useState(false);
   const [matchTarget, setMatchTarget] = useState<SmsRow | null>(null);
   const [filter, setFilter] = useState<string>("ALL");
   const [ignoring, setIgnoring] = useState<string | null>(null);
@@ -83,6 +84,9 @@ export function SmsView({ items, canCreate }: { items: SmsRow[]; canCreate: bool
         ))}
         {canCreate && (
           <div className="ml-auto flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setAutoFwdOpen(true)}>
+              <Smartphone className="h-3.5 w-3.5" /> Auto-forward
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
               <Upload className="h-3.5 w-3.5" /> Import statement
             </Button>
@@ -189,6 +193,9 @@ export function SmsView({ items, canCreate }: { items: SmsRow[]; canCreate: bool
       {importOpen && (
         <StatementImportDialog open={importOpen} onOpenChange={setImportOpen} onDone={() => router.refresh()} />
       )}
+      {autoFwdOpen && (
+        <AutoForwardDialog open={autoFwdOpen} onOpenChange={setAutoFwdOpen} canManage={canManage ?? false} />
+      )}
 
       {/* Manual match dialog */}
       {matchTarget && (
@@ -199,6 +206,128 @@ export function SmsView({ items, canCreate }: { items: SmsRow[]; canCreate: bool
         />
       )}
     </div>
+  );
+}
+
+// ── Auto-forward setup — device keys + forwarder-app instructions ──
+
+type SmsKey = { id: string; label: string | null; masked: string; lastUsedAt: string | null; createdAt: string };
+
+function AutoForwardDialog({ open, onOpenChange, canManage }: { open: boolean; onOpenChange: (v: boolean) => void; canManage: boolean }) {
+  const { data, loading, retry: refetch } = useFetch<{ keys: SmsKey[] }>("/api/sms/keys");
+  const [newLabel, setNewLabel] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [freshToken, setFreshToken] = useState<string | null>(null);
+  const [revoking, setRevoking] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const intakeUrl = typeof window !== "undefined" ? `${window.location.origin}/api/sms/intake` : "/api/sms/intake";
+
+  async function createKey() {
+    setCreating(true);
+    try {
+      const res = await fetch("/api/sms/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: newLabel.trim() || undefined }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error ?? "Failed to create key");
+      setFreshToken(d.token);
+      setNewLabel("");
+      refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create key");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function revokeKey(id: string) {
+    setRevoking(id);
+    try {
+      const res = await fetch(`/api/sms/keys?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? "Failed to revoke");
+      refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to revoke");
+    } finally {
+      setRevoking(null);
+    }
+  }
+
+  async function copy(text: string) {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} title="Auto-forward bank SMS" className="max-w-lg">
+      <div className="space-y-4">
+        <p className="text-caption text-muted-foreground">
+          Bank SMS reaches Nirman automatically — no manual paste. Set it up once on any company phone:
+        </p>
+        <ol className="list-decimal space-y-1.5 pl-5 text-caption text-foreground">
+          <li>Create a device key below (one per phone).</li>
+          <li>On that phone, install <b>SMS Forwarder</b> (free, Play Store) — or use the Nirman app when SMS sync ships.</li>
+          <li>Add a rule: senders matching <b>*-BANK, *-HDFCBK, *-ICICIB, *-SBIN, *-AXISB, UPI</b> → forward via HTTP POST to the URL below with header <code className="rounded bg-subtle px-1">x-sms-key: &lt;key&gt;</code>.</li>
+        </ol>
+
+        <div className="rounded-md border border-border p-2.5">
+          <p className="text-micro text-muted-foreground mb-1">Intake URL</p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 truncate text-caption">{intakeUrl}</code>
+            <Button size="sm" variant="ghost" onClick={() => copy(intakeUrl)}>
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
+        </div>
+
+        {freshToken && (
+          <div className="rounded-md border border-success bg-success/10 p-2.5">
+            <p className="text-micro font-medium text-success mb-1">Key created — copy it now, it won&apos;t be shown again</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 break-all text-caption">{freshToken}</code>
+              <Button size="sm" variant="ghost" onClick={() => copy(freshToken)}>
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <p className="text-micro text-muted-foreground mb-1.5">Device keys</p>
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          ) : data?.keys.length === 0 ? (
+            <p className="text-caption text-muted-foreground">None yet — create one for each phone that will forward SMS.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {data?.keys.map((k) => (
+                <div key={k.id} className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5">
+                  <span className="flex-1 truncate text-caption font-medium">{k.label || "Device"} <span className="font-normal text-muted-foreground">{k.masked}</span></span>
+                  <span className="text-micro text-muted-foreground">{k.lastUsedAt ? `last used ${formatDate(k.lastUsedAt)}` : "never used"}</span>
+                  {canManage && (
+                    <Button size="sm" variant="ghost" disabled={revoking === k.id} onClick={() => revokeKey(k.id)}>
+                      {revoking === k.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5 text-danger" />}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {canManage && (
+            <div className="mt-2 flex gap-2">
+              <Input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Label — e.g. Accounts phone" className="h-8 text-caption" />
+              <Button size="sm" disabled={creating} onClick={createKey}>
+                {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Key
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </Dialog>
   );
 }
 

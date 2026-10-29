@@ -376,7 +376,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
           projectName: unit.project.name}))}
         assignees={salesMembers.map((membership) => membership.user)}
         smsItems={smsItems}
-        smsPermissions={{ canCreate: __effPerms.includes(PERM.SALE_CREATE) }}
+        smsPermissions={{ canCreate: __effPerms.includes(PERM.SALE_CREATE), canManage: __effPerms.includes(PERM.SALES_MANAGE) }}
         permissions={perms}
       />
     </>

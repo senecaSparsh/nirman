@@ -43,7 +43,7 @@ export function SalesView({
   assignees: { id: string; name: string }[];
   defaultTab?: string;
   smsItems?: SmsRow[];
-  smsPermissions?: { canCreate: boolean };
+  smsPermissions?: { canCreate: boolean; canManage?: boolean };
   permissions?: { canCreateSale?: boolean; canManage?: boolean };
 }) {
   const initialTab = defaultTab === "customers" ? "customers" : defaultTab === "sales" ? "sales" : defaultTab === "bank-sms" ? "bank-sms" : "pipeline";
@@ -121,7 +121,7 @@ export function SalesView({
         </TabsContent>
         {smsItems ? (
           <TabsContent value="bank-sms">
-            <SmsView items={smsItems} canCreate={smsPermissions?.canCreate ?? false} />
+            <SmsView items={smsItems} canCreate={smsPermissions?.canCreate ?? false} canManage={smsPermissions?.canManage ?? false} />
           </TabsContent>
         ) : null}
       </Tabs>
