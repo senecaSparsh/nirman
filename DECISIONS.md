@@ -3526,3 +3526,42 @@ Show lands on the filtered view. Cheques are a payment method on
 parent rows (land/rental/sale), not a standalone flow; employee
 advances live in the purpose-built /m/hr/pending approval inbox — no
 flow needed for either.
+
+## Round 138 — Statutory guards: GSTIN checksum + ₹50K e-way bill tripwire
+
+Two "system carries the rule" features in the same class as the HSN
+auto-rate (D24):
+
+1. **GSTIN check digit (mod-36)** — was format-regex only; a single
+   wrong digit passed everywhere and loses input tax credit at filing.
+   `isValidGstin()` in lib/validate.ts implements the GSTN checksum;
+   enforced at the API boundary via `gstinSchema` (supplier, customer,
+   land-seller, subcontractor, inline quote supplier) and in the form
+   validator. Verified against real GSTINs (27AAACJ5678K1Z2, Flipkart's
+   27AAPFU0939F1ZV) and live zod parses: bad digit rejected, ""/null
+   still optional. The doc-famous 22AAAAA0000A1Z5 fails — it is a
+   format example, not a real registration.
+2. **E-way bill tripwire** — `VehicleCapture`/`VehicleCaptureSection`
+   take `consignmentValue`; > ₹50,000 with empty EWB shows a warning
+   field state + "required by law". Wired on material-sale forms
+   (mobile + desktop, where `total`/`formTotals.total` exists).
+   Transfers not wired — `TransferRow.transferPriceTotal` is only set
+   on completion; computing dispatch value needs line-level cost data
+   not on the row.
+
+### Open — D27 BOCW cess (only remaining ranked item)
+
+Design scoped: `Project.bocwCessRate` (1–2% by state) +
+`bocwCessRegNo`; new `BocwCessPayment` model (date, amount, challanNo,
+journalEntryId, PAID/VOID); due = rate × `Project.totalProjectCost`;
+record-payment posts Dr cess-expense / Cr cash. Needs a migration +
+test-db mirror + project-hub section — deferred to a clean round to
+avoid a half-landed build.
+
+### Remaining "system carries the rule" candidates
+
+- GSTR-2B import + ITC match (recovers real credit; needs the 2B
+  JSON/CSV upload path).
+- Live GSTIN verification against the portal — blocked on an API key,
+  same class as NIC e-invoice GSP credentials.
+- `TransferRow` dispatch-time value for the EWB tripwire on transfers.
