@@ -452,7 +452,7 @@ export function BuiltUnitFormDialog({
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div className="space-y-1">
                       <Label className="text-caption">Prefix</Label>
-                      <Input aria-label="A-"
+                      <Input aria-label="Prefix"
                         value={genPrefix}
                         onChange={(e) => setGenPrefix(e.target.value)}
                         placeholder="A-"
@@ -509,7 +509,7 @@ export function BuiltUnitFormDialog({
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div className="space-y-1">
                       <Label className="text-caption">Wings</Label>
-                      <Input aria-label="A,B,C"
+                      <Input aria-label="Wings"
                         value={genWings}
                         onChange={(e) => setGenWings(e.target.value)}
                         placeholder="A,B,C"

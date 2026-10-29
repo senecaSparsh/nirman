@@ -1082,7 +1082,7 @@ function SectionEditor({
         {!isWhole && (
           <div className="space-y-1">
             <Label>Area ({areaUnit}) *</Label>
-            <Input aria-label="Area (" type="number" min={0} step="any" value={section.area} onChange={(e) => onUpdate({ area: e.target.value })} placeholder="0" />
+            <Input aria-label={`Area (${areaUnit})`} type="number" min={0} step="any" value={section.area} onChange={(e) => onUpdate({ area: e.target.value })} placeholder="0" />
           </div>
         )}
         {isWhole && (

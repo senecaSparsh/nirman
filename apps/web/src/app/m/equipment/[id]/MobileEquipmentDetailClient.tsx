@@ -1346,7 +1346,7 @@ function MaintenanceModal({
               </label>
               <div className="relative">
                 <IndianRupee className="absolute left-2 top-1/2 -translate-y-1/2 size-3" style={{ color: "var(--color-ink-500)" }} />
-                <input aria-label="Ost"
+                <input aria-label="Cost"
                   type="text" inputMode="decimal"
                   step="any"
                   min="0"

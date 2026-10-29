@@ -284,7 +284,7 @@ function SubcontractorFormDialog({
           </Field>
         </div>
         <Field label="PAN" hint="Needed for TDS filing — unregistered subs have no GSTIN to infer it from; absent PAN → 20% u/s 206AA.">
-          <Input aria-label="An" value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} className="font-mono" />
+          <Input aria-label="PAN" value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} className="font-mono" />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Phone">

@@ -158,7 +158,7 @@ export function TdsCertificatesView() {
       <div className="flex items-center justify-end gap-4">
         <div className="flex items-center gap-2">
           <Field label="Financial Year">
-            <Input aria-label="Fy"
+            <Input aria-label="Financial Year"
               value={fy}
               onChange={(e) => setFy(e.target.value)}
               placeholder="2025-26"

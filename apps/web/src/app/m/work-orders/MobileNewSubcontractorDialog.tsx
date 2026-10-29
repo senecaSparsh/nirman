@@ -153,7 +153,7 @@ export function MobileNewSubcontractorDialog({
               >
                 Address
               </label>
-              <textarea aria-label="Ress"
+              <textarea aria-label="Address"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="Shop 12, Market Road, City"

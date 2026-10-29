@@ -287,7 +287,7 @@ export function PartitionDialog({
                   </div>
                   <div className="w-24 space-y-1">
                     <Label className="text-caption text-muted-foreground">Area ({parcel.areaUnit})</Label>
-                    <Input aria-label="Area ("
+                    <Input aria-label={`Area (${parcel.areaUnit})`}
                       type="number"
                       min={0}
                       step="any"

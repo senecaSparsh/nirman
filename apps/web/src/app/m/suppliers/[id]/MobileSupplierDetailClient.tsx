@@ -555,7 +555,7 @@ function SupplierEditSheet({
               </div>
               <div className="pl-2">
                 <label className={labelClass} style={labelStyle}>Email</label>
-                <input aria-label="Mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@firm.com" className={inputClass} style={inputStyle} />
+                <input aria-label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@firm.com" className={inputClass} style={inputStyle} />
               </div>
             </div>
             <div>

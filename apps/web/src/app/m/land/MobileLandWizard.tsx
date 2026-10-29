@@ -2064,7 +2064,7 @@ function MobileSectionEditor({
             <label className={labelClass} style={labelStyle}>
               Area ({areaUnit}) *
             </label>
-            <input aria-label="Area ("
+            <input aria-label={`Area (${areaUnit})`}
               type="number"
               min={0}
               step="any"

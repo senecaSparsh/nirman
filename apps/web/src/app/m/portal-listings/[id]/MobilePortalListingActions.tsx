@@ -276,7 +276,7 @@ export function MobilePortalListingActions({
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Description</label>
-                  <textarea aria-label="Desc" rows={2} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
+                  <textarea aria-label="Description" rows={2} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Asking Price (₹) *</label>
@@ -290,11 +290,11 @@ export function MobilePortalListingActions({
                 <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>Bedrooms</label>
-                    <input aria-label="Beds" type="number" min="0" max="10" inputMode="numeric" value={editBeds} onChange={(e) => setEditBeds(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                    <input aria-label="Bedrooms" type="number" min="0" max="10" inputMode="numeric" value={editBeds} onChange={(e) => setEditBeds(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
                   </div>
                   <div className="pl-2">
                     <label className={labelClass} style={labelStyle}>Bathrooms</label>
-                    <input aria-label="Baths" type="number" min="0" max="10" inputMode="numeric" value={editBaths} onChange={(e) => setEditBaths(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                    <input aria-label="Bathrooms" type="number" min="0" max="10" inputMode="numeric" value={editBaths} onChange={(e) => setEditBaths(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
                   </div>
                 </div>
                 <div>
