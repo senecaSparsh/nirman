@@ -14,7 +14,7 @@ import {
   type OverviewRow,
 } from "@/components/mobile/v2/mobile-overview-sheet";
 import { InteractiveListItem } from "@/components/mobile/v2/interactive-list-item";
-import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
+import { NextActionCard } from "@/components/mobile/v2/guidance";
 import type { ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import {
   MobileSearchHeader,
@@ -165,7 +165,6 @@ function MobileMaterialSalesListInner({
       <MobileSummaryStrip stats={summaryStats} />
 
       {/* ── Orientation: what is this page + what to do next ── */}
-      <PageLead flow="materialSale" />
       <NextActionCard
         flow="materialSale"
         count={pendingCount}

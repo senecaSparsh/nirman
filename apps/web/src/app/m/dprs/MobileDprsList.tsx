@@ -11,7 +11,7 @@ import { formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
-import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
+import { NextActionCard } from "@/components/mobile/v2/guidance";
 import { SwipeableListItem } from "@/components/mobile/swipeable-item";
 import {
   MobileSearchHeader,
@@ -183,7 +183,6 @@ function MobileDprsListInner({
   if (items.length === 0) {
     return (
       <div>
-        <PageLead flow="dpr" />
         <MobileEmptyState
           icon={ClipboardList}
           title="No Daily Progress Reports yet"
@@ -229,8 +228,6 @@ function MobileDprsListInner({
         }}
       />
 
-      {/* ── Orientation: what is this page + what to do next ── */}
-      <PageLead flow="dpr" />
       <NextActionCard
         flow="dpr"
         count={submittedCount}

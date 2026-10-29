@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions, getScopedRolePermissions } from "@/lib/server";
 import { holdsPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
+import { PageLead } from "@/components/mobile/v2/guidance";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -109,7 +110,15 @@ export async function MobileListPage({
 
     const canManage = managePerm ? holdsPermission(role, managePerm, overrides) : true;
 
-    return children({ company, role, actingRole, ownRole, perms: overrides, canManage });
+    // Orientation line above every list — resolves from the route map;
+    // renders nothing on unmapped routes and auto-hides for returning
+    // users, so it never becomes wallpaper.
+    return (
+      <>
+        <PageLead />
+        {children({ company, role, actingRole, ownRole, perms: overrides, canManage })}
+      </>
+    );
   };
 
   return (

@@ -8,7 +8,6 @@ import {
   MobileEmptyState,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
-import { PageLead } from "@/components/mobile/v2/guidance";
 import { MobileUnitsList } from "./MobileUnitsList";
 import { MobileUnitsFab } from "./MobileUnitsFab";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -168,7 +167,6 @@ export default function MobileUnitsPage({
             </div>
 
             {/* ── Orientation: what is this page ── */}
-            <PageLead flow="builtUnit" />
 
             {/* ── Searchable/filterable list ── */}
             <MobileUnitsList

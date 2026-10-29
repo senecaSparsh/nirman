@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronRight, Info, CheckCircle2, ArrowRight, type LucideIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {FLOWS, nextActionFor, type FlowId} from "@/lib/flow-map";
+import {leadForPath} from "@/lib/mobile-page-leads";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    GUIDANCE PRIMITIVES — orientation that merges into the page
@@ -75,7 +76,12 @@ export function PageLead({
   const pathname = usePathname();
   const visits = useVisitCount(pathname);
 
-  const lead = text ?? (flow ? FLOWS[flow].listLead : undefined);
+  const lead =
+    text ??
+    (flow ? FLOWS[flow].listLead : undefined) ??
+    // Bare <PageLead /> — the scaffold case — self-resolves from the
+    // route map so every list page gets its line with zero page edits.
+    leadForPath(pathname);
   if (!lead) return null;
 
   // Returning users don't need the orientation line.

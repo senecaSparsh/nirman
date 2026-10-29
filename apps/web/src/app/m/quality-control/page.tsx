@@ -7,7 +7,7 @@ import {
   MobileStatCard,
   MobileCta,
 } from "@/components/mobile/v2/primitives";
-import { PageLead, NextActionCardView } from "@/components/mobile/v2/guidance";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { FLOWS } from "@/lib/flow-map";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { ClipboardCheck, Plus } from "lucide-react";
@@ -126,7 +126,6 @@ export default function MobileQualityControlPage() {
             )}
 
             {/* ── Orientation: what is this page + what to do next ── */}
-            <PageLead flow="ncr" />
             {listNext && canManage && openNcrCount > 0 ? (
               <NextActionCardView
                 label={listNext.label(openNcrCount)}

@@ -3456,3 +3456,24 @@ Browser-level verification on the mobile surface:
 
 Mobile GL intentionally has no manual-JV surface (vouchers are
 back-office work) — correct scoping, not a parity gap.
+
+## Round 136 — Every mobile list page now explains itself
+
+The UX goal: a site supervisor should never need a call to understand a
+screen. Desktop already had it (every PageHeader carries a plain-
+language `description` from nav.ts hints). Mobile had the PageLead
+primitive + FLOWS map but only 8/188 pages used it.
+
+Fix (no page edits): new `lib/mobile-page-leads.ts` — a route→line map
+in the FLOWS/listLead voice covering all 37 MobileListPage routes and
+the 14 hub surfaces. `PageLead` now self-resolves `leadForPath
+(pathname)` when no explicit `text`/`flow` is passed, and
+`MobileListPage` renders it above the list — every scaffolded page gets
+its line automatically. Auto-dismiss after 3 visits and render-nothing
+on unmapped routes are inherited from the existing primitive, so it
+can't become wallpaper or foreign chrome. The 4 pages with in-component
+leads had them removed to prevent double-render; custom-structure pages
+(requisitions, transfers) and hubs keep theirs.
+
+Verified live: `/m/materials` and `/m/suppliers` show their lines;
+`/m/dprs` correctly hid it on the 4th visit.
