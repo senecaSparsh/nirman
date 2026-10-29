@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   Bell, Loader2, MessageCircle, Mail, Smartphone,
   CheckCircle2, XCircle, Clock, Send, ChevronDown, ChevronUp,
+  MessageSquare, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDateTime, formatEnumLabel } from "@/lib/utils";
@@ -32,6 +33,7 @@ interface LogEntry {
   recipient: string;
   status: "PENDING" | "SENT" | "FAILED";
   message: string;
+  errorMessage?: string | null;
   createdAt: string;
 }
 
@@ -45,6 +47,7 @@ interface Preference {
 const CHANNEL_ICONS: Record<string, typeof Bell> = {
   WHATSAPP: MessageCircle,
   EMAIL: Mail,
+  SMS: MessageSquare,
   IN_APP: Smartphone,
 };
 
@@ -75,6 +78,7 @@ export default function MobileNotificationsPage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [resending, setResending] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading((prev) => (prev ? prev : true));
@@ -186,6 +190,25 @@ export default function MobileNotificationsPage() {
     }
   };
 
+  const handleResend = async (id: string) => {
+    setResending(id);
+    try {
+      const res = await fetch(`/api/notifications/log/${id}/resend`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Resend failed");
+      if (data.status === "SENT") {
+        toast.success("Delivered on retry");
+      } else {
+        toast.error(`Retry failed — ${data.error ?? "provider still unreachable"}`);
+      }
+      loadData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Resend failed");
+    } finally {
+      setResending(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -265,7 +288,7 @@ export default function MobileNotificationsPage() {
           onToggle={handleToggleTemplate}
         />
       ) : (
-        <LogTab logs={logs} />
+        <LogTab logs={logs} resending={resending} onResend={handleResend} />
       )}
     </div>
   );
@@ -453,7 +476,7 @@ function TemplatesTab({
 }
 
 /* ─── Log Tab ─── */
-function LogTab({ logs }: { logs: LogEntry[] }) {
+function LogTab({ logs, resending, onResend }: { logs: LogEntry[]; resending: string | null; onResend: (id: string) => void }) {
   if (logs.length === 0) {
     return (
       <MobileEmptyState
@@ -496,9 +519,31 @@ function LogTab({ logs }: { logs: LogEntry[] }) {
                 <p className="text-m-caption mt-0.5 line-clamp-2" style={{ color: "var(--color-ink-700)" }}>
                   {log.message}
                 </p>
-                <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
-                  {formatDateTime(log.createdAt)}
-                </p>
+                {log.errorMessage ? (
+                  <p className="text-m-caption mt-0.5" style={{ color: "var(--color-stop)" }}>
+                    {log.errorMessage}
+                  </p>
+                ) : null}
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                    {formatDateTime(log.createdAt)}
+                  </p>
+                  {log.status !== "SENT" ? (
+                    <button
+                      onClick={() => onResend(log.id)}
+                      disabled={resending === log.id}
+                      className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold press disabled:opacity-50"
+                      style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
+                    >
+                      {resending === log.id ? (
+                        <Loader2 className="size-3 animate-spin" />
+                      ) : (
+                        <RefreshCw className="size-3" />
+                      )}
+                      Resend
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
