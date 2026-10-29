@@ -323,11 +323,6 @@ export async function sellAsset(input: SellAssetInput) {
         where: { id: input.landParcelId },
       });
       if (!parcel) throw new ServiceError("Land parcel not found", 404);
-      if (parcel.deletedAt) throw new ServiceError("Land parcel is deleted");
-      if (parcel.status !== "AVAILABLE" && parcel.status !== "HOLD") {
-        throw new ServiceError(`Cannot sell parcel in status ${parcel.status}. Must be AVAILABLE or HOLD.`);
-      }
-      if (parcel.saleId) throw new ServiceError("Parcel is already sold (double-sell guard)");
 
       // Determine project + company.
       // Standalone land (no project on parcel or landPurchase) is now supported —
@@ -362,6 +357,16 @@ export async function sellAsset(input: SellAssetInput) {
         if (!landPurchase) throw new ServiceError("Land purchase not found", 404);
         companyId = landPurchase.companyId;
       }
+      // Seal before status errors — a foreign parcel must read as "not
+      // found", not leak its lifecycle state (status oracle).
+      if (companyId !== input.companyId) {
+        throw new ServiceError("Asset not found in this company", 404);
+      }
+      if (parcel.deletedAt) throw new ServiceError("Land parcel is deleted");
+      if (parcel.status !== "AVAILABLE" && parcel.status !== "HOLD") {
+        throw new ServiceError(`Cannot sell parcel in status ${parcel.status}. Must be AVAILABLE or HOLD.`);
+      }
+      if (parcel.saleId) throw new ServiceError("Parcel is already sold (double-sell guard)");
       costBasis = new Decimal(parcel.acquisitionCost);
       // NOTE: asset status is NOT changed here — it stays AVAILABLE until a
       // deposit is recorded (→ RESERVED) or the sale completes (→ SOLD).
@@ -374,16 +379,20 @@ export async function sellAsset(input: SellAssetInput) {
         where: { id: input.builtUnitId },
       });
       if (!unit) throw new ServiceError("Built unit not found", 404);
-      if (unit.deletedAt) throw new ServiceError("Built unit is deleted");
-      if (unit.status !== "AVAILABLE" && unit.status !== "HOLD") {
-        throw new ServiceError(`Cannot sell unit in status ${unit.status}. Must be AVAILABLE or HOLD.`);
-      }
-      if (unit.saleId) throw new ServiceError("Unit is already sold (double-sell guard)");
 
       projectId = unit.projectId;
       const project = await tx.project.findFirst({ where: { id: projectId!, deletedAt: null } });
       if (!project) throw new ServiceError("Project not found", 404);
       companyId = project.companyId;
+      // Seal before status errors — same status-oracle guard as LAND.
+      if (companyId !== input.companyId) {
+        throw new ServiceError("Asset not found in this company", 404);
+      }
+      if (unit.deletedAt) throw new ServiceError("Built unit is deleted");
+      if (unit.status !== "AVAILABLE" && unit.status !== "HOLD") {
+        throw new ServiceError(`Cannot sell unit in status ${unit.status}. Must be AVAILABLE or HOLD.`);
+      }
+      if (unit.saleId) throw new ServiceError("Unit is already sold (double-sell guard)");
       costBasis = new Decimal(unit.productionCost);
       // NOTE: asset status is NOT changed here — see above.
     } else if (input.assetType === "PROJECT") {
@@ -393,10 +402,14 @@ export async function sellAsset(input: SellAssetInput) {
 
       const project = await tx.project.findUnique({ where: { id: input.projectId } });
       if (!project) throw new ServiceError("Project not found", 404);
-      if (project.deletedAt) throw new ServiceError("Project is deleted");
 
       projectId = project.id;
       companyId = project.companyId;
+      // Seal before status errors — same status-oracle guard as LAND.
+      if (companyId !== input.companyId) {
+        throw new ServiceError("Asset not found in this company", 404);
+      }
+      if (project.deletedAt) throw new ServiceError("Project is deleted");
 
       // Check all units are sellable (AVAILABLE or HOLD, not already sold)
       const units = await tx.builtUnit.findMany({

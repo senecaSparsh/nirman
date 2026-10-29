@@ -130,9 +130,10 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
       throw new Error("Cannot issue materials to an ON_HOLD project");
     }
 
-    // Validate location
+    // Validate location — must belong to this company (a foreign tenant's
+    // location id reads as "not found", never leaks or drains their stock)
     const location = await tx.stockLocation.findFirst({
-      where: { id: input.fromLocationId, deletedAt: null },
+      where: { id: input.fromLocationId, companyId: input.companyId, deletedAt: null },
     });
     if (!location) throw new Error("Source location not found or deleted");
 
@@ -371,9 +372,9 @@ export async function createMaterialIssueRequest(input: IssueMaterialsInput) {
     throw new ServiceError("Cannot issue materials to an ON_HOLD project");
   }
 
-  // Validate location
+  // Validate location — same company seal as the direct-issue path
   const location = await prisma.stockLocation.findFirst({
-    where: { id: input.fromLocationId, deletedAt: null },
+    where: { id: input.fromLocationId, companyId: input.companyId, deletedAt: null },
   });
   if (!location) throw new ServiceError("Source location not found or deleted", 404);
 
@@ -626,9 +627,9 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
     departmentName = department.name ?? "";
     if (!department.active) throw new Error("Cannot issue materials to an inactive department");
 
-    // Validate location
+    // Validate location — same company seal as the project path
     const location = await tx.stockLocation.findFirst({
-      where: { id: input.fromLocationId, deletedAt: null },
+      where: { id: input.fromLocationId, companyId: input.companyId, deletedAt: null },
     });
     if (!location) throw new Error("Source location not found or deleted");
 
