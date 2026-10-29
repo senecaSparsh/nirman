@@ -337,7 +337,7 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
         }
         throw new Error(data.error ?? "Failed");
       }
-      toast.success(`Work order ${action === "issue" ? "issued" : action === "complete" ? "marked complete" : action === "release-retention" ? "retention released" : action === "pay-advance" ? "advance paid" : "updated"}`);
+      toast.success(`Work order ${action === "issue" ? "issued" : action === "complete" ? "marked complete" : action === "release-retention" ? "retention released" : action === "pay-advance" ? "advance paid" : action === "add-line" ? "— extra item added" : "updated"}`);
       fetchWOs();
       router.refresh();
       if (detailWO?.id === id) setDetailWO(null);
@@ -656,10 +656,33 @@ function WorkOrderDetailDialog({
   const [advanceAmount, setAdvanceAmount] = useState("");
   const [advanceMode, setAdvanceMode] = useState("BANK_TRANSFER");
   const [advanceRef, setAdvanceRef] = useState("");
+  const [addLineOpen, setAddLineOpen] = useState(false);
+  const [addBoqId, setAddBoqId] = useState("");
+  const [addRate, setAddRate] = useState("");
 
   const { data: detail, loading } = useFetch<WorkOrderDetail | null>(
     wo ? `/api/work-orders/${wo.id}` : null,
   );
+
+  // BOQ items for the extra-item (amendment) picker — project's LINE_ITEMs
+  // minus what's already on this work order.
+  const { data: boqTreeData } = useFetch<{ tree?: unknown[] }>(
+    wo ? `/api/boq/tree?projectId=${wo.project.id}` : null,
+  );
+  const extraBoqItems = useMemo(() => {
+    const onWo = new Set((detail?.lines ?? []).map((l) => l.boqItem.id));
+    const items: { id: string; serialNo: string; description: string; rate: number | null }[] = [];
+    (function collect(nodes: unknown[]) {
+      for (const n of nodes) {
+        const node = n as Record<string, unknown>;
+        if (node.type === "LINE_ITEM" && !onWo.has(node.id as string)) {
+          items.push({ id: node.id as string, serialNo: node.serialNo as string, description: node.description as string, rate: node.rate as number | null });
+        }
+        if (Array.isArray(node.children)) collect(node.children);
+      }
+    })(boqTreeData?.tree ?? []);
+    return items;
+  }, [boqTreeData, detail?.lines]);
 
   // Self-payment is forbidden server-side (SoD) — never offer the button to
   // the bill's creator/submitter, it would only 403.
@@ -763,9 +786,16 @@ function WorkOrderDetailDialog({
 
             {/* ── Scope (BOQ lines) ── */}
             <div>
-              <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-2.5">
-                Scope <span className="text-muted-foreground font-normal">— BOQ Items ({detail.lines.length})</span>
-              </h3>
+              <div className="flex items-center justify-between mb-2.5">
+                <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                  Scope <span className="text-muted-foreground font-normal">— BOQ Items ({detail.lines.length})</span>
+                </h3>
+                {canCreate && (detail.status === "DRAFT" || detail.status === "ISSUED" || detail.status === "ACTIVE") && extraBoqItems.length > 0 && (
+                  <Button size="sm" variant="ghost" onClick={() => { setAddBoqId(""); setAddRate(""); setAddLineOpen(true); }}>
+                    <Plus className="mr-1 h-3.5 w-3.5" /> Extra Item
+                  </Button>
+                )}
+              </div>
               <div className="rounded-lg border border-border overflow-x-auto">
                 <table className="w-full table-fixed min-w-[620px]">
                   <colgroup>
@@ -935,6 +965,61 @@ function WorkOrderDetailDialog({
           onSaved={() => { onRefresh(); setRaBillDialogOpen(false); }}
         />
       )}
+
+      {/* ── Extra-item amendment — thekedar did work beyond original scope,
+          rate agreed, item joins the WO and bills through normal MB→RA ── */}
+      <Dialog
+        open={addLineOpen}
+        onOpenChange={(open) => { if (!open) setAddLineOpen(false); }}
+        title="Add extra item"
+        description="Work beyond the original scope — the agreed rate is added to this work order and billed through the normal measurement → RA bill chain."
+        className="max-w-md"
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-foreground mb-1.5 block">BOQ item</label>
+            <select
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              value={addBoqId}
+              onChange={(e) => {
+                setAddBoqId(e.target.value);
+                const b = extraBoqItems.find((x) => x.id === e.target.value);
+                if (b?.rate != null) setAddRate(String(b.rate));
+              }}
+            >
+              <option value="">Select item…</option>
+              {extraBoqItems.map((b) => (
+                <option key={b.id} value={b.id}>{b.serialNo} — {b.description}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-foreground mb-1.5 block">Agreed rate (₹)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm tabular-nums"
+              value={addRate}
+              onChange={(e) => setAddRate(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button variant="ghost" className="flex-1" onClick={() => setAddLineOpen(false)}>Cancel</Button>
+            <Button
+              className="flex-1"
+              disabled={!addBoqId || !addRate || Number(addRate) <= 0 || actionLoading}
+              onClick={() => {
+                onAction(wo.id, "add-line", { boqItemId: addBoqId, agreedRate: Number(addRate) });
+                setAddLineOpen(false);
+              }}
+            >
+              Add to work order
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       {raBillDetail && (
         <RaBillDetailDialog
