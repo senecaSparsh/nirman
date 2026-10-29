@@ -3087,3 +3087,28 @@ Round 120b — verify-suite self-cleaning + residual book findings
   transactionally; every divergence traces to seed/script writes that
   bypassed services, never to app paths. The real fix for residuals =
   re-seed demo data through service paths (bigger build — next).
+
+Round 121 — Collections spine verified live end-to-end (both promotion paths)
+
+- Exercised on a real sale (SAL-20261029-0001, SRG REALCON, TLP→CLP schedule):
+  - Date-linked: POST /api/sales/send-reminders promoted past-due PENDING → DUE;
+    reminder carried correct late interest (₹5,000 × 10.65% × 44/365 = ₹64.19)
+    - UPI deep link; NotificationLog audit row.
+  - Milestone-linked: WBS node at 40.36% → checked:1, triggered:0; node →100% →
+    installment flipped DUE + DEMAND_LETTER auto-dispatched — the owner's
+    "first slab poured → 10% demand" flow.
+  - Demand dedupe: second send within 24h → 409. Print notice renders full
+    letterhead, amount-in-words, ≥30-day "Final Notice" escalation, UPI pay.
+  - WhatsApp provider is the dev stub (SENT = logged, nothing dispatched).
+- Fixes:
+  - b73a0ba0 — mobile Demand button showed on PENDING items (service rejects;
+    doomed action). Gated to DUE/PARTIAL, matching desktop.
+  - b73da783 — the sweep had zero mobile surface; added "Send payment
+    reminders" to the Collections banner (SALES_MANAGE, outstanding>0).
+- Also verified: PATCH /api/users/[id] active toggle e2e on mobile
+  (Deactivate → User.active=false → auth rejects → Activate restores);
+  requisition quote gate blocks convert at 0/3 quotes ("Quote gate not
+  satisfied…") with approver waiver path — sequence cannot be bypassed.
+- Residual: demand notices print for PENDING items too (print page 404s only
+  PAID/WAIVED). Deliberate? A demand asserting overdue money not yet owed is
+  legally shaky — flag for owner decision before hardening.
