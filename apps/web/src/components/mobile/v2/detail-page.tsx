@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions, getScopedRolePermissions } from "@/lib/server";
 import { holdsPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
+import { PageLead } from "@/components/mobile/v2/guidance";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -126,7 +127,12 @@ export async function MobileDetailPage({
 
     const canManage = managePerm ? holdsPermission(role, managePerm, overrides) : true;
 
-    return children({ id, company, role, actingRole, ownRole, perms: overrides, canManage });
+    return (
+      <>
+        <PageLead />
+        {children({ id, company, role, actingRole, ownRole, perms: overrides, canManage })}
+      </>
+    );
   };
 
   return (

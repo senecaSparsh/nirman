@@ -108,11 +108,57 @@ export const MOBILE_PAGE_LEADS: Record<string, string> = {
   "/m/stock-out": "Stock leaving — issues to site and sales to buyers.",
 };
 
+/**
+ * DETAIL LEADS — record-level orientation for /m/{entity}/[id] pages.
+ * Voice: what this record is, and what a user can do with it here.
+ * Keyed by the parent list path — `/m/materials/cmx123` resolves to
+ * `"/m/materials"`.
+ */
+export const MOBILE_DETAIL_LEADS: Record<string, string> = {
+  "/m/boq": "One project's cost budget — line by line. Actual spend tracks against each head.",
+  "/m/budget-variance": "Planned vs actual for one project head — where the overrun is coming from.",
+  "/m/calls": "One call — recording, notes, and the follow-up it created.",
+  "/m/change-orders": "One scope change — what changed, who approved it, and its cost effect.",
+  "/m/customers": "One customer — their units, payments, documents and follow-ups.",
+  "/m/dprs": "One day's site report — work done, labour and material used. Approvals happen here.",
+  "/m/equipment": "One machine — where it is, who has it, and its service history.",
+  "/m/expense-claims": "One claim — the bills inside and its approval. Approved claims can be paid here.",
+  "/m/expenses": "One expense — what it was for, its approval, and receipt.",
+  "/m/land": "One land parcel — cost, documents, and how it's been divided.",
+  "/m/leads": "One interested buyer — call history, follow-ups, and converting to a sale.",
+  "/m/material-issues": "One stock issue — what went out, to which project, and its gate pass.",
+  "/m/material-sales": "One material sale — the items sold and payments recorded against it.",
+  "/m/materials": "One material — stock at each location, cost history, and where it went.",
+  "/m/measurement-book": "One measurement — quantities the engineer verified for billing.",
+  "/m/portal-listings": "One portal listing — what buyers see for this unit.",
+  "/m/procurement": "One purchase order — lines, supplier, and what's been received.",
+  "/m/project-control": "One project's control view — cost, progress and variance in one place.",
+  "/m/projects": "One project — its phases, spend, units and documents.",
+  "/m/rate-contracts": "One supplier rate contract — the agreed prices and validity.",
+  "/m/rentals": "One tenancy — tenant, rent schedule, escalation and collections.",
+  "/m/requisitions": "One material request from site — approved items become purchase orders.",
+  "/m/sales": "One unit sale — buyer, payment schedule, and collections.",
+  "/m/scrap-generations": "One scrap lot — quantity generated, sold and remaining.",
+  "/m/standard-consumptions": "One consumption benchmark — expected material per work item.",
+  "/m/stock-counts": "One physical count — book vs counted, and the variance to reconcile.",
+  "/m/subcontractors": "One labour contractor — work orders, bills and payments.",
+  "/m/supplier-returns": "One return to a supplier — items sent back and the credit note.",
+  "/m/suppliers": "One supplier — GSTIN, purchases, and what you still owe.",
+  "/m/transfers": "One stock transfer — what moved, between which stores, and its receipt.",
+  "/m/units": "One unit — construction status, buyer, and payment schedule.",
+  "/m/wbs": "One work breakdown — the project's tasks and their progress.",
+  "/m/work-orders": "One work order — the contractor, scope, and bills against progress.",
+  "/m/workflows": "One approval chain — who signs off, in what order.",
+};
+
 /** Normalize /m/…/ trailing slashes so lookup is forgiving. */
 export function leadForPath(pathname: string): string | undefined {
   const key =
     pathname.length > 1 && pathname.endsWith("/")
       ? pathname.slice(0, -1)
       : pathname;
-  return MOBILE_PAGE_LEADS[key];
+  if (MOBILE_PAGE_LEADS[key]) return MOBILE_PAGE_LEADS[key];
+  // Detail route — strip the [id] segment and try the detail map.
+  const parent = key.slice(0, key.lastIndexOf("/"));
+  return parent.startsWith("/m") ? MOBILE_DETAIL_LEADS[parent] : undefined;
 }

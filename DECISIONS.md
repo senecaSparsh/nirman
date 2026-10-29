@@ -3477,3 +3477,12 @@ leads had them removed to prevent double-render; custom-structure pages
 
 Verified live: `/m/materials` and `/m/suppliers` show their lines;
 `/m/dprs` correctly hid it on the 4th visit.
+
+## Round 136b — Detail-page leads: 71 mobile surfaces self-explain
+
+Extended the same model to detail routes: `MOBILE_DETAIL_LEADS` keyed
+by parent path ("One material sale — the items sold and payments
+recorded against it"), `leadForPath` strips the [id] segment to
+resolve, and `MobileDetailPage` renders it for all 34 scaffolded detail
+pages. Verified live on `/m/material-sales/[id]`. No detail client had
+a PageLead (they use NextActionCard) so nothing double-renders.
