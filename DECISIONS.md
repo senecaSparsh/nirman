@@ -3705,3 +3705,15 @@ now POST /api/users/bulk: each successfully created user gets their
 login details automatically; response gains welcomeSent count.
 Verified: 2-row bulk import → 2 welcomes (SMS→outbox for the phone
 user, EMAIL log for the email user), users/logs cleaned.
+
+## Round 147 — Platform email: zero-maintenance model locked in
+
+The owner's requirement: nobody maintains anything. Model = fully
+managed cloud (we own the VPS via Coolify; customers never see a
+server). Closed the last gap: docker-compose.prod.yml gains a `mail`
+service (mwader/postfix-relay — outbound SMTP relay with NO mailboxes,
+NO users, nothing to administer; trusts the internal Docker network
+only) + SMTP_* env on web, so the round-141 env fallback gives EVERY
+company working email with zero per-company forms. One-time ops note:
+deliverability to Gmail needs SPF+PTR(+DKIM) on the sending domain —
+platform DNS task, not per-company.

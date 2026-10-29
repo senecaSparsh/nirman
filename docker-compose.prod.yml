@@ -102,6 +102,14 @@ services:
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
       SEED_PASSWORD: ${SEED_PASSWORD:-nirman123}
       CRON_SECRET: ${CRON_SECRET}
+      # ── Platform email (internal relay — every company gets email,
+      #    per-company EMAIL_SMTP config only exists as an override) ──
+      SMTP_HOST: mail
+      SMTP_PORT: "25"
+      SMTP_USER: ${SMTP_USER:-nirman}
+      SMTP_PASS: ${SMTP_PASS:-relay}
+      SMTP_FROM: ${SMTP_FROM:-no-reply@nirman.life}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Nirman Inventory}
       # Guards POST /api/workflow-scheduler (due scheduled workflows).
       SCHEDULER_SECRET: ${SCHEDULER_SECRET:-}
       # ── Sentry (optional — leave empty to disable) ──
@@ -204,6 +212,21 @@ services:
       - pgbackups:/backups
       - uploads:/uploads-src:ro
     command: ["sh", "/backup.sh"]
+
+  # ── Mail relay (platform email, zero company setup) ─────────────
+  # Accepts SMTP only from the internal Docker network (mynetworks) and
+  # relays outbound — no mailboxes, no users, nothing to administer.
+  # Outbound deliverability to Gmail still needs one-time DNS work on
+  # the sending domain (SPF + PTR + DKIM via maddy if needed later).
+  mail:
+    image: mwader/postfix-relay:latest
+    restart: unless-stopped
+    environment:
+      POSTFIX_myhostname: ${MAIL_HOSTNAME:-mail.nirman.life}
+      # Trust the compose network only — the relay never faces the internet.
+      POSTFIX_mynetworks: "127.0.0.0/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16"
+    networks:
+      - default
 
 networks:
   # The `coolify` network is created by Coolify and shared with the Traefik
