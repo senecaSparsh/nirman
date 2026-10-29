@@ -3436,3 +3436,23 @@ rendered P&L, balance-sheet, cash-flow, GST reports — all 200 with
 real data bodies. The earlier curl-sweep timeouts were the documented
 Turbopack CPU-stall gap (sequential mass hits wedge compiles), not page
 bugs — all flagged routes returned 200 on a healthy server.
+
+## Round 135 — Mobile dogfooding: GL, notifications, petty cash, counts
+
+Browser-level verification on the mobile surface:
+
+- **GL** — Dr=Cr ₹12.22Cr "Out of balance by ₹0"; all 30 accounts show
+  signed balances incl. today's FY-close (RE Cr ₹24.8K) and netting
+  (Advances Dr ₹1.56L). Only console error is a Sentry 429 (dev
+  telemetry rate limit — environmental).
+- **Notifications** — live event chain confirmed: "Payroll Zero Gross"
+  (the sparse-marking/zero-gross warning reaching the bell), rent
+  escalation applied, tenancy created, sale payments — everything done
+  today surfaced correctly.
+- **Petty cash** — float list → detail sheet (Total In ₹5K / Spent
+  ₹930 / custodian) → Record Spend form with available-balance guard.
+- **Stock counts** — 19 counts with variance summaries; COUNTED→
+  RECONCILED pipeline; 15 pending is a visible operator backlog.
+
+Mobile GL intentionally has no manual-JV surface (vouchers are
+back-office work) — correct scoping, not a parity gap.
