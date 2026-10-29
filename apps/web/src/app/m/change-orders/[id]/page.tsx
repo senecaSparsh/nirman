@@ -1,7 +1,9 @@
 import { prisma } from "@nirman/db";
-import { scopeWhere, toNum, getCurrentUser } from "@/lib/server";
+import { scopeWhere, toNum, getCurrentUser, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
+import { resolveNextAction } from "@/lib/flow-map";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { notFound } from "next/navigation";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileChangeOrderDetailClient } from "./MobileChangeOrderDetailClient";
@@ -13,7 +15,7 @@ export default async function MobileChangeOrderDetailPage({
 }) {
   return (
     <MobileDetailPage params={params} perm={PERM.ASSETS_VIEW} what="change orders" permission="assets.view" managePerm={PERM.WO_MANAGE} skeletonSections={6} scopeAware>
-      {async ({ id, company, canManage, actingRole }) => {
+      {async ({ id, company, role, canManage, actingRole }) => {
         const co = await prisma.changeOrder.findFirst({
           where: { id, companyId: company.id, ...await scopeWhere("ChangeOrder") },
           include: {
@@ -72,13 +74,31 @@ export default async function MobileChangeOrderDetailPage({
             boqItemDescription: l.boqItem?.description ?? null,
             notes: l.notes}))};
 
+        const overrides = await getUserPermissions();
+        let nextAction = resolveNextAction("changeOrder", co.status, role, overrides);
+        // The submitter can't approve their own CO unless tier-1 —
+        // same suppression the action bar applies.
+        if (co.status === "SUBMITTED" && co.submittedById === currentUser?.id && !canAutoApprove(actingRole)) {
+          nextAction = undefined;
+        }
+
         return (
           <PageContextProvider value={{
             entityType: "changeOrder",
+            flowId: "changeOrder",
             status: co.status,
             label: co.changeOrderNo,
             subtitle: co.project.name,
             recordId: co.id}}>
+            {nextAction && (
+              <NextActionCardView
+                label={nextAction.label}
+                actionVerb={nextAction.verb}
+                reason={nextAction.reason}
+                tone={nextAction.tone ?? "signal"}
+                hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+              />
+            )}
             <MobileChangeOrderDetailClient co={serialized} canManage={canManage} currentUserId={currentUser?.id ?? null} canSelfApprove={canAutoApprove(actingRole)} />
           </PageContextProvider>
         );

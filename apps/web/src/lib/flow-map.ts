@@ -48,7 +48,8 @@ export type FlowId =
   | "builtUnit"
   | "expenseClaim"
   | "gatePass"
-  | "tenancy";
+  | "tenancy"
+  | "changeOrder";
 
 /** A node in a flow — a screen the user can be on. */
 export interface FlowNode {
@@ -695,6 +696,61 @@ const TENANCY_FLOW: FlowDef = {
 };
 
 // ─────────────────────────────────────────────────────────────────
+// CHANGE ORDER — scope/cost changes: draft → submit → approve (which
+// auto-implements). Rejection returns to a fixable state.
+// ─────────────────────────────────────────────────────────────────
+
+const CHANGE_ORDER_FLOW: FlowDef = {
+  id: "changeOrder",
+  listHref: "/m/change-orders",
+  listLead: "Scope and cost changes on a project. Submitted ones need an owner's decision — approving applies the change.",
+  nodes: [
+    { status: "DRAFT", label: "Draft", detailHref: "/m/change-orders/{id}" },
+    { status: "SUBMITTED", label: "Submitted", detailHref: "/m/change-orders/{id}" },
+    { status: "APPROVED", label: "Approved", detailHref: "/m/change-orders/{id}" },
+    { status: "IMPLEMENTED", label: "Implemented", detailHref: "/m/change-orders/{id}" },
+    { status: "REJECTED", label: "Rejected", detailHref: "/m/change-orders/{id}" },
+    { status: "CANCELLED", label: "Cancelled", detailHref: "/m/change-orders/{id}" },
+  ],
+  next: [
+    {
+      when: "DRAFT",
+      label: "Submit for approval",
+      verb: "Submit",
+      reason: "A draft changes nothing until an owner approves it.",
+      action: { type: "anchor", hash: "#submit" },
+      perm: PERM.WO_MANAGE,
+      tone: "signal",
+    },
+    {
+      when: "SUBMITTED",
+      label: "Approve & implement",
+      verb: "Approve",
+      reason: "Waiting on a decision — approving applies the cost and schedule change.",
+      action: { type: "anchor", hash: "#approve" },
+      perm: PERM.WO_MANAGE,
+      tone: "signal",
+    },
+    {
+      when: "REJECTED",
+      label: "Fix & resubmit",
+      verb: "Resubmit",
+      reason: "Sent back — revise the lines and submit again.",
+      action: { type: "anchor", hash: "#submit" },
+      perm: PERM.WO_MANAGE,
+      tone: "signal",
+    },
+  ],
+  listNext: {
+    countStatuses: ["SUBMITTED"],
+    label: (n) => `${n} change order${n !== 1 ? "s" : ""} awaiting a decision`,
+    reason: "Approving applies the change to BOQ, budget and schedule.",
+    filterChip: "SUBMITTED",
+    perm: PERM.WO_MANAGE,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────
 // REGISTRY + LOOKUP HELPERS
 // ─────────────────────────────────────────────────────────────────
 
@@ -710,6 +766,7 @@ export const FLOWS: Record<FlowId, FlowDef> = {
   expenseClaim: EXPENSE_CLAIM_FLOW,
   gatePass: GATE_PASS_FLOW,
   tenancy: TENANCY_FLOW,
+  changeOrder: CHANGE_ORDER_FLOW,
 };
 
 /**
@@ -731,6 +788,7 @@ const ROUTE_TO_FLOW: Record<string, FlowId> = {
   "/m/expense-claims": "expenseClaim",
   "/m/gate-pass": "gatePass",
   "/m/rentals": "tenancy",
+  "/m/change-orders": "changeOrder",
 };
 
 export function flowForRoute(route: string): FlowDef | undefined {

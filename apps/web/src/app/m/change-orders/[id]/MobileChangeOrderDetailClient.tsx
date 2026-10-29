@@ -317,6 +317,10 @@ export function MobileChangeOrderDetailClient({
       )}
 
       {/* Workflow actions — approve/reject hidden from the submitter unless tier-1. */}
+      {/* NextActionCard scroll targets — #submit (draft/rejected),
+          #approve (submitted). Both land on this bar. */}
+      <div id="submit" />
+      <div id="approve" />
       {canManage && (
         <ActionBar>
           {co.status === "DRAFT" && (

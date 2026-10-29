@@ -70,6 +70,8 @@ export default function MobileChangeOrdersPage() {
 
             <MobileChangeOrdersList
               items={serialized}
+              pending={pending}
+              canManage={canManage}
               exportTitle="Change Orders"
               exportRows={serialized as unknown as Record<string, unknown>[]}
               exportColumns={[

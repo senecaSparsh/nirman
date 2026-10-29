@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { ArrowUpRight, ArrowDownRight, Clock } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { useUrlFilter } from "@/lib/use-url-filter";
+import { NextActionCard } from "@/components/mobile/v2/guidance";
+import { PERM } from "@nirman/rbac";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import {
   MobileSearchHeader,
@@ -47,21 +50,37 @@ const TYPE_LABELS: Record<string, string> = {
   VARIATION: "Variation",
 };
 
-export function MobileChangeOrdersList({
-  items,
-  exportTitle,
-  exportRows,
-  exportColumns,
-  exportSummary,
-}: {
+type MobileChangeOrdersListProps = {
   items: ChangeOrderListItem[];
+  /** SUBMITTED count — feeds the approval-queue card. */
+  pending?: number;
+  canManage?: boolean;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
   exportSummary?: string;
-}) {
+};
+
+export function MobileChangeOrdersList(props: MobileChangeOrdersListProps) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileChangeOrdersListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileChangeOrdersListInner({
+  items,
+  pending = 0,
+  canManage = false,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: MobileChangeOrdersListProps) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<COFilter>("ALL");
+  const [filter, setFilter] = useUrlFilter<COFilter>("status", "ALL");
 
   const filtered = useMemo(() => {
     let result = items;
@@ -82,6 +101,13 @@ export function MobileChangeOrdersList({
 
   return (
     <div>
+      {/* Queue card — submitted COs awaiting an owner's decision */}
+      <NextActionCard
+        flow="changeOrder"
+        count={{ SUBMITTED: pending }}
+        can={(perm) => perm === PERM.WO_MANAGE ? canManage : false}
+      />
+
       <MobileSearchHeader
         query={query}
         onQueryChange={setQuery}
