@@ -190,12 +190,13 @@ The governance layer — the answers to "how does a big company run this":
     Safety rails: max 10 restarts per 5-min window, counter resets after 5 min of
     stability, clean Ctrl+C handling. The wrapper uses zero external
     dependencies (Node built-ins only). If you need to bypass it: `pnpm --filter web dev:raw`.
-    **Known gap**: the dev wrapper detects crash/error signatures, not CPU-bound
-    stalls — a mass rebuild (200+ changed files) plus rapid sequential page hits can
-    wedge Turbopack into minutes-long compiles where even `/api/health` times out.
-    Fix: `kill` the `next-server` PID and the wrapper respawns it healthy. The
-    production start wrapper does poll `/api/health` and restarts on 3 failures —
-    this gap is dev-only.
+    **Stall detection (round 3):** the wrapper also polls `/api/health` every 30s
+    on the port parsed from Next's `Local:` banner. A CPU-bound wedge (mass
+    rebuild + rapid page hits stalling Turbopack compiles) produces no error
+    output and no exit — health polls are the only signal. Three consecutive
+    failures (~90s unresponsive) trigger a plain respawn with no cache clear.
+    Failures only count after the server has answered once, so cold starts and
+    slow first compiles never false-positive.
 - **Auto-scaling memory**: the app auto-detects available RAM (via cgroup limits
   on Docker/K8s/VPS containers, or `os.totalmem()` locally) and tunes all memory-dependent
   settings automatically. **Upgrade the container/VPS memory and everything adapts — no
