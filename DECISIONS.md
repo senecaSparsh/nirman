@@ -3112,3 +3112,46 @@ Round 121 — Collections spine verified live end-to-end (both promotion paths)
 - Residual: demand notices print for PENDING items too (print page 404s only
   PAID/WAIVED). Deliberate? A demand asserting overdue money not yet owed is
   legally shaky — flag for owner decision before hardening.
+
+## Round 122 — Construction/attendance/task spines verified + aria-label defect class swept
+
+**Construction spine (WO → MB → RA bill → pay) — verified live, no changes:**
+
+- MB `MB-261029-0001` driven DRAFT → VERIFIED → APPROVED through the mobile UI;
+  cumulative BOQ rollup fired on approve. Self-verify/self-approve allowed for
+  OWNER (tier-1 waiver); self-reject correctly hidden (service rejects).
+- RA bill on fully-billed WO rejects "No approved unbilled MB entries found" —
+  double-claim guard holds. Deduction math verified: ₹16,000 gross − 5%
+  retention − 10% advance − 2% TDS = ₹13,280.
+- `payRaBill` SoD: creator can't pay own bill, NO tier-1 exemption — both
+  mobile and desktop gates match (canPayBill has no self-approve waiver,
+  canApproveBill does). Verified live via 403 + gate inspection.
+
+**Attendance/payroll:** 5-code engine verified (PRESENT/LATE/HALF_DAY/ABSENT/
+OVERTIME), floor(lateCount/4) late→half-day deducted from daysWorked AND wages,
+DPR labor lines auto-populate from attendance, processed-payroll locks writes
+with user-facing explanation. Mobile supervisor surface: theke-wala day-worker
+quick-add, GPS toggle, per-worker code chips.
+
+**Tasks (transcript: "pending lists pushed to juniors"):** POST /api/tasks →
+TASK_ASSIGNED event → NotificationLog SENT + unread InAppNotification for
+assignee. Non-manager GET is scoped to own tasks; manager filter is
+membership-scoped. Verified live (task to Sanjeev Kumar).
+
+**User block/unblock:** exercised live — Deactivate flips User.active=false,
+session validation rejects (auth.ts), Activate restores. Membership preserved.
+
+**ErrorLog telemetry sweep (14d):** no live recurring user-facing errors.
+"verify error" ×33 = verify-workflows script probes; two assetSale Prisma
+errors are stale schema drift (Oct 19-21, since fixed); :3200 errors are the
+test-env provisioning gap.
+
+**Aria-label defect class — swept + fixed (`a528791b`, second batch after
+`bc6d7d19`):** 14 inputs where aria-label was a dropped-prefix mangling
+("Ommission"→"Commission %", "Ress"→"Address", "Mail"→"Email", "Ost"→"Cost",
+"An"→"PAN", "Auto"→"GST %", "Desc"→"Description", "Fy"→"Financial Year",
+"Ategory"→"Category", "Ayee Name"→"Payee", "Ay TDS"→"Buyer TDS", "Ay Day"→
+"Pay Day") or placeholder text ("Area (", "A-", "A,B,C", "Sharma Properties").
+Pattern: `aria-label=<placeholder>` — likely a broken transform. Remaining
+short labels (Qty/Hrs/To) verified intentional. Watch for the same class in
+title/alt attributes.
