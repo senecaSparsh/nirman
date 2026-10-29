@@ -3486,3 +3486,21 @@ recorded against it"), `leadForPath` strips the [id] segment to
 resolve, and `MobileDetailPage` renders it for all 34 scaffolded detail
 pages. Verified live on `/m/material-sales/[id]`. No detail client had
 a PageLead (they use NextActionCard) so nothing double-renders.
+
+## Round 136c — Create-form leads complete the orientation layer
+
+`MOBILE_CREATE_LEADS` ("Sell scrap or surplus material — the buyer pays
+against this record") keyed by `/new` path + `MobileNewEntityPage`
+renders it — 22 create forms now explain what you're making and what
+happens after save. `/edit` routes get no lead (editing isn't
+orientation). Final coverage: 37 lists + 34 details + 22 create forms =
+93 mobile surfaces, all driven by two maps + three scaffold lines.
+
+## Round 136c — Create-form leads complete the orientation layer
+
+`MOBILE_CREATE_LEADS` ("Sell scrap or surplus material — the buyer pays
+against this record") keyed by `/new` path + `MobileNewEntityPage`
+renders it — 22 create forms now explain what you are making and what
+happens after save. `/edit` routes get no lead (editing is not
+orientation). Final coverage: 37 lists + 34 details + 22 create forms =
+93 mobile surfaces, all driven by two maps + three scaffold lines.

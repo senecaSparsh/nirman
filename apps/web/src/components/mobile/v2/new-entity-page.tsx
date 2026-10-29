@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { getUserRole, getUserPermissions, getScopedRolePermissions } from "@/lib/server";
 import { holdsPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
+import { PageLead } from "@/components/mobile/v2/guidance";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -125,7 +126,12 @@ export async function MobileNewEntityPage({
     if (!soft && perm && !canManage) {
       return <MobileNoAccess what={what ?? "this page"} permission={permission} />;
     }
-    return children({ canManage });
+    return (
+      <>
+        <PageLead />
+        {children({ canManage })}
+      </>
+    );
   };
 
   if (suspense) {

@@ -151,6 +151,37 @@ export const MOBILE_DETAIL_LEADS: Record<string, string> = {
   "/m/workflows": "One approval chain — who signs off, in what order.",
 };
 
+/**
+ * CREATE LEADS — for /m/{entity}/new form pages. Voice: what you're
+ * making, and what happens after you save (the part people call about).
+ * Keyed by the /new path itself.
+ */
+export const MOBILE_CREATE_LEADS: Record<string, string> = {
+  "/m/brokers/new": "Add a broker — set their commission % and contact. Deals link to them from sales.",
+  "/m/customers/new": "Add a customer — their units and payments track here once a sale is made.",
+  "/m/equipment/new": "Register a machine — track its location, custodian and service schedule.",
+  "/m/expense-claims/new": "File bills for reimbursement — submit it, a manager approves, then it's paid.",
+  "/m/expenses/new": "Record a spend outside purchases — it needs approval before it hits the books.",
+  "/m/leads/new": "Note an interested buyer — follow-ups remind you until they convert or go cold.",
+  "/m/material-sales/new": "Sell scrap or surplus material — the buyer pays against this record.",
+  "/m/materials/new": "Add an item you buy — set its unit and reorder level so alerts fire.",
+  "/m/petty-cash/new": "Open a cash float for a site or person — spends and top-ups track against it.",
+  "/m/portal-listings/new": "List a unit on the buyer-facing portal — this is what customers see.",
+  "/m/procurement/new": "Raise a purchase order — after approval it's ordered, then received at the gate.",
+  "/m/quotations/new": "Ask suppliers for rates — compare landed costs and convert the winner to a PO.",
+  "/m/requisitions/new": "Site asking office to buy material — approved items become purchase orders.",
+  "/m/sales/new": "Sell a unit to a buyer — sets the payment schedule and collections against it.",
+  "/m/scrap-generations/new": "Record scrap generated on site — sell it later to recover cost.",
+  "/m/stock-counts/new": "Count physical stock at a location — mismatches flag for reconciliation.",
+  "/m/stock-locations/new": "Add a warehouse or site store — stock lives and moves between these.",
+  "/m/subcontractors/new": "Add a labour contractor — give them work orders and match bills to progress.",
+  "/m/supplier-payments/new": "Pay a supplier against open bills — their balance updates instantly.",
+  "/m/supplier-returns/new": "Send items back to a supplier — creates the debit note and stock deduction.",
+  "/m/suppliers/new": "Add a supplier — their GSTIN, rates and running balance track here.",
+  "/m/transfers/new": "Move stock between stores — it stays in-transit until the receiver confirms.",
+  "/m/workflows/new": "Build an approval chain — who signs off, in what order, for which documents.",
+};
+
 /** Normalize /m/…/ trailing slashes so lookup is forgiving. */
 export function leadForPath(pathname: string): string | undefined {
   const key =
@@ -158,6 +189,10 @@ export function leadForPath(pathname: string): string | undefined {
       ? pathname.slice(0, -1)
       : pathname;
   if (MOBILE_PAGE_LEADS[key]) return MOBILE_PAGE_LEADS[key];
+  // Create-form route — its own lead voice.
+  const last = key.slice(key.lastIndexOf("/") + 1);
+  if (last === "new") return MOBILE_CREATE_LEADS[key];
+  if (last === "edit") return undefined;
   // Detail route — strip the [id] segment and try the detail map.
   const parent = key.slice(0, key.lastIndexOf("/"));
   return parent.startsWith("/m") ? MOBILE_DETAIL_LEADS[parent] : undefined;
