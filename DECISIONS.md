@@ -3296,3 +3296,38 @@ Gaps filed:
 
 Not needed: L1 quote chart (quote-comparison already does it), vehicle
 in/out (gate passes), on-account adjustment (customer credit exists).
+
+## Round 128 — /api/health/books invariant investigation + fixture repair
+
+Ran the 24-check books monitor live after the dogfooding mutations. Two FAILs
+root-caused:
+
+**inventory-gl FAIL (now PASS).** GL 1300 showed ₹40,148.72 vs stock-derived
+₹37,737.92 (−₹2,410.80). Decomposition: FIXTURE-source JEs contributed
++₹23,347.92 (verify-suite opening-balance seeds), while fixture StockMovements
+carried flat seeded balanceValueAfter values (qty 1 @ ₹10 → ₹5,000). GL-side
+drift only — StockLocationItem cache needed zero corrections (qty already
+tied to the movement log, matching the stock-ledger PASS). Repaired via the
+sanctioned `./scripts/repair-books-dev.sh` — §3c posted the residual
+Dr 1300 / Cr 3000 fixture-opening JE (₹2,410.80, sourceId vfy-opening-stock-*)
+and the check reads PASS. Classification: dev-seed drift, not a product leak —
+every real-flow sourceType posts GL and movements in the same transaction.
+
+**exited-pass-linkage FAIL (surfaced by design).** GP-261027-0003 went EXITED
+244ms after its MaterialIssue was CANCELLED — confirmExit never checked for a
+dead parent. Fixed in 954f93f5 (blocks exit on CANCELLED/RETURNED/REVERSED
+parents). The historical row stays surfaced — a pass can't be un-exited and
+the check exists precisely to flag this class.
+
+**account-signs WARN (fixture residue).** Equipment & Fixtures −₹4,351,113 =
+EQUIPMENT_SALE credits on fixture equipment that was never capitalized
+(sweeps left credits orphaned). AR −₹2,217.60 = payment/return overflow on
+fixture sales — posting code confirmed symmetric (Dr AR on sale, Cr AR on
+return, both unconditional). Petty Cash −₹180 = seeded float spent via API.
+All dev-data artifacts; WARN severity is correct.
+
+**notification-backlog WARN.** 15 FAILED: 14 WHATSAPP (provider stub is
+credential-gated, expected in dev) + 1 IN_APP. No product defect.
+
+Standing books state: 21 PASS / 1 FAIL (historical gate-pass row, code-fixed)
+/ 2 WARN (fixture residue + config-gated WhatsApp).
