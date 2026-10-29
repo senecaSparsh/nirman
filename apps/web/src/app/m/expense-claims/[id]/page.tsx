@@ -57,6 +57,20 @@ export default function MobileExpenseClaimDetailPage({
               select: { id: true, name: true, isActive: true }})
           : [];
 
+        // Claimant's open advance — the pay sheet offers imprest netting
+        // (settle against advance) only when one exists.
+        const claimantEmployee = claim
+          ? await prisma.employee.findFirst({
+              where: { userId: claim.claimantId, companyId: company.id, deletedAt: null },
+              select: { id: true } })
+          : null;
+        const advanceAgg = claimantEmployee
+          ? await prisma.employeeAdvance.aggregate({
+              _sum: { amount: true, recoveredAmount: true },
+              where: { employeeId: claimantEmployee.id, status: "ACTIVE" } })
+          : null;
+        const advanceOutstanding = advanceAgg ? toNum(advanceAgg._sum.amount) - toNum(advanceAgg._sum.recoveredAmount) : 0;
+
         if (!claim) {
           return (
             <MobileExpenseClaimDetailClient
@@ -125,6 +139,7 @@ export default function MobileExpenseClaimDetailPage({
               canCreate={canCreate}
               createdAt={claim.createdAt.toISOString()}
               categories={categories}
+              advanceOutstanding={advanceOutstanding}
             />
           </PageContextProvider>
         );

@@ -67,6 +67,7 @@ type Props = {
   canCreate: boolean;
   createdAt: string;
   categories: { id: string; name: string; isActive: boolean }[];
+  advanceOutstanding?: number;
 };
 
 const STATUS_META: Record<string, { label: string; icon: typeof Clock; color: string }> = {
@@ -101,6 +102,7 @@ export function MobileExpenseClaimDetailClient({
   canCreate,
   createdAt,
   categories,
+  advanceOutstanding = 0,
 }: Props) {
   const router = useRouter();
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -109,6 +111,7 @@ export function MobileExpenseClaimDetailClient({
   const [showPay, setShowPay] = useState(false);
   const [payMode, setPayMode] = useState("BANK_TRANSFER");
   const [payRef, setPayRef] = useState("");
+  const [payNetAdvance, setPayNetAdvance] = useState(false);
 
   // ── Inline line-item editing (DRAFT only) ──
   const [today] = useTodayDateState();
@@ -682,6 +685,19 @@ export function MobileExpenseClaimDetailClient({
               placeholder="UTR / cheque no."
               className="w-full rounded-lg border border-border bg-background p-2 text-m-body"
             />
+            {advanceOutstanding > 0 && (
+              <label className="mt-3 flex items-start gap-2 rounded-lg border border-border px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={payNetAdvance}
+                  onChange={(e) => setPayNetAdvance(e.target.checked)}
+                  className="mt-0.5 rounded"
+                />
+                <span className="text-m-caption" style={{ color: "var(--color-steel)" }}>
+                  Settle against {_claimantName}&apos;s advance — ₹{advanceOutstanding.toLocaleString("en-IN")} outstanding. Only the remainder pays out.
+                </span>
+              </label>
+            )}
             <div className="mt-3 flex justify-end gap-2">
               <button
                 className="rounded-lg px-3 py-2 text-m-body font-medium border border-border"
@@ -692,7 +708,7 @@ export function MobileExpenseClaimDetailClient({
               <button
                 className="rounded-lg bg-brand px-3 py-2 text-m-body font-medium text-brand-foreground"
                 disabled={actionLoading === "pay"}
-                onClick={() => doAction("pay", { paymentMode: payMode, referenceNo: payRef || null })}
+                onClick={() => doAction("pay", { paymentMode: payMode, referenceNo: payRef || null, settleAgainstAdvance: payNetAdvance })}
               >
                 {actionLoading === "pay" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
                 Mark as Paid

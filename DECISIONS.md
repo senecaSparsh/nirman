@@ -3389,3 +3389,20 @@ posts Oct-2026 — no trap for future verification).
 Remaining gap list shrinks to: fund-transfer UX sugar (JV-covered),
 imprest claim→advance netting, NIC provider + WhatsApp provider (owner
 credentials), tenancy data tails.
+
+## Round 131 — Imprest netting shipped + verified live
+
+`payExpenseClaim` paid full cash blind to the claimant's open advance —
+a ₹20k imprest float never absorbed the bills filed against it. Shipped
+an explicit `settleAgainstAdvance` flag (opt-in because EmployeeAdvance
+has no purpose field — a salary advance must never be silently consumed):
+FIFO consumption by issueDate, Dr 2800 / Cr 1650 netted / Cr 1000
+remainder, fully-consumed advances → SETTLED, payroll recovery sees
+recoveredAmount like any deduction. Claims list + mobile detail expose
+`advanceOutstanding`; both pay surfaces offer the checkbox only when an
+advance exists.
+
+**Live-verified**: issued Sanjeev a ₹5,000 trip-float advance → filed
+₹1,416 claim → paid with netting → `Cr 1650 ₹1,416` (no cash leg),
+advance ₹3,584 outstanding still ACTIVE. 4 mock-tx tests + 47/47
+expense-claim suite green.
