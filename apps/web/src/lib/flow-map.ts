@@ -45,7 +45,8 @@ export type FlowId =
   | "materialSale"
   | "dpr"
   | "ncr"
-  | "builtUnit";
+  | "builtUnit"
+  | "expenseClaim";
 
 /** A node in a flow — a screen the user can be on. */
 export interface FlowNode {
@@ -540,6 +541,68 @@ const BUILT_UNIT_FLOW: FlowDef = {
 };
 
 // ─────────────────────────────────────────────────────────────────
+// EXPENSE CLAIM — staff bills → approval → payment (or advance netting)
+// ─────────────────────────────────────────────────────────────────
+
+const EXPENSE_CLAIM_FLOW: FlowDef = {
+  id: "expenseClaim",
+  listHref: "/m/expense-claims",
+  listLead: "Bills staff file for reimbursement. Submitted claims need approval; approved claims need paying.",
+  nodes: [
+    { status: "DRAFT", label: "Draft", detailHref: "/m/expense-claims/{id}" },
+    { status: "SUBMITTED", label: "Submitted", detailHref: "/m/expense-claims/{id}" },
+    { status: "APPROVED", label: "Approved", detailHref: "/m/expense-claims/{id}" },
+    { status: "PAID", label: "Paid", detailHref: "/m/expense-claims/{id}" },
+    { status: "REJECTED", label: "Rejected", detailHref: "/m/expense-claims/{id}" },
+  ],
+  next: [
+    {
+      when: "DRAFT",
+      label: "Add bills & submit",
+      verb: "Submit",
+      reason: "Drafts aren't in the approval queue yet — add the expense lines and submit.",
+      action: { type: "anchor", hash: "#submit" },
+      perm: PERM.CLAIM_CREATE,
+      tone: "signal",
+    },
+    {
+      when: "SUBMITTED",
+      label: "Approve the claim",
+      verb: "Approve",
+      reason: "Waiting on an approver — check the bills and approve, or send it back.",
+      action: { type: "anchor", hash: "#approve" },
+      perm: PERM.EXPENSE_APPROVE,
+      tone: "signal",
+    },
+    {
+      when: "APPROVED",
+      label: "Pay the claim",
+      verb: "Pay",
+      reason: "Approved — pay it out, or settle against the claimant's advance if they have one.",
+      action: { type: "anchor", hash: "#pay" },
+      perm: PERM.FINANCE_MANAGE,
+      tone: "signal",
+    },
+    {
+      when: "REJECTED",
+      label: "Fix & resubmit",
+      verb: "Resubmit",
+      reason: "Sent back — correct the bills and submit again.",
+      action: { type: "anchor", hash: "#submit" },
+      perm: PERM.CLAIM_CREATE,
+      tone: "signal",
+    },
+  ],
+  listNext: {
+    countStatuses: ["SUBMITTED"],
+    label: (n) => `${n} claim${n !== 1 ? "s" : ""} awaiting approval`,
+    reason: "Approve or send back — staff are waiting on their money.",
+    filterChip: "SUBMITTED",
+    perm: PERM.EXPENSE_APPROVE,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────
 // REGISTRY + LOOKUP HELPERS
 // ─────────────────────────────────────────────────────────────────
 
@@ -552,6 +615,7 @@ export const FLOWS: Record<FlowId, FlowDef> = {
   dpr: DPR_FLOW,
   ncr: NCR_FLOW,
   builtUnit: BUILT_UNIT_FLOW,
+  expenseClaim: EXPENSE_CLAIM_FLOW,
 };
 
 /**
@@ -570,6 +634,7 @@ const ROUTE_TO_FLOW: Record<string, FlowId> = {
   "/m/construction?tab=quality": "ncr",
   "/m/units": "builtUnit",
   "/m/real-estate?tab=units": "builtUnit",
+  "/m/expense-claims": "expenseClaim",
 };
 
 export function flowForRoute(route: string): FlowDef | undefined {

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { useRouter } from "next/navigation";
+import { useUrlFilter } from "@/lib/use-url-filter";
 import Link from "next/link";
 import { Receipt, Clock, CheckCircle2, XCircle, Eye, Share2, User, Calendar, IndianRupee, Tag, FileText } from "lucide-react";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
@@ -20,6 +21,8 @@ import {
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { NextActionCard } from "@/components/mobile/v2/guidance";
+import { PERM } from "@nirman/rbac";
 import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
 
 export type ExpenseClaimListItem = {
@@ -40,16 +43,7 @@ const STATUS_META: Record<string, { label: string; icon: typeof Clock; color: st
   REJECTED: { label: "Rejected", icon: XCircle, color: "var(--color-stop)" },
 };
 
-export function MobileExpenseClaimsList({
-  items: initialItems,
-  totalAmount,
-  pendingCount,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  canApprove,
-  canCreate,
-  loadMoreUrl,
-  initialCursor,
-}: {
+type MobileExpenseClaimsListProps = {
   items: ExpenseClaimListItem[];
   totalAmount: number;
   pendingCount: number;
@@ -57,9 +51,28 @@ export function MobileExpenseClaimsList({
   canCreate?: boolean;
   loadMoreUrl?: string;
   initialCursor?: string | null;
-}) {
+};
+
+export function MobileExpenseClaimsList(props: MobileExpenseClaimsListProps) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileExpenseClaimsListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileExpenseClaimsListInner({
+  items: initialItems,
+  totalAmount,
+  pendingCount,
+  canApprove,
+  canCreate,
+  loadMoreUrl,
+  initialCursor,
+}: MobileExpenseClaimsListProps) {
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useUrlFilter<string>("status", "ALL");
 
   const { items, loading, hasMore, loadMore } = usePaginatedList<ExpenseClaimListItem>(
     initialItems,
@@ -122,6 +135,12 @@ export function MobileExpenseClaimsList({
         }
       />
       <MobileSummaryStrip stats={stats} />
+      {/* Queue card — submitted claims awaiting this approver's action */}
+      <NextActionCard
+        flow="expenseClaim"
+        count={pendingCount}
+        can={(perm) => perm === PERM.EXPENSE_APPROVE ? !!canApprove : false}
+      />
       <div className="flex flex-col gap-2.5 px-1">
         {filtered.map((claim) => (
           <ClaimCard key={claim.id} claim={claim} />

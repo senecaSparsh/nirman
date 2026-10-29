@@ -1,7 +1,9 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
+import { toNum, scopeWhere, getCurrentUser, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { canAutoApprove, canWaiveSelfApproval } from "@nirman/services";
+import { resolveNextAction } from "@/lib/flow-map";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileExpenseClaimDetailClient } from "./MobileExpenseClaimDetailClient";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -19,7 +21,8 @@ export default function MobileExpenseClaimDetailPage({
 }) {
   return (
     <MobileDetailPage params={params} perm={[PERM.FINANCE_VIEW, PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE]} what="expense claims" permission="expense.create" skeletonSections={4} scopeAware>
-      {async ({ id, company, actingRole, perms }) => {
+      {async ({ id, company, role, actingRole, perms }) => {
+        const overrides = await getUserPermissions();
         const currentUser = await getCurrentUser();
         // Match the API gate — non-finance viewers see only their own claims.
         const claim = await prisma.expenseClaim.findFirst({
@@ -101,13 +104,30 @@ export default function MobileExpenseClaimDetailPage({
           );
         }
 
+        // The one thing to do next — same rules as the action bar:
+        // self-approval shows the card only to tier-1 waivers.
+        let nextAction = claim ? resolveNextAction("expenseClaim", claim.status, role, overrides) : undefined;
+        if (isSelfClaim && claim?.status === "SUBMITTED" && !canWaiveSelfApproval(actingRole)) {
+          nextAction = undefined;
+        }
+
         return (
           <PageContextProvider value={{
             entityType: "expenseClaim",
+            flowId: "expenseClaim",
             status: claim.status,
             label: claim.claimant.name,
             subtitle: claim.project?.name ?? undefined,
             recordId: claim.id}}>
+            {nextAction && (
+              <NextActionCardView
+                label={nextAction.label}
+                actionVerb={nextAction.verb}
+                reason={nextAction.reason}
+                tone={nextAction.tone ?? "signal"}
+                hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+              />
+            )}
             <MobileExpenseClaimDetailClient
               id={claim.id}
               claimantName={claim.claimant.name}

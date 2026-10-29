@@ -718,7 +718,12 @@ export function MobileExpenseClaimDetailClient({
 
       <AttachmentList entityType="ExpenseClaim" entityId={id} />
 
-      {/* Action bar */}
+      {/* Action bar — the ids are NextActionCard scroll targets:
+          #submit (draft/rejected→submit), #approve (submitted→approve),
+          #pay (approved→pay). All land on the same bottom bar. */}
+      <div id="submit" />
+      <div id="approve" />
+      <div id="pay" />
       {hasAction && (
         <ActionBar>
           <div className="flex w-full gap-2">
