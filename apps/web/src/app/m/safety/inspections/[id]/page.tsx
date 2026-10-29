@@ -6,6 +6,8 @@ import { scopeWhere, getCompany, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
+import { nextActionFor } from "@/lib/flow-map";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { MobileInspectionDetailClient } from "./MobileInspectionDetailClient";
 
 export default async function MobileInspectionDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -46,14 +48,26 @@ async function MobileInspectionDetailContent({ id }: { id: string }) {
     conductedDate: insp.conductedDate?.toISOString() ?? null, conductedByName: insp.inspector?.name ?? null,
   };
 
+  const nextAction = nextActionFor("safetyInspection", insp.status, (p) => __globalPerms.includes(p));
+
   return (
     <PageContextProvider value={{
       entityType: "inspection",
+      flowId: "safetyInspection",
       status: insp.status,
       label: insp.inspectionNumber,
       subtitle: insp.project.name,
       recordId: insp.id,
     }}>
+      {nextAction && (
+        <NextActionCardView
+          label={nextAction.label}
+          actionVerb={nextAction.verb}
+          reason={nextAction.reason}
+          tone={nextAction.tone ?? "signal"}
+          hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+        />
+      )}
       <MobileInspectionDetailClient inspection={serialized} canManage={canManage} />
     </PageContextProvider>
   );

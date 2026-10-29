@@ -122,7 +122,10 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
         ]}
       />
 
-      {/* Actions */}
+      {/* NextActionCard scroll targets — #start (scheduled),
+          #complete (scheduled/in-progress). Same bar. */}
+      <div id="start" />
+      <div id="complete" />
       {canManage && (
         <ActionBar>
           {inspection.status === "SCHEDULED" && (

@@ -86,7 +86,7 @@ export function MobileSafetyContent({
       {/* Tab content */}
       {tab === "incidents" && <MobileIncidentList items={incidents} canManage={canManage} />}
       {tab === "hazards" && <MobileHazardList items={hazards} canManage={canManage} />}
-      {tab === "inspections" && <MobileInspectionList items={inspections} />}
+      {tab === "inspections" && <MobileInspectionList items={inspections} canManage={canManage} />}
 
       {/* FABs — anyone who can see this page can report a hazard (the person
           at the gate is the likeliest to spot one); incidents + inspections

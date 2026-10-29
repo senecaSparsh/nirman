@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { ClipboardCheck } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { useUrlFilter } from "@/lib/use-url-filter";
+import { NextActionCard } from "@/components/mobile/v2/guidance";
+import { PERM } from "@nirman/rbac";
 import { MobileEmptyState, MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileFilterIcon, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import type { InspectionListItem } from "./MobileSafetyContent";
@@ -22,9 +25,18 @@ const RESULT_TONES: Record<string, string> = {
   FAILED: "var(--color-stop)", STOP_WORK: "var(--color-stop)",
 };
 
-export function MobileInspectionList({ items }: { items: InspectionListItem[] }) {
+export function MobileInspectionList(props: { items: InspectionListItem[]; canManage?: boolean }) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileInspectionListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileInspectionListInner({ items, canManage = false }: { items: InspectionListItem[]; canManage?: boolean }) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("ALL");
+  const [filter, setFilter] = useUrlFilter<Filter>("status", "ALL");
 
   const filtered = useMemo(() => {
     let r = items;
@@ -36,12 +48,25 @@ export function MobileInspectionList({ items }: { items: InspectionListItem[] })
     return r;
   }, [items, query, filter]);
 
+  const statusCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const i of items) c[i.status] = (c[i.status] ?? 0) + 1;
+    return c;
+  }, [items]);
+
   if (items.length === 0) {
     return <MobileEmptyState icon={ClipboardCheck} title="No inspections scheduled" hint="Plan safety walkthroughs and inspections here" />;
   }
 
   return (
     <div>
+      {/* Queue card — in-progress inspections to finish, then scheduled ones */}
+      <NextActionCard
+        flow="safetyInspection"
+        count={statusCounts}
+        can={(perm) => perm === PERM.SAFETY_MANAGE ? canManage : false}
+      />
+
       <MobileSearchHeader
         query={query}
         onQueryChange={setQuery}

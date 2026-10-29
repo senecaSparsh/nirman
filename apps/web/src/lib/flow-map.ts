@@ -53,6 +53,7 @@ export type FlowId =
   | "stockCount"
   | "incident"
   | "hazard"
+  | "safetyInspection"
   | "workOrder"
   | "leave";
 
@@ -894,6 +895,58 @@ const HAZARD_FLOW: FlowDef = {
 };
 
 // ─────────────────────────────────────────────────────────────────
+// SAFETY INSPECTION — scheduled → in-progress → completed/cancelled.
+// ─────────────────────────────────────────────────────────────────
+
+const SAFETY_INSPECTION_FLOW: FlowDef = {
+  id: "safetyInspection",
+  listHref: "/m/safety",
+  listLead: "Planned safety walkthroughs. Scheduled ones need conducting; in-progress ones need a result recorded.",
+  nodes: [
+    { status: "SCHEDULED", label: "Scheduled", detailHref: "/m/safety/inspections/{id}" },
+    { status: "IN_PROGRESS", label: "In progress", detailHref: "/m/safety/inspections/{id}" },
+    { status: "COMPLETED", label: "Completed", detailHref: "/m/safety/inspections/{id}" },
+    { status: "CANCELLED", label: "Cancelled", detailHref: "/m/safety/inspections/{id}" },
+  ],
+  next: [
+    {
+      when: "SCHEDULED",
+      label: "Start the inspection",
+      verb: "Start",
+      reason: "The walkthrough is due — mark it in progress, then record the result.",
+      action: { type: "anchor", hash: "#start" },
+      perm: PERM.SAFETY_MANAGE,
+      tone: "signal",
+    },
+    {
+      when: "IN_PROGRESS",
+      label: "Complete the inspection",
+      verb: "Complete",
+      reason: "Walkthrough is underway — record the result: pass, fail, or stop work.",
+      action: { type: "anchor", hash: "#complete" },
+      perm: PERM.SAFETY_MANAGE,
+      tone: "go",
+    },
+  ],
+  listNext: [
+    {
+      countStatuses: ["IN_PROGRESS"],
+      label: (n) => `${n} inspection${n !== 1 ? "s" : ""} in progress`,
+      reason: "Started walkthroughs need a result recorded.",
+      filterChip: "IN_PROGRESS",
+      perm: PERM.SAFETY_MANAGE,
+    },
+    {
+      countStatuses: ["SCHEDULED"],
+      label: (n) => `${n} scheduled inspection${n !== 1 ? "s" : ""}`,
+      reason: "Planned walkthroughs — conduct them on schedule.",
+      filterChip: "SCHEDULED",
+      perm: PERM.SAFETY_MANAGE,
+    },
+  ],
+};
+
+// ─────────────────────────────────────────────────────────────────
 // WORK ORDER — subcontract works: draft → issued → active → completed
 // → closed. RA bills run inside the WO detail as per-bill actions;
 // the WO's own "next" is the lifecycle step on its action bar.
@@ -1003,6 +1056,7 @@ export const FLOWS: Record<FlowId, FlowDef> = {
   stockCount: STOCK_COUNT_FLOW,
   incident: INCIDENT_FLOW,
   hazard: HAZARD_FLOW,
+  safetyInspection: SAFETY_INSPECTION_FLOW,
   workOrder: WORK_ORDER_FLOW,
   leave: LEAVE_FLOW,
 };
