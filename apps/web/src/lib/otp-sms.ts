@@ -17,7 +17,7 @@
  * In non-production nothing is sent — the route logs the code to the
  * server console instead.
  */
-import { isSmsGatewayConfiguredFromEnv, resolveSmsGatewayConfig, sendSmsViaGateway } from "@nirman/services";
+import { isSmsGatewayConfiguredFromEnv, sendGatewaySms } from "@nirman/services";
 
 
 export function isOtpSmsConfigured(): boolean {
@@ -84,14 +84,13 @@ export async function sendOtpSms(
   // Self-hosted gateway first — free, and it's the same office phone that
   // forwards incoming bank SMS to /api/sms/intake. A per-company config
   // wins; the env-var gateway covers pre-login sends with no company.
-  const gateway = await resolveSmsGatewayConfig(opts?.companyId);
-  if (gateway) {
-    const result = await sendSmsViaGateway(
-      gateway,
-      phone,
-      `Your Nirman login code is ${code}. It expires in 5 minutes. Do not share it.`,
-    );
-    if (result.sent) return result;
+  const result = await sendGatewaySms(
+    opts?.companyId,
+    phone,
+    `Your Nirman login code is ${code}. It expires in 5 minutes. Do not share it.`,
+  );
+  if (result.sent) return result;
+  if (result.error !== "SMS gateway not configured") {
     console.warn(`[OTP] SMS gateway send failed (${result.error}) — falling back to provider if configured`);
   }
   if (process.env.MSG91_AUTH_KEY && process.env.MSG91_TEMPLATE_ID) {

@@ -3636,3 +3636,21 @@ surfaces raw errors. Bank SMS containing VPA 8273850155@ybl parsed
 (₹1,250, correct UNMATCHED reason) and resend deduped. Email stub
 fails honestly unconfigured; real gmail delivery needs an SMTP
 credential (Gmail App Password) in EMAIL_SMTP.
+
+## Round 142 — Zero-setup SMS: app self-registers + pull outbox + platform SMTP
+
+Reworked the SMS model so NO user setup exists: the Nirman app itself is
+the SMS device. `POST /api/sms/devices` mints an SmsIngestToken for any
+signed-in member — the app calls it silently on login (no admin step, no
+paste). Sending flipped from push-to-phone (needs a reachable phone URL =
+IT work) to a pull model: `SmsOutbox` queue + `GET/POST /api/sms/outbox`
+(device-key authed, claim→ack, 3-attempt retry→FAILED). `sendGatewaySms`
+order: URL gateway → outbox-if-device → providers. `createEmailProviderFromConfig`
+gains an SMTP_* env fallback so one platform config gives every company
+email with zero per-company setup. Verified live: device mint → OTP
+queued to +918273850155 → poll claims (attempts++) → ack → SENT;
+bad key rejected; test rows cleaned.
+Remaining native piece (next round): Capacitor plugin — SMS_RECEIVED
+receiver → /api/sms/intake, outbox poller + SmsManager.sendTextMessage.
+Caveat: READ_SMS/SEND_SMS need default-handler status on Play Store;
+sideloaded/enterprise APK distribution is unrestricted.

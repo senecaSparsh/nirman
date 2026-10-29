@@ -155,6 +155,7 @@ model Company {
   brokers                Broker[]
   bankSms                BankSms[]
   smsIngestTokens        SmsIngestToken[]
+  smsOutbox              SmsOutbox[]
   uploads                Upload[]
   entityAttachments      EntityAttachment[]
   // ── Expenses module ──
@@ -7592,4 +7593,25 @@ model StatutoryPayment {
 
   @@index([companyId, kind])
   @@index([companyId, status])
+}
+
+// Queued SMS a company device sends on its own SIM — the Nirman app polls
+// this outbox so no public URL / port-forward is needed on the phone.
+model SmsOutbox {
+  id         String    @id @default(cuid())
+  companyId  String
+  toPhone    String    // E.164
+  body       String
+  status     String    @default("QUEUED") // QUEUED | SENT | FAILED
+  deviceId   String?                     // SmsIngestToken that picked it up
+  attempts   Int       @default(0)
+  error      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  sentAt     DateTime?
+
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, status])
+  @@index([status, createdAt])
 }

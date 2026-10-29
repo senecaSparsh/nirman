@@ -1318,6 +1318,8 @@ export {
   resolveSmsGatewayConfig,
   smsGatewayConfigFromEnv,
   isSmsGatewayConfiguredFromEnv,
+  hasSmsDevice,
+  enqueueSms,
   normalizeGatewayBaseUrl,
   type SmsGatewayConfig,
   type SmsSendResult,

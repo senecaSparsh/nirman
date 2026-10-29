@@ -18,6 +18,7 @@
  *      — the fallback for pre-login sends (OTP) where the company is unknown.
  */
 
+import { prisma } from "@nirman/db";
 import { getIntegrationConfig } from "./integration-config";
 
 export interface SmsGatewayConfig {
@@ -160,6 +161,35 @@ export async function sendGatewaySms(
   message: string,
 ): Promise<SmsSendResult> {
   const cfg = await resolveSmsGatewayConfig(companyId);
-  if (!cfg) return { sent: false, error: "SMS gateway not configured" };
-  return sendSmsViaGateway(cfg, phone, message);
+  if (cfg) return sendSmsViaGateway(cfg, phone, message);
+  // No URL gateway — but a company phone with the Nirman app polls the
+  // outbox and sends on its own SIM. Queue it: zero config anywhere.
+  if (companyId && (await hasSmsDevice(companyId))) {
+    return enqueueSms(companyId, phone, message);
+  }
+  return { sent: false, error: "SMS gateway not configured" };
+}
+
+/** Any registered (non-revoked) company phone that can send SMS. */
+export async function hasSmsDevice(companyId: string): Promise<boolean> {
+  const count = await prisma.smsIngestToken.count({
+    where: { companyId, revokedAt: null },
+  });
+  return count > 0;
+}
+
+/**
+ * Queue an SMS for the company's device fleet. The next app poll on
+ * GET /api/sms/outbox delivers it to the phone, which sends it on its
+ * own SIM and acks — { sent: true } here means accepted-for-delivery.
+ */
+export async function enqueueSms(
+  companyId: string,
+  phone: string,
+  message: string,
+): Promise<SmsSendResult> {
+  await prisma.smsOutbox.create({
+    data: { companyId, toPhone: toE164(phone), body: message },
+  });
+  return { sent: true };
 }

@@ -771,6 +771,18 @@ export async function createEmailProviderFromConfig(companyId: string) {
       fromName: (config.config.fromName as string) || "Nirman Inventory",
     });
   }
+  // Platform-level fallback — SMTP_* env vars configured once on the server
+  // give every company working email with zero per-company setup.
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    return new SmtpEmailProvider({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      user: process.env.SMTP_USER,
+      password: process.env.SMTP_PASS,
+      fromEmail: process.env.SMTP_FROM || process.env.SMTP_USER,
+      fromName: process.env.SMTP_FROM_NAME || "Nirman Inventory",
+    });
+  }
   // Fall back to stub
   const { StubEmailProvider } = await import("./notifications");
   return new StubEmailProvider();
