@@ -66,23 +66,23 @@ Inbound mirror: bank SMS arrives at `/api/sms/intake` (device-key) →
 - Secrets (SMTP/gateway passwords) are encrypted in `IntegrationConfig`
   and masked (`••••••••`) in every list API.
 
-## The whole elephant — gap ledger (round 148)
+## The whole elephant — gap ledger (round 148, updated after the delivery rounds)
 
 System-level audit of the complete onboarding + comms lifecycle:
 
-| #   | Gap                                                         | Status                                                          | Impact                                                                       |
-| --- | ----------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| 1   | Company self-signup (signup → verify → provision → welcome) | OPEN — biggest gap                                              | A new business can't onboard itself; admin/bootstrap creates companies today |
-| 2   | Invite-link (set-own-password) vs temp password in transit  | PARTIAL — mustChangePassword mitigates                          | Industrial pattern; moderate build                                           |
-| 3   | Employee offer → offer-letter email with accept link        | PARTIAL — `/accept/offer/[token]` exists; send path needs audit | Joining docs + link delivery                                                 |
-| 4   | NotificationLog retry/resend for FAILED rows                | OPEN                                                            | Ops recovery for dead device/provider                                        |
-| 5   | Welcome for customer/supplier portal users                  | OPEN                                                            | Portal OTP exists, no welcome email/SMS                                      |
-| 6   | Deliverability: SPF/PTR/DKIM on nirman.life                 | OPS — one-time platform DNS                                     | Without it relay mail lands in spam                                          |
-| 7   | SMS device: key rotation + last-health surface              | PARTIAL — lastUsedAt tracked                                    | Ops hygiene                                                                  |
-| 8   | Play variant without SMS perms + signing pipeline           | OPEN — build config                                             | Distribution                                                                 |
-| 9   | iOS: no SMS possible (platform limit)                       | INHERENT — document only                                        | —                                                                            |
-| 10  | Offline app data (site work without signal)                 | OUT OF SCOPE — WebView architecture                             | Re-architecture if ever required                                             |
+| #   | Gap                                                         | Status                                                                                                                                | Impact                                                                       |
+| --- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 1   | Company self-signup (signup → verify → provision → welcome) | BY DESIGN — invite-only model (`disableSignUp`); revisit if self-serve SaaS is wanted                                                 | A new business can't onboard itself; admin/bootstrap creates companies today |
+| 2   | Invite-link (set-own-password) vs temp password in transit  | PARTIAL — `mustChangePassword` forces own-password on first login; magic-link remains polish                                          | Industrial pattern; moderate build                                           |
+| 3   | Employee offer → offer-letter email with accept link        | **DONE** — `sendEmployeeDocLink` emails/SMSes the `/accept/offer/[token]` link on generation; same for `/accept/agreement/[token]`    | Joining docs + link delivery                                                 |
+| 4   | NotificationLog retry/resend for FAILED rows                | **DONE** — `POST /api/notifications/log/[id]/resend` flips the same row FAILED→SENT; Resend buttons on desktop panel + mobile log tab | Ops recovery for dead device/provider                                        |
+| 5   | Welcome for customer/supplier portal users                  | BY DESIGN — portal access is implicit (any Customer phone OTPs in); the OTP itself is the entry                                       | Portal OTP exists, no welcome email/SMS                                      |
+| 6   | Deliverability: SPF/PTR/DKIM on nirman.life                 | OPS — one-time platform DNS                                                                                                           | Without it relay mail lands in spam                                          |
+| 7   | SMS device: key rotation + last-health surface              | **DONE** — `GET /api/sms/status` reports per-device `live` (<15min check-in) + outbox counts; live strip in the Auto-forward dialog   | Ops hygiene                                                                  |
+| 8   | Play variant without SMS perms + signing pipeline           | OPEN — build config (needs Android SDK machine)                                                                                       | Distribution                                                                 |
+| 9   | iOS: no SMS possible (platform limit)                       | INHERENT — document only                                                                                                              | —                                                                            |
+| 10  | Offline app data (site work without signal)                 | OUT OF SCOPE — WebView architecture                                                                                                   | Re-architecture if ever required                                             |
 
-Sequenced plan: (2) invite-link first — it upgrades 1+3+5 simultaneously;
-(4) retry sweep — reuses the outbox/log lifecycle; (6) DNS alongside;
-(8) when APK pipeline exists.
+Sequenced plan: (6) DNS alongside deploy; (8) when an APK pipeline exists.
+(2) invite-link and (5) portal welcome are deliberate no-ops unless the
+onboarding model changes — revisit only if self-serve signup is wanted.
