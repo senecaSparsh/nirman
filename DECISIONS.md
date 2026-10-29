@@ -3504,3 +3504,25 @@ renders it — 22 create forms now explain what you are making and what
 happens after save. `/edit` routes get no lead (editing is not
 orientation). Final coverage: 37 lists + 34 details + 22 create forms =
 93 mobile surfaces, all driven by two maps + three scaffold lines.
+
+## Round 137 — Flow-map guidance extended to 10 more lifecycles
+
+The NextActionCard layer now covers 18 flows. Added since round 136c:
+expense claims (submit→approve→pay→resubmit, with self-approval
+suppression verified as FINANCE_HEAD), gate pass (multi-queue —
+approvers see pending, guards see exits; `listNext` now accepts an
+array where the first permitted non-empty queue wins), tenancies
+(activate→record rent), change orders (submit→approve&implement via
+WO_MANAGE + canAutoApprove), stock counts (confirm→reconcile; 15 real
+pending in dev), safety incidents (investigate→close), hazards
+(mitigate→resolve), work orders (issue→advance→complete→retention,
+with RA_PAY on the close-out), leave requests (pending queue card on
+the HR list), and safety inspections (start→complete).
+
+Every card's verb lands on a working control via `id` scroll anchors
+on the detail action bar, or applies a real `?status=` filter — all
+touched lists converted to `useUrlFilter` + Suspense so the card's
+Show lands on the filtered view. Cheques are a payment method on
+parent rows (land/rental/sale), not a standalone flow; employee
+advances live in the purpose-built /m/hr/pending approval inbox — no
+flow needed for either.
