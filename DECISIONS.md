@@ -3717,3 +3717,37 @@ only) + SMTP_* env on web, so the round-141 env fallback gives EVERY
 company working email with zero per-company forms. One-time ops note:
 deliverability to Gmail needs SPF+PTR(+DKIM) on the sending domain —
 platform DNS task, not per-company.
+
+## Round 148 — Thekedar ledger: full subcontractor workflow map + two billing gaps closed
+
+Researched how thekedars actually work (item-rate, lump-sum, labour-only,
+free-issue-material contracts; MB→RA billing; retention; mobilization
+advance; TDS 194C; material reconciliation; deviation; labour compliance)
+against the codebase. The chain is deep — verified coverage:
+
+- Rate contracts → WO issue → advance pay + proportional recovery (+write-off)
+- MB measure → verify → approve → RA bill: draft → submit → approve → pay
+- Retention hold + defect-liability release; TDS 194C 1%/2% (+20% no-PAN
+  floor), quarterly TDS certificates; cumulative totals cached on the WO
+- MaterialIssue.subcontractorId — stock issued to thekedar tracked
+- Vendor ratings; WO print for the paper contract
+
+Closed this round (verified live on ACTIVE WO-261025-0001):
+
+- WO amendment — addWorkOrderLine + PATCH action=add-line (WO_MANAGE):
+  extra/deviation work gets an agreed rate onto the contract, then measures
+  and bills normally. Guards: duplicate item, settled-WO, project LINE_ITEM.
+- materialIssued on createRaBill — completed issues to the subcontractor on
+  the project within the period, summed qty×unitCost, returned with the bill
+  so otherDeductions is informed, never auto-deducted (contract-type
+  dependent). Verified: RA-261030-0001 gross ₹60,000 → net ₹55,800.
+
+Remaining thekedar gaps (ranked):
+
+1. WO UI for add-line — API live, dialog/button not wired yet.
+2. Lump-sum/milestone contracts — only item-rate+MB exists; fixed-price WOs
+   need contractType + milestone billing instead of quantity lines.
+3. Labour compliance — contractor workers' PF/ESI/wage register
+   (principal-employer liability under CLRA) — new module.
+4. Subcontractor portal — thekedar sees own MB/RA/retention status
+   (supplier portal pattern exists to mirror).
