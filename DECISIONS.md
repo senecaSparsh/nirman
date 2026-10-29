@@ -3225,3 +3225,27 @@ References worth keeping (verified, not vendored):
 Adoption rule: schema-first as usual — fields already exist; the next
 e-invoice step is owner-sourced GSP credentials, then a NicIrpProvider.
 No code changes this round.
+
+## Round 125 — Tenancy spine verified live end-to-end (draft/LOI → fit-out → escalation)
+
+Seeded a real tenancy in SRG REALCON (U-009 → Sparsh Traders) carrying every
+transcript field: draft/LOI ("tera-mera" notes + draftDate), rentFreeDays=45,
+escalation 5%/11mo, security deposit, SAC code.
+
+- activate → ACTIVE; rent schedule auto-generated at activation
+  (idempotent re-run: skipped 12).
+- Rent-free honored: first scheduled due = Nov 29, 2026 — exactly 45 days
+  after the Oct 15 start. Billing starts after fit-out, as promised.
+- Manual escalate: ₹25,000 → ₹26,250 (exact 5%). Design confirmed
+  deliberate — dueOnly path (cron) enforces nextEscalationDate atomically;
+  manual action is an operator override for off-cycle agreed increases.
+- Mobile detail surfaces all of it: lease terms card (rent-free, escalation,
+  SAC, duration, expiry countdown), DRAFT/LOI card with terms + "Print
+  Draft / LOI", RENT AGREEMENT upload slot, tenant + CRM-customer link,
+  full payment schedule.
+- Service guards verified: escalate blocked unless ACTIVE + clause
+  configured; cron claim is an atomic nextEscalationDate move (no
+  double-fire on retry/concurrency).
+
+This closes the last unverified transcript spine. Every transcript-weighted
+flow is now live-verified in SRG REALCON.
