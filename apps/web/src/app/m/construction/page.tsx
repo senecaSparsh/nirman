@@ -17,7 +17,7 @@ import {
   MobileStatCard,
   Badge} from "@/components/mobile/v2/primitives";
 import { PageLead, NextActionCardView } from "@/components/mobile/v2/guidance";
-import { FLOWS } from "@/lib/flow-map";
+import { listNextDefs } from "@/lib/flow-map";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { MobileConstructionHubTabs } from "../MobileConstructionHubTabs";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -293,7 +293,7 @@ async function ConstructionQualityTab() {
   const capaRequired = ncrs.filter((n) => n.status === "CAPA_REQUIRED").length;
   const closed = ncrs.filter((n) => n.status === "CLOSED").length;
   const openNcrCount = ncrs.filter((n) => n.status === "OPEN").length;
-  const listNext = FLOWS.ncr.listNext;
+  const listNext = listNextDefs("ncr")[0];
 
   const serialized: NcrListItem[] = ncrs.map((n) => ({
     id: n.id,

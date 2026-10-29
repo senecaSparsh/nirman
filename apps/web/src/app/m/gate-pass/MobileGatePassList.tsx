@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
+import { useUrlFilter } from "@/lib/use-url-filter";
+import { NextActionCard } from "@/components/mobile/v2/guidance";
+import { PERM } from "@nirman/rbac";
 import { toast } from "sonner";
 import {
   ShieldCheck,
@@ -103,21 +106,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   MANUAL: "Manual",
 };
 
-export function MobileGatePassList({
-  gatePasses: initialItems,
-  currentUserId,
-  canApprove,
-  canSelfApprove,
-  canExit,
-  canCreate,
-  canManage,
-  loadMoreUrl,
-  initialCursor,
-  exportTitle,
-  exportRows,
-  exportColumns,
-  exportSummary,
-}: {
+type MobileGatePassListProps = {
   gatePasses: GatePassRow[];
   currentUserId?: string;
   canApprove: boolean;
@@ -132,13 +121,38 @@ export function MobileGatePassList({
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
   exportSummary?: string;
-}) {
+};
+
+export function MobileGatePassList(props: MobileGatePassListProps) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileGatePassListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileGatePassListInner({
+  gatePasses: initialItems,
+  currentUserId,
+  canApprove,
+  canSelfApprove,
+  canExit,
+  canCreate,
+  canManage,
+  loadMoreUrl,
+  initialCursor,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: MobileGatePassListProps) {
   const router = useRouter();
   const docViewer = useDocumentViewer();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useUrlFilter<string>("status", "ALL");
   const [rejectTarget, setRejectTarget] = useState<GatePassRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [cancelTarget, setCancelTarget] = useState<GatePassRow | null>(null);
@@ -254,6 +268,13 @@ export function MobileGatePassList({
     return (order[a.status] ?? 9) - (order[b.status] ?? 9);
   });
 
+  // Per-status counts — the queue card picks the queue this viewer owns.
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const gp of items) counts[gp.status] = (counts[gp.status] ?? 0) + 1;
+    return counts;
+  }, [items]);
+
   return (
     <div className="space-y-2.5">
       {/* Search bar */}
@@ -275,6 +296,16 @@ export function MobileGatePassList({
         }
         showClear={!!query}
         onClear={() => setQuery("")}
+      />
+
+      {/* Queue card — approvers see pending passes, guards see exits due */}
+      <NextActionCard
+        flow="gatePass"
+        count={statusCounts}
+        can={(perm) =>
+          perm === PERM.GATE_PASS_APPROVE ? canApprove
+          : perm === PERM.GATE_PASS_EXIT ? canExit
+          : false}
       />
 
       {/* Status filter chips */}

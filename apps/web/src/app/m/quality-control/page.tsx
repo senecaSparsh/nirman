@@ -8,7 +8,7 @@ import {
   MobileCta,
 } from "@/components/mobile/v2/primitives";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
-import { FLOWS } from "@/lib/flow-map";
+import { listNextDefs } from "@/lib/flow-map";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { ClipboardCheck, Plus } from "lucide-react";
 import { MobileNcrList } from "./MobileNcrList";
@@ -66,7 +66,7 @@ export default function MobileQualityControlPage() {
         const capaRequired = ncrs.filter((n) => n.status === "CAPA_REQUIRED").length;
         const closed = ncrs.filter((n) => n.status === "CLOSED").length;
         const openNcrCount = ncrs.filter((n) => n.status === "OPEN").length;
-        const listNext = FLOWS.ncr.listNext;
+        const listNext = listNextDefs("ncr")[0];
 
         const serialized = ncrs.map((n) => ({
           id: n.id,

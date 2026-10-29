@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ChevronRight, Info, CheckCircle2, ArrowRight, type LucideIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {FLOWS, nextActionFor, type FlowId} from "@/lib/flow-map";
+import {FLOWS, nextActionFor, listNextDefs, type FlowId} from "@/lib/flow-map";
 import {leadForPath} from "@/lib/mobile-page-leads";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -160,8 +160,12 @@ export function NextActionCard({
   flow: FlowId;
   /** Record status — for detail pages. */
   status?: string;
-  /** Queue count — for list pages (uses flow.listNext). */
-  count?: number;
+  /**
+   * Queue count — for list pages (uses flow.listNext). Either a flat
+   * number (single-queue flows) or a status→count record so multi-queue
+   * flows (array listNext) can count the def that actually wins.
+   */
+  count?: number | Record<string, number>;
   /** Permission checker: (perm) => boolean. */
   can: (perm: string) => boolean;
   /** Record id — substituted into navigate hrefs. */
@@ -172,10 +176,21 @@ export function NextActionCard({
 
   // List-level next action
   if (count !== undefined) {
-    const def = FLOWS[flow].listNext;
-    if (!def) return null;
-    if (def.perm && !can(def.perm)) return null;
-    if (count <= 0) return null;
+    const defs = listNextDefs(flow);
+    if (defs.length === 0) return null;
+    // An array lists several queues — the first the viewer can act on
+    // AND that isn't empty wins (an approver+guard with no pending
+    // approvals still sees the exit queue).
+    const found = defs
+      .map((d) => ({
+        def: d,
+        n: typeof count === "number"
+          ? count
+          : d.countStatuses.reduce((s, st) => s + (count[st] ?? 0), 0),
+      }))
+      .find((x) => (!x.def.perm || can(x.def.perm)) && x.n > 0);
+    if (!found) return null;
+    const { def, n } = found;
 
     const handleFilter = () => {
       // Apply the filter chip on the same page via query param.
@@ -187,7 +202,7 @@ export function NextActionCard({
     return (
       <ActionCardShell
         tone="signal"
-        label={def.label(count)}
+        label={def.label(n)}
         reason={def.reason}
         onClick={handleFilter}
         actionVerb="Show"

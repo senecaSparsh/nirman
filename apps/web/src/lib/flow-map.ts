@@ -46,7 +46,8 @@ export type FlowId =
   | "dpr"
   | "ncr"
   | "builtUnit"
-  | "expenseClaim";
+  | "expenseClaim"
+  | "gatePass";
 
 /** A node in a flow — a screen the user can be on. */
 export interface FlowNode {
@@ -84,6 +85,17 @@ export interface NextAction {
   tone?: "signal" | "go" | "stop";
 }
 
+/** A list-page queue definition — "N records need you, filtered to a chip". */
+export interface ListNextDef {
+  /** Count query: which statuses count toward "needs you". */
+  countStatuses: string[];
+  label: (count: number) => string;
+  reason: string;
+  /** A filter chip to apply on the same list page. */
+  filterChip: string;
+  perm?: FlowPerm;
+}
+
 export interface FlowDef {
   id: FlowId;
   /** The list route for this flow, e.g. "/m/procurement". */
@@ -94,16 +106,13 @@ export interface FlowDef {
   nodes: FlowNode[];
   /** Next actions keyed by status. The FIRST matching action wins. */
   next: NextAction[];
-  /** The list-page "next action" — when the whole list has a queue, e.g. "3 drafts to approve". */
-  listNext?: {
-    /** Count query: which statuses count toward "needs you". */
-    countStatuses: string[];
-    label: (count: number) => string;
-    reason: string;
-    /** A filter chip to apply on the same list page. */
-    filterChip: string;
-    perm?: FlowPerm;
-  };
+  /**
+   * The list-page "next action" — when the whole list has a queue, e.g.
+   * "3 drafts to approve". An array serves pages with more than one
+   * queue (gate pass: approvals for managers, exits for guards) — the
+   * FIRST def whose perm the viewer holds wins.
+   */
+  listNext?: ListNextDef | ListNextDef[];
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -603,6 +612,42 @@ const EXPENSE_CLAIM_FLOW: FlowDef = {
 };
 
 // ─────────────────────────────────────────────────────────────────
+// GATE PASS — the whole lifecycle runs on the list (no detail page):
+// security sees passes awaiting exit, approvers see pending approvals.
+// ─────────────────────────────────────────────────────────────────
+
+const GATE_PASS_FLOW: FlowDef = {
+  id: "gatePass",
+  listHref: "/m/gate-pass",
+  listLead: "Permission slips for material leaving the gate. Approved passes wait for security to confirm exit.",
+  nodes: [
+    { status: "DRAFT", label: "Draft", detailHref: "/m/gate-pass" },
+    { status: "PENDING", label: "Pending", detailHref: "/m/gate-pass" },
+    { status: "APPROVED", label: "Approved", detailHref: "/m/gate-pass" },
+    { status: "EXITED", label: "Exited", detailHref: "/m/gate-pass" },
+    { status: "REJECTED", label: "Rejected", detailHref: "/m/gate-pass" },
+    { status: "CANCELLED", label: "Cancelled", detailHref: "/m/gate-pass" },
+  ],
+  next: [],
+  listNext: [
+    {
+      countStatuses: ["PENDING"],
+      label: (n) => `${n} pass${n !== 1 ? "es" : ""} awaiting approval`,
+      reason: "Material can't leave the gate until these are approved.",
+      filterChip: "PENDING",
+      perm: PERM.GATE_PASS_APPROVE,
+    },
+    {
+      countStatuses: ["APPROVED"],
+      label: (n) => `${n} approved pass${n !== 1 ? "es" : ""} at the gate`,
+      reason: "Approved — confirm exit when the vehicle actually leaves.",
+      filterChip: "APPROVED",
+      perm: PERM.GATE_PASS_EXIT,
+    },
+  ],
+};
+
+// ─────────────────────────────────────────────────────────────────
 // REGISTRY + LOOKUP HELPERS
 // ─────────────────────────────────────────────────────────────────
 
@@ -616,6 +661,7 @@ export const FLOWS: Record<FlowId, FlowDef> = {
   ncr: NCR_FLOW,
   builtUnit: BUILT_UNIT_FLOW,
   expenseClaim: EXPENSE_CLAIM_FLOW,
+  gatePass: GATE_PASS_FLOW,
 };
 
 /**
@@ -635,6 +681,7 @@ const ROUTE_TO_FLOW: Record<string, FlowId> = {
   "/m/units": "builtUnit",
   "/m/real-estate?tab=units": "builtUnit",
   "/m/expense-claims": "expenseClaim",
+  "/m/gate-pass": "gatePass",
 };
 
 export function flowForRoute(route: string): FlowDef | undefined {
@@ -660,6 +707,17 @@ export function nextActionFor(
   if (!action) return undefined;
   if (action.perm && !can(action.perm)) return undefined;
   return action;
+}
+
+/**
+ * Normalise a flow's listNext to a flat array — order is priority.
+ * Multi-queue flows (gate pass) list every queue; consumers pick the
+ * first def the viewer's permissions satisfy (and that's non-empty).
+ */
+export function listNextDefs(flowId: FlowId): ListNextDef[] {
+  const defs = FLOWS[flowId]?.listNext;
+  if (!defs) return [];
+  return Array.isArray(defs) ? defs : [defs];
 }
 
 /**
