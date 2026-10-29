@@ -166,6 +166,7 @@ export {
 export {
   sendNotification,
   sendUserWelcome,
+  sendEmployeeDocLink,
   notifyLowStock,
   notifyTaskAssignment,
   notifyQuoteApproval,

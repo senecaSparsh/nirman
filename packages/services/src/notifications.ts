@@ -729,3 +729,52 @@ export async function sendUserWelcome(input: {
   }
   return sent;
 }
+
+/**
+ * Deliver a private accept/sign link to an employee — offer letters,
+ * employment agreements, any /accept/<kind>/[token] document.
+ *
+ * EMAIL when the employee has a real address; SMS to their phone
+ * otherwise — phone-first workers carry synthetic @nirman.internal
+ * emails no mail server can deliver to, so routing there would
+ * bounce silently. Returns true when the channel accepted the send.
+ * Best-effort: never throws.
+ */
+export async function sendEmployeeDocLink(input: {
+  companyId: string;
+  companyName: string;
+  employee: { name: string; email?: string | null; phone?: string | null };
+  token: string;
+  kind: "offer" | "agreement";
+  appUrl: string;
+}): Promise<boolean> {
+  const { employee } = input;
+  const realEmail = employee.email && !employee.email.endsWith("@nirman.internal") ? employee.email : null;
+  const target = realEmail
+    ? { channel: "EMAIL" as const, recipient: realEmail }
+    : employee.phone
+      ? { channel: "SMS" as const, recipient: employee.phone }
+      : null;
+  if (!target) return false;
+
+  const docName = input.kind === "offer" ? "offer letter" : "employment agreement";
+  const acceptUrl = `${input.appUrl}/accept/${input.kind}/${input.token}`;
+  try {
+    const r = await sendNotification({
+      companyId: input.companyId,
+      eventType: input.kind === "offer" ? "OFFER_LETTER" : "EMPLOYMENT_AGREEMENT",
+      channel: target.channel,
+      recipient: target.recipient,
+      recipientName: employee.name,
+      subject: `Your ${docName} from ${input.companyName}`,
+      message:
+        `Dear ${employee.name},\n\n` +
+        `${input.companyName} has issued your ${docName}. Review and accept it securely here:\n` +
+        `${acceptUrl}\n\n` +
+        `This link is unique to you — please do not forward it.`,
+    });
+    return r.status === "SENT";
+  } catch {
+    return false;
+  }
+}

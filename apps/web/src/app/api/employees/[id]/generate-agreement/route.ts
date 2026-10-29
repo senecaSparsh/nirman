@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
-import { generateEmploymentAgreement, autoCompleteOnboarding, HrError } from "@nirman/services";
+import { prisma } from "@nirman/db";
+import { generateEmploymentAgreement, autoCompleteOnboarding, sendEmployeeDocLink, HrError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, assertCanManageEmployee } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -31,6 +32,26 @@ export const POST = apiHandler(async (_req: NextRequest, { params }: { params: P
     // Auto-complete onboarding if all steps are now done
     await autoCompleteOnboarding(id, company.id).catch(() => {});
 
+    // Send the private accept link — same delivery as offer letters:
+    // email when real, SMS for phone-first workers. Best-effort.
+    let docSent = false;
+    if (result.contractToken) {
+      const emp = await prisma.employee.findFirst({
+        where: { id, companyId: company.id },
+        select: { name: true, email: true, phone: true },
+      });
+      if (emp) {
+        docSent = await sendEmployeeDocLink({
+          companyId: company.id,
+          companyName: company.name,
+          employee: emp,
+          token: result.contractToken,
+          kind: "agreement",
+          appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+        });
+      }
+    }
+
     revalidatePath(`/hr/employees/${id}`);
     revalidatePath(`/m/hr/employees/${id}`);
     revalidatePath(`/m/hr/onboarding/${id}`);
@@ -39,7 +60,10 @@ export const POST = apiHandler(async (_req: NextRequest, { params }: { params: P
     return json({
       ok: true,
       ...result,
-      message: "Employment agreement generated. Open it to review and print.",
+      docSent,
+      message: docSent
+        ? "Employment agreement generated and sent to the employee."
+        : "Employment agreement generated. Open it to review and print.",
     });
   } catch (err: unknown) {
     if (err instanceof HrError) {
