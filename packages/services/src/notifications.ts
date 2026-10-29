@@ -684,3 +684,48 @@ export async function isNotificationEnabled(userId: string, eventType: string, c
   // Default: enabled if no preference set
   return pref?.enabled ?? true;
 }
+
+/**
+ * Welcome message for a newly onboarded user — delivers their login
+ * details so no admin has to relay a password manually. EMAIL when they
+ * have an address, SMS for phone-only logins. Returns true when at
+ * least one channel accepted the message. Best-effort: never throws.
+ */
+export async function sendUserWelcome(input: {
+  companyId: string;
+  companyName: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  tempPassword: string;
+  appUrl: string;
+}): Promise<boolean> {
+  const loginId = input.email ?? input.phone ?? "";
+  const message =
+    `Welcome to ${input.companyName} on Nirman Inventory OS.\n\n` +
+    `Sign in at ${input.appUrl}\n` +
+    `Login: ${loginId}\n` +
+    `Temporary password: ${input.tempPassword}\n\n` +
+    `You will be asked to set your own password on first login.`;
+  const channels: Array<{ channel: "EMAIL" | "SMS"; recipient: string }> = [];
+  if (input.email) channels.push({ channel: "EMAIL", recipient: input.email });
+  if (input.phone) channels.push({ channel: "SMS", recipient: input.phone });
+  let sent = false;
+  for (const c of channels) {
+    try {
+      const r = await sendNotification({
+        companyId: input.companyId,
+        eventType: "USER_WELCOME",
+        channel: c.channel,
+        recipient: c.recipient,
+        recipientName: input.name,
+        subject: `Welcome to ${input.companyName} on Nirman`,
+        message,
+      });
+      if (r.status === "SENT") sent = true;
+    } catch {
+      // Best-effort — onboarding never blocks on a send failure.
+    }
+  }
+  return sent;
+}

@@ -3696,3 +3696,12 @@ never blocks creation (temp password still returned for manual relay).
 Verified live: phone-only ACCOUNTANT created → log SMS/SENT → SmsOutbox
 QUEUED to +919876500001 with the full welcome body; dialog toast says
 "Login details sent to them automatically."
+
+## Round 146 — Bulk onboarding welcome (the 50-worker case)
+
+Shared sendUserWelcome() extracted into notifications.ts (EMAIL when
+present, SMS for phone-only) — used by POST /api/users (round 145) and
+now POST /api/users/bulk: each successfully created user gets their
+login details automatically; response gains welcomeSent count.
+Verified: 2-row bulk import → 2 welcomes (SMS→outbox for the phone
+user, EMAIL log for the email user), users/logs cleaned.

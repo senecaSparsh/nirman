@@ -361,30 +361,16 @@ export const POST = apiHandler(async (req: NextRequest) => {
   //    the temp password is still returned for manual sharing. ──
   let welcomeSent = false;
   try {
-    const { sendNotification } = await import("@nirman/services");
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    const loginId = normalizedEmail ?? phone?.trim() ?? "";
-    const welcomeBody =
-      `Welcome to ${company.name} on Nirman Inventory OS.\n\n` +
-      `Sign in at ${appUrl}\n` +
-      `Login: ${loginId}\n` +
-      `Temporary password: ${defaultPassword}\n\n` +
-      `You will be asked to set your own password on first login.`;
-    const channels: Array<{ channel: "EMAIL" | "SMS"; recipient: string }> = [];
-    if (normalizedEmail) channels.push({ channel: "EMAIL", recipient: normalizedEmail });
-    if (normalizedPhone) channels.push({ channel: "SMS", recipient: normalizedPhone });
-    for (const c of channels) {
-      const r = await sendNotification({
-        companyId: company.id,
-        eventType: "USER_WELCOME",
-        channel: c.channel,
-        recipient: c.recipient,
-        recipientName: result.name,
-        subject: `Welcome to ${company.name} on Nirman`,
-        message: welcomeBody,
-      });
-      if (r.status === "SENT") welcomeSent = true;
-    }
+    const { sendUserWelcome } = await import("@nirman/services");
+    welcomeSent = await sendUserWelcome({
+      companyId: company.id,
+      companyName: company.name,
+      name: result.name,
+      email: normalizedEmail,
+      phone: normalizedPhone,
+      tempPassword: defaultPassword,
+      appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+    });
   } catch {
     // Best-effort — the admin still sees the temp password.
   }

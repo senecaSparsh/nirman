@@ -165,6 +165,7 @@ export {
 // Notifications — WhatsApp / email / in-app alerts with pluggable providers
 export {
   sendNotification,
+  sendUserWelcome,
   notifyLowStock,
   notifyTaskAssignment,
   notifyQuoteApproval,

@@ -102,6 +102,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   const hashed = await hashPassword(defaultPassword);
   const results: Array<{ row: number; name: string; success: boolean; error?: string; userId?: string; added?: boolean }> = [];
+  const newUsers: Array<{ name: string; email: string | null; phone: string | null }> = [];
   // Employee codes used by rows in THIS import — a sheet can't mint the
   // same badge code twice in one run (DB check below catches existing ones).
   const codesUsedInFile = new Set<string>();
@@ -251,6 +252,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       });
 
       results.push({ row: rowNum, name: row.name, success: true, userId: user.id, added: true });
+      newUsers.push({ name: row.name.trim(), email: normalizedEmail, phone: normalizedPhone });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Database error";
       results.push({ row: rowNum, name: row.name, success: false, error: message });
@@ -260,10 +262,25 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const succeeded = results.filter((r) => r.success).length;
   const failed = results.length - succeeded;
 
+  // Welcome each new user with their login details — the whole point of
+  // bulk onboarding is nobody relays 50 passwords over WhatsApp.
+  let welcomeSent = 0;
+  if (newUsers.length > 0) {
+    const { sendUserWelcome } = await import("@nirman/services");
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    for (const u of newUsers) {
+      if (await sendUserWelcome({
+        companyId: company.id, companyName: company.name, name: u.name,
+        email: u.email, phone: u.phone, tempPassword: defaultPassword, appUrl,
+      })) welcomeSent += 1;
+    }
+  }
+
   return json({
     total: results.length,
     succeeded,
     failed,
+    welcomeSent,
     results,
     defaultPassword,
   });
