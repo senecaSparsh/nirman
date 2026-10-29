@@ -29,6 +29,7 @@ export function BulkImportDialog({
   const [fileName, setFileName] = useState("");
   const [importing, setImporting] = useState(false);
   const [results, setResults] = useState<BulkResult[] | null>(null);
+  const [tempPassword, setTempPassword] = useState("");
   const [error, setError] = useState("");
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -36,6 +37,7 @@ export function BulkImportDialog({
     if (!file) return;
     setError("");
     setResults(null);
+    setTempPassword("");
     setFileName(file.name);
 
     const reader = new FileReader();
@@ -71,6 +73,7 @@ export function BulkImportDialog({
         throw new Error(data.error ?? "Bulk import failed");
       }
       setResults(data.results);
+      setTempPassword(data.defaultPassword ?? "");
       const { succeeded, failed } = data;
       if (failed === 0) {
         toast.success(`All ${succeeded} employees imported successfully`);
@@ -136,6 +139,32 @@ export function BulkImportDialog({
             </div>
           </div>
 
+          {tempPassword && (
+            <div className="rounded-md border border-warning bg-warning-soft p-3">
+              <p className="text-caption font-semibold text-foreground">
+                Temporary password for all imported accounts
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <code className="rounded bg-card border border-border px-2 py-1 font-mono text-body select-all">
+                  {tempPassword}
+                </code>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(tempPassword);
+                    toast.success("Password copied");
+                  }}
+                >
+                  Copy
+                </Button>
+              </div>
+              <p className="mt-1 text-caption text-muted-foreground">
+                Share this with your team — everyone is asked to set their own password on first login.
+              </p>
+            </div>
+          )}
+
           <div className="max-h-[400px] overflow-y-auto rounded-md border border-border">
             <table className="w-full text-caption">
               <thead className="sticky top-0 bg-muted/50">
@@ -168,7 +197,7 @@ export function BulkImportDialog({
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => { setResults(null); setParsed(null); setFileName(""); }}>
+            <Button variant="outline" onClick={() => { setResults(null); setTempPassword(""); setParsed(null); setFileName(""); }}>
               Import More
             </Button>
             <Button onClick={onClose}>Done</Button>
