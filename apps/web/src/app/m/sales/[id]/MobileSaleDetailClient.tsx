@@ -1219,6 +1219,7 @@ export function MobileSaleDetailClient({
                       {demandingItemId === it.id ? "…" : "Demand"}
                     </button>
                     )}
+                    {(it.status === "DUE" || it.status === "PARTIAL") && (
                     <button
                       type="button"
                       onClick={() => docViewer.openDoc(`/m/print/demand-notice/${it.id}`, "Demand Notice")}
@@ -1226,6 +1227,7 @@ export function MobileSaleDetailClient({
                     >
                       <Printer className="size-3" style={{ color: "var(--color-ink-500)" }} />
                     </button>
+                    )}
                   </div>
                 )}
               </div>

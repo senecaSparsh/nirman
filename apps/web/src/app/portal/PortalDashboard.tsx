@@ -444,9 +444,9 @@ function SaleDetailModal({ sale, onClose }: { sale: PortalSale; onClose: () => v
             Print Allotment Letter
           </a>
           {(() => {
-            const demandItem =
-              sale.paymentSchedule?.items.find((i) => i.status !== "PAID") ??
-              sale.paymentSchedule?.items[sale.paymentSchedule.items.length - 1];
+            const demandItem = sale.paymentSchedule?.items.find(
+              (i) => i.status === "DUE" || i.status === "PARTIAL",
+            );
             return demandItem ? (
               <a
                 href={`/print/demand-notice/${demandItem.id}`}

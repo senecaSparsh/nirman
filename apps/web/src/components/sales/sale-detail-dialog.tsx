@@ -869,6 +869,7 @@ export function SaleDetailDialog({
                                     <MessageCircle className="h-3 w-3" />
                                   </button>
                                 )}
+                                {(item.status === "DUE" || item.status === "PARTIAL") && !isCancelled && (
                                 <a
                                   href={`/print/demand-notice/${item.id}`}
                                   target="_blank"
@@ -878,6 +879,7 @@ export function SaleDetailDialog({
                                 >
                                   <Printer className="h-3 w-3" />
                                 </a>
+                                )}
                                 {(item.status === "DUE" || item.status === "PARTIAL" || item.status === "PENDING") && !isCancelled && (
                                   <button
                                     type="button"

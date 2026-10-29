@@ -80,9 +80,11 @@ export default async function DemandNoticePage({
   }
 
   if (!item || !item.paymentSchedule?.assetSale || !company) notFound();
-  // A settled installment is not demandable — printing one would hand the
-  // customer (or a tribunal) a demand for money already collected or waived.
-  if (item.status === "PAID" || item.status === "WAIVED") notFound();
+  // A settled or not-yet-triggered installment is not demandable — printing
+  // one would hand the customer (or a tribunal) a demand for money already
+  // collected, waived, or not yet owed. Mirrors sendDemandNotice's gate:
+  // only DUE/PARTIAL items are demandable.
+  if (item.status === "PAID" || item.status === "WAIVED" || item.status === "PENDING") notFound();
 
   const sale = item.paymentSchedule.assetSale;
   if (user && sale.companyId !== company.id) notFound();
