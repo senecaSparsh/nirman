@@ -59,6 +59,9 @@ type WorkOrderDetail = WorkOrder & {
   defectLiabilityMonths: number;
   issueDate: string;
   phase: { id: string; name: string } | null;
+  contractType?: "ITEM_RATE" | "LUMPSUM";
+  lumpSumAmount?: number | null;
+  milestones?: Array<{ id: string; name: string; pct: number; status: "PENDING" | "BILLED"; raBillId: string | null }>;
   lines: Array<{
     id: string;
     agreedRate: number;
@@ -784,7 +787,31 @@ function WorkOrderDetailDialog({
               </div>
             </div>
 
+            {/* ── Milestones (lump-sum contracts) ── */}
+            {detail.contractType === "LUMPSUM" && (
+              <div>
+                <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-2.5">
+                  Milestones <span className="text-muted-foreground font-normal">— fixed price {detail.lumpSumAmount != null ? formatCurrency(detail.lumpSumAmount) : ""}</span>
+                </h3>
+                <div className="rounded-lg border border-border overflow-hidden">
+                  {(detail.milestones ?? []).map((m, i) => (
+                    <div key={m.id} className={cn("flex items-center gap-3 px-3 py-2.5", i > 0 && "border-t border-border/40")}>
+                      <span className={cn("h-2 w-2 rounded-full shrink-0", m.status === "BILLED" ? "bg-emerald-500" : "bg-muted-foreground/40")} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium truncate">{m.name}</div>
+                        <div className="text-[10px] text-muted-foreground">{m.pct}% of contract{m.status === "BILLED" ? " · billed" : " · pending"}</div>
+                      </div>
+                      <div className="text-xs tabular-nums font-semibold">
+                        {detail.lumpSumAmount != null ? formatCurrency((detail.lumpSumAmount * m.pct) / 100) : "—"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ── Scope (BOQ lines) ── */}
+            {(detail.contractType ?? "ITEM_RATE") === "ITEM_RATE" && (
             <div>
               <div className="flex items-center justify-between mb-2.5">
                 <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
@@ -857,6 +884,7 @@ function WorkOrderDetailDialog({
                 </table>
               </div>
             </div>
+            )}
 
             {/* ── RA Bills ── */}
             <div>
@@ -1158,23 +1186,33 @@ function RaBillDialog({
   // before), let the PM deliberately exclude entries (e.g. disputed
   // measurements) for a later bill.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const isLumpsum = preview?.contractType === "LUMPSUM";
+  const pendingMilestones = (preview?.milestones ?? []).filter((m) => m.status === "PENDING");
   useEffect(() => {
     if (!preview) return;
-    setSelectedIds(new Set(preview.lines.flatMap((l) => l.unbilledEntries.map((e) => e.id))));
+    if (preview.contractType === "LUMPSUM") {
+      setSelectedIds(new Set((preview.milestones ?? []).filter((m) => m.status === "PENDING").map((m) => m.id)));
+    } else {
+      setSelectedIds(new Set(preview.lines.flatMap((l) => l.unbilledEntries.map((e) => e.id))));
+    }
   }, [preview]);
 
-  const totalUnbilledEntries = preview?.lines.reduce((s, l) => s + l.unbilledEntries.length, 0) ?? 0;
+  const totalUnbilledEntries = isLumpsum
+    ? pendingMilestones.length
+    : preview?.lines.reduce((s, l) => s + l.unbilledEntries.length, 0) ?? 0;
   const hasUnbilled = totalUnbilledEntries > 0;
 
   // Selected-subset math mirrors createRaBill: deductions are percentages of
   // the selected gross; advance recovery is capped at the preview's estimate
   // (outstanding advance doesn't grow when you bill less).
   const selectedGross = preview
-    ? preview.lines.reduce(
-        (s, l) =>
-          s + l.unbilledEntries.filter((e) => selectedIds.has(e.id)).reduce((t, e) => t + e.measuredQty * l.agreedRate, 0),
-        0,
-      )
+    ? isLumpsum
+      ? pendingMilestones.filter((m) => selectedIds.has(m.id)).reduce((s, m) => s + (m.amount ?? 0), 0)
+      : preview.lines.reduce(
+          (s, l) =>
+            s + l.unbilledEntries.filter((e) => selectedIds.has(e.id)).reduce((t, e) => t + e.measuredQty * l.agreedRate, 0),
+          0,
+        )
     : 0;
   const fullGross = preview?.summary.estimatedGross ?? 0;
   const scale = fullGross > 0 ? selectedGross / fullGross : 0;
@@ -1201,7 +1239,9 @@ function RaBillDialog({
     setSelectedIds((prev) =>
       prev.size === totalUnbilledEntries
         ? new Set()
-        : new Set(preview.lines.flatMap((l) => l.unbilledEntries.map((e) => e.id))),
+        : isLumpsum
+          ? new Set(pendingMilestones.map((m) => m.id))
+          : new Set(preview.lines.flatMap((l) => l.unbilledEntries.map((e) => e.id))),
     );
   }
 
@@ -1216,7 +1256,7 @@ function RaBillDialog({
       return;
     }
     if (selectedIds.size === 0) {
-      toast.error("Select at least one MB entry to bill");
+      toast.error(isLumpsum ? "Select at least one milestone to bill" : "Select at least one MB entry to bill");
       return;
     }
     setSaving(true);
@@ -1229,7 +1269,7 @@ function RaBillDialog({
           periodFrom: new Date(periodFrom).toISOString(),
           periodTo: new Date(periodTo).toISOString(),
           notes: notes || undefined,
-          mbEntryIds: [...selectedIds],
+          ...(isLumpsum ? { milestoneIds: [...selectedIds] } : { mbEntryIds: [...selectedIds] }),
           autoSubmit: true,
         }),
       });
@@ -1283,7 +1323,9 @@ function RaBillDialog({
           hasUnbilled ? (
             <div className="space-y-2">
               <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                Unbilled MB Entries — {selectedIds.size} of {totalUnbilledEntries} selected
+                {isLumpsum
+                  ? `Pending Milestones — ${selectedIds.size} of ${totalUnbilledEntries} selected`
+                  : `Unbilled MB Entries — ${selectedIds.size} of ${totalUnbilledEntries} selected`}
               </div>
               <div className="rounded-md border border-border overflow-hidden">
                 <table className="w-full text-xs">
@@ -1298,15 +1340,41 @@ function RaBillDialog({
                           className="accent-primary"
                         />
                       </th>
-                      <th className="px-2 py-1.5 text-left">BOQ Item</th>
-                      <th className="px-2 py-1.5 text-left">MB No.</th>
-                      <th className="px-2 py-1.5 text-right">Qty</th>
-                      <th className="px-2 py-1.5 text-right">Rate</th>
-                      <th className="px-2 py-1.5 text-right">Amount</th>
+                      {isLumpsum ? (
+                        <>
+                          <th className="px-2 py-1.5 text-left">Milestone</th>
+                          <th className="px-2 py-1.5 text-right">% of contract</th>
+                          <th className="px-2 py-1.5 text-right">Amount</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="px-2 py-1.5 text-left">BOQ Item</th>
+                          <th className="px-2 py-1.5 text-left">MB No.</th>
+                          <th className="px-2 py-1.5 text-right">Qty</th>
+                          <th className="px-2 py-1.5 text-right">Rate</th>
+                          <th className="px-2 py-1.5 text-right">Amount</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
-                    {preview.lines.filter((l) => l.unbilledEntries.length > 0).map((l) =>
+                    {isLumpsum && pendingMilestones.map((m) => (
+                      <tr key={m.id} className={`border-t border-border/30 ${selectedIds.has(m.id) ? "" : "opacity-45"}`}>
+                        <td className="px-2 py-1.5">
+                          <input
+                            type="checkbox"
+                            aria-label={`Include ${m.name}`}
+                            checked={selectedIds.has(m.id)}
+                            onChange={() => toggleEntry(m.id)}
+                            className="accent-primary"
+                          />
+                        </td>
+                        <td className="px-2 py-1.5 font-medium">{m.name}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums">{m.pct}%</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums font-medium">{m.amount != null ? formatCurrency(m.amount) : "—"}</td>
+                      </tr>
+                    ))}
+                    {!isLumpsum && preview.lines.filter((l) => l.unbilledEntries.length > 0).map((l) =>
                       l.unbilledEntries.map((e, i) => (
                         <tr key={`${l.boqItemId}-${e.id}`} className={`border-t border-border/30 ${selectedIds.has(e.id) ? "" : "opacity-45"}`}>
                           <td className="px-2 py-1.5">
@@ -1334,7 +1402,7 @@ function RaBillDialog({
                   </tbody>
                   <tfoot className="border-t border-border bg-muted/20">
                     <tr>
-                      <td className="px-2 py-1.5 font-medium" colSpan={5}>Estimated Gross (selected)</td>
+                      <td className="px-2 py-1.5 font-medium" colSpan={isLumpsum ? 3 : 5}>Estimated Gross (selected)</td>
                       <td className="px-2 py-1.5 text-right tabular-nums font-bold">{formatCurrency(selectedGross)}</td>
                     </tr>
                   </tfoot>
@@ -1414,6 +1482,9 @@ function WorkOrderDialog({
     defectLiabilityMonths: "12",
   });
   const [lines, setLines] = useState([{ boqItemId: "", agreedRate: "" }]);
+  const [contractType, setContractType] = useState<"ITEM_RATE" | "LUMPSUM">("ITEM_RATE");
+  const [lumpSumAmount, setLumpSumAmount] = useState("");
+  const [milestones, setMilestones] = useState([{ name: "", pct: "" }]);
 
   const [saving, setSaving] = useState(false);
 
@@ -1463,10 +1534,23 @@ function WorkOrderDialog({
       toast.error("Subcontractor and title are required");
       return;
     }
+    const isLumpsum = contractType === "LUMPSUM";
     const validLines = lines.filter((l) => l.boqItemId && l.agreedRate);
-    if (validLines.length === 0) {
+    const validMilestones = milestones.filter((m) => m.name.trim() && parseFloat(m.pct) > 0);
+    if (!isLumpsum && validLines.length === 0) {
       toast.error("At least one BOQ line item with an agreed rate is required");
       return;
+    }
+    if (isLumpsum) {
+      if (!(parseFloat(lumpSumAmount) > 0)) {
+        toast.error("Lump-sum contracts need a fixed contract amount");
+        return;
+      }
+      const pctSum = validMilestones.reduce((s, m) => s + parseFloat(m.pct), 0);
+      if (validMilestones.length === 0 || Math.abs(pctSum - 100) > 0.001) {
+        toast.error(`Milestones must total exactly 100% (currently ${pctSum}%)`);
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -1480,10 +1564,18 @@ function WorkOrderDialog({
           advanceAmount: parseFloat(form.advanceAmount),
           advanceRecoveryPct: parseFloat(form.advanceRecoveryPct),
           defectLiabilityMonths: parseInt(form.defectLiabilityMonths),
-          lines: validLines.map((l) => ({
-            boqItemId: l.boqItemId,
-            agreedRate: parseFloat(l.agreedRate),
-          })),
+          ...(isLumpsum
+            ? {
+                contractType: "LUMPSUM",
+                lumpSumAmount: parseFloat(lumpSumAmount),
+                milestones: validMilestones.map((m) => ({ name: m.name.trim(), pct: parseFloat(m.pct) })),
+              }
+            : {
+                lines: validLines.map((l) => ({
+                  boqItemId: l.boqItemId,
+                  agreedRate: parseFloat(l.agreedRate),
+                })),
+              }),
         }),
       });
       const data = await res.json();
@@ -1494,6 +1586,9 @@ function WorkOrderDialog({
       onOpenChange(false);
       setForm({ subcontractorId: "", workTitle: "", description: "", retentionPct: "5", tdsCategory: "COMPANY", advanceAmount: "0", advanceRecoveryPct: "10", defectLiabilityMonths: "12" });
       setLines([{ boqItemId: "", agreedRate: "" }]);
+      setContractType("ITEM_RATE");
+      setLumpSumAmount("");
+      setMilestones([{ name: "", pct: "" }]);
       onSaved();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
@@ -1549,6 +1644,55 @@ function WorkOrderDialog({
           </Field>
         </div>
 
+        {/* ── Contract type ── */}
+        <div className="flex gap-2 rounded-lg border border-border p-1">
+          <button
+            type="button"
+            onClick={() => setContractType("ITEM_RATE")}
+            className={cn("flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors", contractType === "ITEM_RATE" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50")}
+          >
+            Item-rate — measured work
+          </button>
+          <button
+            type="button"
+            onClick={() => setContractType("LUMPSUM")}
+            className={cn("flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors", contractType === "LUMPSUM" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50")}
+          >
+            Lump-sum — fixed price, milestone billing
+          </button>
+        </div>
+
+        {contractType === "LUMPSUM" && (
+          <div className="space-y-3">
+            <Field label="Contract Amount (₹)" hint="Total fixed price for the whole work" required>
+              <Input type="number" step="0.01" min="0" value={lumpSumAmount} onChange={(e) => setLumpSumAmount(e.target.value)} placeholder="e.g. 800000" />
+            </Field>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">
+                  Billing Milestones{" "}
+                  <span className={cn("text-xs font-normal", Math.abs(milestones.reduce((s, m) => s + (parseFloat(m.pct) || 0), 0) - 100) < 0.001 ? "text-success" : "text-warning")}>
+                    ({milestones.reduce((s, m) => s + (parseFloat(m.pct) || 0), 0)}% / 100%)
+                  </span>
+                </span>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setMilestones((p) => [...p, { name: "", pct: "" }])}>+ Add stage</Button>
+              </div>
+              {milestones.map((m, idx) => (
+                <div key={idx} className="grid grid-cols-[1fr_100px_auto] gap-2">
+                  <Input aria-label={`Milestone ${idx + 1}`} placeholder="e.g. Rough-in complete" value={m.name} onChange={(e) => setMilestones((p) => p.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))} />
+                  <Input aria-label={`Milestone ${idx + 1} pct`} type="number" step="0.01" min="0" max="100" placeholder="%" value={m.pct} onChange={(e) => setMilestones((p) => p.map((x, i) => i === idx ? { ...x, pct: e.target.value } : x))} />
+                  {milestones.length > 1 && (
+                    <button aria-label="Clear" type="button" onClick={() => setMilestones((p) => p.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive">
+                      <XCircle className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {contractType === "ITEM_RATE" && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Scope (BOQ Items)</span>
@@ -1590,6 +1734,7 @@ function WorkOrderDialog({
             );
           })}
         </div>
+        )}
 
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -1942,11 +2087,14 @@ function RaBillDetailDialog({
 // ════════════════════════════════════════════════════════════
 type PreviewData = {
   workOrderNumber: string;
+  contractType?: "ITEM_RATE" | "LUMPSUM";
+  lumpSumAmount?: number | null;
   retentionPct: number;
   tdsPct: number;
   advanceAmount: number;
   advanceRecoveryPct: number;
   totalPaid: number;
+  milestones?: Array<{ id: string; name: string; pct: number; status: "PENDING" | "BILLED"; amount: number | null }>;
   lines: Array<{
     boqItemId: string;
     serialNo: string;

@@ -112,6 +112,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       });
       const pending = milestones.filter((m) => m.status === "PENDING");
       const lump = toNum(wo.lumpSumAmount);
+      const estimatedGross = lump != null ? pending.reduce((s, m) => s + (lump * toNum(m.pct)) / 100, 0) : 0;
       return json({
         workOrderNumber: wo.workOrderNumber,
         contractType: "LUMPSUM",
@@ -122,9 +123,17 @@ export const GET = apiHandler(async (req: NextRequest) => {
         advanceRecoveryPct: toNum(wo.advanceRecoveryPct),
         totalPaid: toNum(wo.totalPaid),
         milestones: milestones.map((m) => ({ id: m.id, name: m.name, pct: toNum(m.pct), status: m.status, amount: lump != null ? Math.round(lump * toNum(m.pct)) / 100 : null })),
-        estimatedGross: lump != null ? pending.reduce((s, m) => s + (lump * toNum(m.pct)) / 100, 0) : 0,
         lines: [],
         previousBills: wo.raBills.map((b) => ({ id: b.id, raBillNumber: b.raBillNumber, grossAmount: toNum(b.grossAmount), netPayable: toNum(b.netPayable), status: b.status })),
+        summary: {
+          totalUnbilledQty: pending.length,
+          estimatedGross,
+          estimatedRetention: estimatedGross * toNum(wo.retentionPct) / 100,
+          estimatedTds: estimatedGross * toNum(wo.tdsPct) / 100,
+          estimatedAdvanceRecovery: wo.advanceAmount.gt(0)
+            ? Math.min(estimatedGross * toNum(wo.advanceRecoveryPct) / 100, Math.max(toNum(wo.advanceAmount) - toNum(wo.totalPaid), 0))
+            : 0,
+        },
       });
     }
 
