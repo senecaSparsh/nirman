@@ -4,7 +4,7 @@ import { prisma } from "@nirman/db";
 import { sendRentDueReminders, sendPaymentDueReminders, processDueEscalations, checkMilestonePayments, processPendingNotifications, generateDueRentSchedules, markOverdueRentPayments, generateDueRecurringExpenses, checkExpiringLegalDocs, checkExpiringEmploymentTerms, checkExpiringEmployeeDocs, checkDueSupplierInvoices,
   checkStaleTransfers,
   checkApprovalBacklog,
-  checkReraValidity, checkOverdueCapas, checkStaleStockCounts, checkEquipmentMaintenanceDue, checkRateContractExpiry } from "@nirman/services";
+  checkReraValidity, checkOverdueCapas, checkStaleStockCounts, checkEquipmentMaintenanceDue, checkRateContractExpiry, checkStatutoryDeadlines } from "@nirman/services";
 import { apiHandler, json } from "@/lib/server";
 
 /**
@@ -69,7 +69,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   // 2-6. Run remaining sweeps in parallel
-  const [escalations, rentSchedule, rentReminders, saleReminders, notifications, recurringExpenses, legalDocs, employmentTerms, employeeDocs, supplierInvoices, overdueCapas, staleStockCounts, equipmentMaintenance, staleTransfers, approvalBacklog, reraValidity, rateContracts] = await Promise.all([
+  const [escalations, rentSchedule, rentReminders, saleReminders, notifications, recurringExpenses, legalDocs, employmentTerms, employeeDocs, supplierInvoices, overdueCapas, staleStockCounts, equipmentMaintenance, staleTransfers, approvalBacklog, reraValidity, rateContracts, statutoryDue] = await Promise.all([
     sweep("escalations", { checked: 0, escalated: 0, failed: 0 }, () => processDueEscalations()),
     sweep("rentSchedule", { checked: 0, created: 0 }, () => generateDueRentSchedules()),
     // Flip freshly-past dues to OVERDUE before reminding — the reminder sweep
@@ -114,6 +114,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
     sweep("reraValidity", { companies: 0, flagged: 0 }, () => checkReraValidity()),
     // Rate contracts lapsing silently = POs quietly buying at market rate
     sweep("rateContracts", { flagged: 0, expired: 0 }, () => checkRateContractExpiry()),
+    // Statutory deposits/filings (TDS 7th, PF/ESI 15th, GSTR-3B 20th) —
+    // missing them accrues interest automatically, so unremitted
+    // payable balances must surface as reminders before the deadline.
+    sweep("statutoryDue", { checked: 0, due: 0, notified: 0 }, () => checkStatutoryDeadlines()),
   ]);
 
   return json({
@@ -140,5 +144,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
     approvalBacklog,
     reraValidity,
     rateContracts,
+    statutoryDue,
   });
 }, { skipSession: true, rateLimit: false });
