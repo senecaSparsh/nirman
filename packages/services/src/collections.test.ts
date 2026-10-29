@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { computeLateInterest, LATE_INTEREST_RATE } from "./collections";
+import { describe, it, expect, vi } from "vitest";
+import { computeLateInterest, LATE_INTEREST_RATE, sendDemandNotice } from "./collections";
 
 describe("computeLateInterest", () => {
   const due = new Date("2026-09-01");
@@ -36,5 +36,53 @@ describe("computeLateInterest", () => {
 
   it("rate defaults to SBI MCLR (8.65) + 2 = 10.65% p.a.", () => {
     expect(LATE_INTEREST_RATE.toFixed(2)).toBe("10.65");
+  });
+});
+
+vi.mock("@nirman/db", () => ({
+  prisma: {
+    paymentScheduleItem: { findFirst: vi.fn() },
+    notificationLog: { findFirst: vi.fn() },
+  },
+}));
+vi.mock("./notifications", () => ({ sendNotification: vi.fn() }));
+
+import { prisma } from "@nirman/db";
+import { sendNotification } from "./notifications";
+
+const pendingItem = (status: string) =>
+  vi.mocked(prisma.paymentScheduleItem.findFirst).mockResolvedValue({
+    id: "item-1",
+    status,
+    totalAmount: 5000,
+    paidAmount: 0,
+    dueDate: new Date("2026-09-15"),
+    paymentSchedule: { assetSale: { customer: { id: "c1" }, builtUnit: null, landParcel: null } },
+  } as never);
+
+describe("sendDemandNotice — demandable-status gate", () => {
+  // The UI gates Demand/Print to DUE|PARTIAL; the service must reject the
+  // rest so a direct call can't demand money not yet owed.
+  for (const status of ["PENDING", "PAID", "WAIVED"]) {
+    it(`rejects a ${status} installment with 409 before notifying`, async () => {
+      pendingItem(status);
+      await expect(sendDemandNotice("item-1", "co-1")).rejects.toThrow(
+        new RegExp(`Cannot demand payment on a ${status.toLowerCase()} installment`),
+      );
+      expect(sendNotification).not.toHaveBeenCalled();
+    });
+  }
+
+  it("rejects a fully-settled balance with 409", async () => {
+    vi.mocked(prisma.paymentScheduleItem.findFirst).mockResolvedValue({
+      id: "item-1",
+      status: "PARTIAL",
+      totalAmount: 5000,
+      paidAmount: 5000,
+      dueDate: new Date("2026-09-15"),
+      paymentSchedule: { assetSale: { customer: { id: "c1" }, builtUnit: null, landParcel: null } },
+    } as never);
+    await expect(sendDemandNotice("item-1", "co-1")).rejects.toThrow("already settled");
+    expect(sendNotification).not.toHaveBeenCalled();
   });
 });
