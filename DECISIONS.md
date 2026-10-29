@@ -3745,9 +3745,22 @@ Closed this round (verified live on ACTIVE WO-261025-0001):
 Remaining thekedar gaps (ranked):
 
 1. WO UI for add-line — API live, dialog/button not wired yet.
-2. Lump-sum/milestone contracts — only item-rate+MB exists; fixed-price WOs
-   need contractType + milestone billing instead of quantity lines.
+2. ~~Lump-sum/milestone contracts~~ — DONE (round 149): WoContractType,
+   lumpSumAmount, WorkOrderMilestone; milestoneIds billing verified live
+   (RA-261030-0002 gross 2.4L). WO create/detail UI for lumpsum pending.
 3. Labour compliance — contractor workers' PF/ESI/wage register
    (principal-employer liability under CLRA) — new module.
 4. Subcontractor portal — thekedar sees own MB/RA/retention status
    (supplier portal pattern exists to mirror).
+
+## Round 149 — Lump-sum/milestone contracts (thekedar gap #2 closed)
+
+Item-rate was the only contract shape. Added WoContractType + lumpSumAmount
+
+- WorkOrderMilestone (pct, PENDING→BILLED, raBillId). createWorkOrder
+  validates lumpSum>0 and milestone pct=100; createRaBill takes milestoneIds
+  (gross = Σpct×lump), claims with the same lost-update guard as MB entries;
+  retention/TDS/advance unchanged (bill-level). Preview returns milestones.
+  Verified: 8L WO 30/40/30 → gross 2.4L → net 1.8L → milestone BILLED.
+  Pending: WorkOrderDialog contract-type picker + milestone editor + detail
+  milestone list (API complete, UI not wired).
