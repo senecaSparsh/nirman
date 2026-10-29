@@ -1189,6 +1189,7 @@ export function MobileSaleDetailClient({
                     >
                       Collect
                     </button>
+                    {(it.status === "DUE" || it.status === "PARTIAL") && (
                     <button
                       type="button"
                       onClick={async () => {
@@ -1217,6 +1218,7 @@ export function MobileSaleDetailClient({
                     >
                       {demandingItemId === it.id ? "…" : "Demand"}
                     </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => docViewer.openDoc(`/m/print/demand-notice/${it.id}`, "Demand Notice")}
