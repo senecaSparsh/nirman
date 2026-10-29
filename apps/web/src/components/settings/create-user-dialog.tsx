@@ -133,7 +133,7 @@ export function CreateUserDialog({
       }
 
       toast.success("User created successfully", {
-        description: `${name.trim()} added as ${role}${payload.scopeType !== "COMPANY" ? ` (${payload.scopeType}-scoped)` : ""}.` + (createData.tempPassword ? ` Temporary password: ${createData.tempPassword} — they will be asked to change it on first login.` : " They will be asked to change their password on first login."),
+        description: `${name.trim()} added as ${role}${payload.scopeType !== "COMPANY" ? ` (${payload.scopeType}-scoped)` : ""}.` + (createData.welcomeSent ? " Login details sent to them automatically." : "") + (createData.tempPassword ? ` Temporary password: ${createData.tempPassword} — they will be asked to change it on first login.` : " They will be asked to change their password on first login."),
       });
       router.refresh();
       onClose();

@@ -355,6 +355,40 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   revalidatePath("/m/hr/employees");
 
+  // ── Welcome message: send their login details automatically instead of
+  //    the admin relaying a password over WhatsApp. Email when they have
+  //    one; SMS for phone-only logins. Failure never blocks creation —
+  //    the temp password is still returned for manual sharing. ──
+  let welcomeSent = false;
+  try {
+    const { sendNotification } = await import("@nirman/services");
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const loginId = normalizedEmail ?? phone?.trim() ?? "";
+    const welcomeBody =
+      `Welcome to ${company.name} on Nirman Inventory OS.\n\n` +
+      `Sign in at ${appUrl}\n` +
+      `Login: ${loginId}\n` +
+      `Temporary password: ${defaultPassword}\n\n` +
+      `You will be asked to set your own password on first login.`;
+    const channels: Array<{ channel: "EMAIL" | "SMS"; recipient: string }> = [];
+    if (normalizedEmail) channels.push({ channel: "EMAIL", recipient: normalizedEmail });
+    if (normalizedPhone) channels.push({ channel: "SMS", recipient: normalizedPhone });
+    for (const c of channels) {
+      const r = await sendNotification({
+        companyId: company.id,
+        eventType: "USER_WELCOME",
+        channel: c.channel,
+        recipient: c.recipient,
+        recipientName: result.name,
+        subject: `Welcome to ${company.name} on Nirman`,
+        message: welcomeBody,
+      });
+      if (r.status === "SENT") welcomeSent = true;
+    }
+  } catch {
+    // Best-effort — the admin still sees the temp password.
+  }
+
   return json({
     id: result.id,
     name: result.name,
@@ -365,6 +399,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     // (so they can share it with the new user). Always returned in dev for
     // convenience; in prod, only if no custom password was provided.
     tempPassword: !password?.trim() ? defaultPassword : undefined,
-    message: `${result.name} added. They can sign in with ${loginHint}.${mustChangePassword !== false ? " They will be asked to set a new password on first login." : ""}${autoLinkedEmployee ? ` Auto-linked to employee record: ${autoLinkedEmployee.name}.` : ""}`,
+    welcomeSent,
+    message: `${result.name} added.${welcomeSent ? " Login details sent to them automatically." : ""} They can sign in with ${loginHint}.${mustChangePassword !== false ? " They will be asked to set a new password on first login." : ""}${autoLinkedEmployee ? ` Auto-linked to employee record: ${autoLinkedEmployee.name}.` : ""}`,
   }, { status: 201 });
 });

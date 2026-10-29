@@ -3683,3 +3683,16 @@ docs/MESSAGING.md documents the subsystem: intent/audit → routing →
 delivery, per-business-area channel map, zero-setup contract, delivery
 semantics, security boundaries. Verified: SMS notification → log SENT +
 SmsOutbox QUEUED to +918273850155; cleanup done.
+
+## Round 145 — Onboarding welcome: credentials auto-delivered
+
+User creation returned the temp password to the ADMIN, who had to relay
+it manually. Now POST /api/users sends a USER_WELCOME notification
+through the comms layer after the transaction: EMAIL when they have an
+address, SMS for phone-only logins ("Welcome to {Company} on Nirman —
+Sign in at {url}, Login: {id}, Temporary password: {pw}, you'll set
+your own on first login"). welcomeSent flag + message returned; failure
+never blocks creation (temp password still returned for manual relay).
+Verified live: phone-only ACCOUNTANT created → log SMS/SENT → SmsOutbox
+QUEUED to +919876500001 with the full welcome body; dialog toast says
+"Login details sent to them automatically."
