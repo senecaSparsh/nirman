@@ -3565,3 +3565,21 @@ avoid a half-landed build.
 - Live GSTIN verification against the portal — blocked on an API key,
   same class as NIC e-invoice GSP credentials.
 - `TransferRow` dispatch-time value for the EWB tripwire on transfers.
+
+## Round 139 — Statutory deadline sweep (TDS 7th / PF+ESI 15th / GSTR-3B 20th)
+
+`checkStatutoryDeadlines()` (services/statutory-reminders.ts) reads
+payable GL balances — 2400 TDS, 2250 PF, 2350 ESI, and net GST
+(2100 output − 1400 ITC, credit−debit handles both legs in one sum) —
+and emits STATUTORY_DUE to finance within 3 days of the deadline or
+when past it. Deduped per company per deadline month via
+metadata.statutoryKey; wired as the 18th cron/reminders sweep.
+Verified live: Oct-29 run is silent (Nov deadlines all >3d); a Nov-5
+simulation fires exactly one "TDS ₹9,258 … deposit TDS by the 7th
+(2 days left)" for the real balance; a repeat run notifies 0.
+
+Already-covered (verified, not rebuilt): supplier-invoice dedupe,
+MSME 45-day cliff warning, fuel logs, doc/RERA/rate-contract expiry,
+recurring expenses, StatutoryPayment settlement. Still open: D27 BOCW
+cess (scoped in round 138), RCM flagging, ITC 17(5) blocked-credit
+flag, GSTR-2B import+match.
