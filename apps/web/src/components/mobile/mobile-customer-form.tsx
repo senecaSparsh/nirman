@@ -125,7 +125,7 @@ export function MobileCustomerForm({
         onClose?.();
       } else {
         // Redirect to sale form with the new customer pre-selected
-        const dest = redirectTo
+        const dest = redirectTo && /^\/(?![/\\])/.test(redirectTo)
           ? `${redirectTo}${redirectTo.includes("?") ? "&" : "?"}customerId=${data.id}`
           : `/m/sales/new?customerId=${data.id}`;
         router.push(dest);
