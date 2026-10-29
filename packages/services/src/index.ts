@@ -1116,6 +1116,7 @@ export {
 export {
   createWorkOrder,
   issueWorkOrder,
+  addWorkOrderLine,
   completeWorkOrder,
   payAdvance,
   createRaBill,

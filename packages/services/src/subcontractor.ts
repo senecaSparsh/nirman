@@ -213,6 +213,57 @@ export async function issueWorkOrder(id: string, userId?: string) {
 }
 
 /**
+ * Amend a work order — add a BOQ line at an agreed rate after issue.
+ * This is the extra/deviation-work path: thekedar does work beyond the
+ * original scope, a rate is settled, the item joins the WO, and it flows
+ * through MB measurement → RA billing like any original line. Rates and
+ * measured quantities stay auditable on one contract instead of floating
+ * as unbilled side work.
+ */
+export async function addWorkOrderLine(
+  workOrderId: string,
+  input: { boqItemId: string; agreedRate: Decimal | number | string },
+  userId?: string,
+) {
+  return withSerializableTransaction(async (tx) => {
+    const wo = await tx.subcontractorWorkOrder.findUnique({
+      where: { id: workOrderId },
+      include: { lines: { select: { boqItemId: true } } },
+    });
+    if (!wo) throw new ServiceError("Work order not found", 404);
+    if (wo.status === "COMPLETED" || wo.status === "CLOSED" || wo.status === "CANCELLED") {
+      throw new ServiceError(`Cannot amend work order in status ${wo.status}`, 400);
+    }
+    const rate = new Decimal(input.agreedRate);
+    if (rate.lte(0)) throw new ServiceError("Agreed rate must be greater than zero", 400);
+    if (wo.lines.some((l) => l.boqItemId === input.boqItemId)) {
+      throw new ServiceError("This BOQ item is already on the work order", 400);
+    }
+    const boqItem = await tx.boqItem.findFirst({
+      where: { id: input.boqItemId, projectId: wo.projectId, type: "LINE_ITEM" },
+      select: { id: true },
+    });
+    if (!boqItem) throw new ServiceError("BOQ line item not found in this project", 404);
+
+    const line = await tx.subcontractorWorkOrderLine.create({
+      data: { workOrderId, boqItemId: input.boqItemId, agreedRate: rate.toString() },
+    });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        action: "WORK_ORDER_AMEND",
+        entityType: "SubcontractorWorkOrder",
+        entityId: workOrderId,
+        after: { workOrderNumber: wo.workOrderNumber, boqItemId: input.boqItemId, agreedRate: rate.toString() },
+      });
+    }
+
+    return line;
+  });
+}
+
+/**
  * Pay an advance to a subcontractor — records the cash outflow and posts a GL entry.
  * GL: Dr Advances to Subcontractors (asset), Cr Cash
  * The advance is recovered proportionally from subsequent RA bills via advanceRecoveryPct.
@@ -667,6 +718,28 @@ export async function createRaBill(input: CreateRaBillInput) {
       }
     }
 
+    // Material-issued surface: company-supplied material issued to this
+    // subcontractor during the billing period is real money the accountant
+    // must reconcile (free-issue wastage recovery, debits). Sum it and hand it
+    // back as context so the bill isn't blind — `otherDeductions` stays a human
+    // judgement call, never auto-deducted, because labour+material vs
+    // free-issue contracts treat issued stock differently.
+    const issuedLines = await tx.materialIssueLine.findMany({
+      where: {
+        materialIssue: {
+          subcontractorId: wo.subcontractorId,
+          projectId: wo.projectId,
+          status: "COMPLETED",
+          issueDate: { gte: input.periodFrom, lte: input.periodTo },
+        },
+      },
+      select: { qty: true, unitCost: true },
+    });
+    const materialIssued = issuedLines.reduce(
+      (sum, l) => sum.plus(new Decimal(l.qty).times(new Decimal(l.unitCost))),
+      new Decimal(0),
+    );
+
     if (input.userId) {
       await logAction(tx, {
         userId: input.userId,
@@ -677,7 +750,7 @@ export async function createRaBill(input: CreateRaBillInput) {
       });
     }
 
-    return raBill;
+    return { ...raBill, materialIssued: materialIssued.toString() };
   });
 }
 

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { issueWorkOrder, completeWorkOrder, payAdvance, releaseRetention, ServiceError } from "@nirman/services";
+import { issueWorkOrder, completeWorkOrder, payAdvance, releaseRetention, addWorkOrderLine, ServiceError } from "@nirman/services";
 import { apiHandler, ForbiddenError, getCompany, getPermissionsForProject, json, requireEffectivePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -55,7 +55,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   // Enforce granular permissions per action (segregation of duties)
   const requiredPerm =
-    action === "issue" || action === "complete" || action === "pay-advance" ? PERM.WO_MANAGE :
+    action === "issue" || action === "complete" || action === "pay-advance" || action === "add-line" ? PERM.WO_MANAGE :
     action === "release-retention" ? PERM.RA_PAY :
     PERM.ASSETS_MANAGE; // fallback for unknown actions
   // Scoped-role lift — a scoped assignment on this WO's project can carry the
@@ -97,7 +97,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     revalidatePath("/m/construction?tab=work-orders");
       return json(result);
     }
-    return json({ error: "Unknown action. Use: issue | complete | pay-advance | release-retention" }, { status: 400 });
+    if (action === "add-line") {
+      const result = await addWorkOrderLine(id, { boqItemId: body?.boqItemId, agreedRate: body?.agreedRate }, user.id);
+      revalidatePath("/work-orders");
+      revalidatePath("/m/work-orders");
+    revalidatePath("/m/construction?tab=work-orders");
+      return json(result);
+    }
+    return json({ error: "Unknown action. Use: issue | complete | pay-advance | release-retention | add-line" }, { status: 400 });
   } catch (err: unknown) {
     revalidatePath("/work-orders");
     revalidatePath("/m/work-orders");
