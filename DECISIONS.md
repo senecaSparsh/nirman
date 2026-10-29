@@ -3583,3 +3583,20 @@ MSME 45-day cliff warning, fuel logs, doc/RERA/rate-contract expiry,
 recurring expenses, StatutoryPayment settlement. Still open: D27 BOCW
 cess (scoped in round 138), RCM flagging, ITC 17(5) blocked-credit
 flag, GSTR-2B import+match.
+
+## Round 140 — Automatic bank-SMS intake (device keys + intake API)
+
+The SMS parse→match pipeline already existed (bankSms model,
+ingestSmsBatch, auto-payment creation, inbox UI) but intake was
+manual-paste only — a session-authed POST a forwarder can't call.
+
+Added `SmsIngestToken` (per-device bearer key, revocable), `POST
+/api/sms/intake` (`x-sms-key` header or `?key=`, session-skipped,
+rate-limited, batch-capable), `/api/sms/keys` (masked list / create /
+revoke, SALES_MANAGE), and an "Auto-forward" dialog on the Bank SMS
+tab with copy-ready URL + the 3-step SMS-Forwarder setup. This unlocks
+every real path — Android forwarder apps today, the Capacitor shell's
+SMS permission later, email→webhook relays later — without the
+accountant ever pasting again. Verified live: minted key ingested an
+HDFC-format SMS (Rs50K parsed, correctly UNMATCHED), revoke returns
+401, test rows cleaned.
