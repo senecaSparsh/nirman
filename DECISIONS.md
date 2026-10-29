@@ -3331,3 +3331,28 @@ credential-gated, expected in dev) + 1 IN_APP. No product defect.
 
 Standing books state: 21 PASS / 1 FAIL (historical gate-pass row, code-fixed)
 / 2 WARN (fixture residue + config-gated WhatsApp).
+
+## Round 129 — Payroll engine exercised live + sparse-marking warning
+
+Ran the payroll spine end-to-end on SRG (Dec-2027 period, the only month
+with in-range attendance marks): generate → process → pay.
+
+- **generate** (POST /api/payroll): MONTHLY staff synthesized full-month
+  lines (27 working days, Sunday-excluded), DAILY workers correctly
+  skipped (no marks = no payable days). Sanjeev Kumar's 3 NON_PAID_LEAVE
+  marks → ₹0 line exposed a warning gap: `zeroGross` needs daysWorked>0,
+  `noDeduction` checks components — a salaried ₹0 payslip from sparse
+  marking fired neither.
+- **FIX `478ea7b5`**: added `sparseMarkedEmployees` — MONTHLY + marks <
+  eligibleDays + daysWorked≤0 → payroll warning on the draft
+  ("1 salaried employee computed ₹0 pay … Sanjeev Kumar (3/27 days
+  marked)"). Fully-marked absent month stays quiet. 2 integration tests
+  added; 18/18 payroll-lifecycle tests pass.
+- **process** → `JE-20261029-00016 POSTED`: Dr 6100 Salaries ₹269,000 /
+  Cr 2200 Net pay ₹248,000 / Cr 2250 PF ₹18,000 / Cr 2450 PT ₹1,000 /
+  Cr 1650 Advance recovery ₹2,000 — balanced 5-leg entry.
+- **pay** → `JE-20261029-00017`: Dr 2200 Salaries Payable / Cr 1000 Cash
+  ₹248,000. Period PAID.
+
+Also verified en route: year cap rejects 2028 seeds (horizon guard),
+draft-regen confirm gate, COMPANY-scope requirement on generation.
