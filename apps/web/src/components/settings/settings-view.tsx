@@ -21,7 +21,7 @@ import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { formatCurrency, displayEmail, formatEnumLabel } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
-import { ROLE_LIST, ROLES, assignableRoles, canAssignRole, effectivePermissions, PERMISSION_MODULES, ALL_PERMISSIONS, roleTier, type Role } from "@/lib/roles";
+import { ROLE_LIST, ROLES, assignableRoles, canAssignRole, canDoOwnerOnly, effectivePermissions, PERMISSION_MODULES, ALL_PERMISSIONS, roleTier, type Role } from "@/lib/roles";
 import { CompaniesManager, type CompanyRow } from "@/components/settings/companies-manager";
 import { CostCentresTab } from "@/components/settings/cost-centres-tab";
 import { PeopleTab } from "@/components/settings/people-tab";
@@ -207,6 +207,46 @@ export function SettingsView({
   const [previewAmount, setPreviewAmount] = useState("");
   const [previewResult, setPreviewResult] = useState<{ requiredRole: string; threshold: number; reason: string } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Financial-year close — posts the P&L→retained-earnings closing JE and
+  // advances the books lock to fyEnd in one step. Owner-only (the API
+  // agrees — the button hides for everyone else).
+  const defaultFyEnd = (() => {
+    const n = new Date();
+    return `${n.getMonth() >= 3 ? n.getFullYear() : n.getFullYear() - 1}-03-31`;
+  })();
+  const [fyCloseDate, setFyCloseDate] = useState(defaultFyEnd);
+  const [closingFy, setClosingFy] = useState(false);
+  const [fyCloseResult, setFyCloseResult] = useState<string | null>(null);
+
+  async function closeFy() {
+    setClosingFy(true);
+    setFyCloseResult(null);
+    try {
+      const res = await fetch("/api/gl/close-fy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fyEnd: fyCloseDate }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFyCloseResult(data.error ?? "Close failed");
+        return;
+      }
+      if (!data.closed) {
+        setFyCloseResult(data.reason ?? "Nothing to close");
+        return;
+      }
+      setFyCloseResult(
+        `Closed — ${data.entryNumber}: net ${data.netIncome != null && data.netIncome < 0 ? "loss" : "profit"} ₹${Math.abs(data.netIncome ?? 0).toLocaleString("en-IN")} to retained earnings. Books locked through ${fyCloseDate}.`,
+      );
+      setCompanyForm((f) => ({ ...f, glLockedUntil: fyCloseDate }));
+    } catch {
+      setFyCloseResult("Close failed — check your connection");
+    } finally {
+      setClosingFy(false);
+    }
+  }
 
   // Location form
   const [locFormOpen, setLocFormOpen] = useState(false);
@@ -394,6 +434,27 @@ export function SettingsView({
                         value={companyForm.glLockedUntil ? companyForm.glLockedUntil.slice(0, 10) : ""}
                         onChange={(e) => setCompanyForm((f) => ({ ...f, glLockedUntil: e.target.value || null }))}
                       />
+                      {canDoOwnerOnly(actorRole as Role) && (
+                        <div className="rounded-md border border-border p-2.5 space-y-2">
+                          <p className="text-[0.6875rem] font-medium text-foreground">Close a financial year</p>
+                          <p className="text-[0.6875rem] text-muted-foreground">
+                            Posts the profit-and-loss roll to retained earnings and locks the books through the chosen year-end — the Apr–Mar filing ritual in one step.
+                          </p>
+                          <div className="flex gap-2">
+                            <Input
+                              type="date"
+                              aria-label="Financial year end date"
+                              value={fyCloseDate}
+                              onChange={(e) => setFyCloseDate(e.target.value)}
+                              className="flex-1"
+                            />
+                            <Button type="button" variant="outline" size="sm" disabled={closingFy || !fyCloseDate} onClick={closeFy}>
+                              {closingFy ? "Closing…" : "Close FY"}
+                            </Button>
+                          </div>
+                          {fyCloseResult && <p className="text-[0.6875rem] text-muted-foreground">{fyCloseResult}</p>}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 rounded-md border border-border px-3 py-2">
                       <input

@@ -89,6 +89,7 @@ export {
 
 export { checkApprovalBacklog, checkBooksHealth, checkReraValidity, checkRateContractExpiry } from "./approval-backlog";
 export { importBankStatement } from "./bank-statement";
+export { closeFinancialYear } from "./fy-close";
 
 // Issue — material consumption into projects or departments (cost centers)
 export { issueMaterialsToProject, issueMaterialsToDepartment, cancelMaterialIssue, createMaterialIssueRequest, executeMaterialIssue, amountInWords } from "./issue";

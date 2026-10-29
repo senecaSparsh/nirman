@@ -3356,3 +3356,36 @@ with in-range attendance marks): generate → process → pay.
 
 Also verified en route: year cap rejects 2028 seeds (horizon guard),
 draft-regen confirm gate, COMPANY-scope requirement on generation.
+
+## Round 130 — FY close completed (schema was ahead; closing JE + lock ritual shipped)
+
+Round 127's audit said "no fiscal-year concept at all" — wrong on the
+control half: `Company.glLockedUntil` existed AND was already enforced in
+`postJournalEntry` (single JE funnel), owner-gated through the company
+PATCH, surfaced in settings. Verified live: lock at 2026-10-15 refused a
+back-dated JV with a clear error, cleared cleanly.
+
+What was actually missing was the closing ritual itself — zeroing P&L to
+retained earnings. Shipped end-to-end:
+
+- `services/fy-close.ts` `closeFinancialYear` — aggregates per-account
+  P&L (REVENUE/EXPENSE/CONTRA_EXPENSE) nets over POSTED entries ≤ fyEnd;
+  posts one closing JE (Dr revenue / Cr expense / RE plug — Cr on profit,
+  Dr on loss); then advances `glLockedUntil` in the same transaction
+  (post-first so the closing entry itself passes the lock check).
+  Idempotent — a repeat run sees the closing JE inside the window, finds
+  zero P&L, no-ops. Rejects future fyEnd and re-close of a locked period.
+- `POST /api/gl/close-fy` — FINANCE_MANAGE + owner-only.
+- Settings UI — "Close a financial year" card under Books-locked-through,
+  owner-gated, shows entry number + net income + lock advance.
+- 4 integration tests (profit/loss/re-close/clean-books/future-guard).
+
+**Live-verified on SRG**: seeded 2 back-dated Apr-2026 JVs, ran close at
+2026-04-30 → `JE-20260430-00001` (Dr 4000 ₹2,500 / Cr 6100 ₹1,200 /
+Cr 3000 ₹1,300), books locked; a 2026-04-20 JV after that refused.
+SRG's books are now honestly closed through 2026-04-30 (all real work
+posts Oct-2026 — no trap for future verification).
+
+Remaining gap list shrinks to: fund-transfer UX sugar (JV-covered),
+imprest claim→advance netting, NIC provider + WhatsApp provider (owner
+credentials), tenancy data tails.
