@@ -20,7 +20,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
 
 const upsertSchema = z.object({
   eventType: z.string().min(1),
-  channel: z.enum(["WHATSAPP", "EMAIL", "IN_APP"]),
+  channel: z.enum(["WHATSAPP", "EMAIL", "SMS", "IN_APP"]),
   template: z.string().min(1),
   isActive: z.boolean().optional().default(true),
 });

@@ -213,8 +213,21 @@ export function SmsView({ items, canCreate, canManage }: { items: SmsRow[]; canC
 
 type SmsKey = { id: string; label: string | null; masked: string; lastUsedAt: string | null; createdAt: string };
 
+type SmsStatus = {
+  connected: boolean;
+  devices: Array<{ id: string; label: string | null; masked: string; lastUsedAt: string | null; live: boolean }>;
+  outbox: {
+    queued: number;
+    sent: number;
+    failed: number;
+    lastSentAt: string | null;
+    recentFailures: Array<{ id: string; toPhone: string; error: string | null; updatedAt: string }>;
+  };
+};
+
 function AutoForwardDialog({ open, onOpenChange, canManage }: { open: boolean; onOpenChange: (v: boolean) => void; canManage: boolean }) {
   const { data, loading, retry: refetch } = useFetch<{ keys: SmsKey[] }>("/api/sms/keys");
+  const { data: status } = useFetch<SmsStatus>("/api/sms/status");
   const [newLabel, setNewLabel] = useState("");
   const [creating, setCreating] = useState(false);
   const [freshToken, setFreshToken] = useState<string | null>(null);
@@ -265,17 +278,50 @@ function AutoForwardDialog({ open, onOpenChange, canManage }: { open: boolean; o
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title="Auto-forward bank SMS" className="max-w-lg">
       <div className="space-y-4">
+        {/* Live device status — visible proof the phone is talking to Nirman */}
+        {status && (
+          <div className={`rounded-md border p-2.5 text-caption ${
+            status.connected ? "border-success bg-success/10" : "border-border bg-subtle"
+          }`}>
+            {status.connected ? (
+              <p className="flex items-center gap-1.5 font-medium text-success">
+                <Smartphone className="h-3.5 w-3.5" /> Phone connected — syncing now
+              </p>
+            ) : status.devices.length > 0 ? (
+              <p className="flex items-center gap-1.5 text-muted-foreground">
+                <Smartphone className="h-3.5 w-3.5" /> {status.devices.length} device{status.devices.length > 1 ? "s" : ""} registered — none seen in the last 15 min. Open the Nirman app on the phone.
+              </p>
+            ) : (
+              <p className="flex items-center gap-1.5 text-muted-foreground">
+                <Smartphone className="h-3.5 w-3.5" /> No phone connected yet — log in to the Nirman app on a company phone.
+              </p>
+            )}
+            {(status.outbox.queued > 0 || status.outbox.failed > 0) && (
+              <p className="mt-1 text-micro text-muted-foreground">
+                Outgoing: {status.outbox.queued} queued · {status.outbox.sent} sent
+                {status.outbox.failed > 0 && <span className="text-danger"> · {status.outbox.failed} failed</span>}
+              </p>
+            )}
+            {status.outbox.recentFailures.map((f) => (
+              <p key={f.id} className="mt-0.5 text-micro text-danger">
+                → {f.toPhone}: {f.error}
+              </p>
+            ))}
+          </div>
+        )}
+
         <p className="text-caption text-muted-foreground">
-          Bank SMS reaches Nirman automatically — no manual paste. Set it up once on any company phone:
+          Bank SMS reaches Nirman automatically — no manual paste. The easiest setup is the Nirman app:
         </p>
         <ol className="list-decimal space-y-1.5 pl-5 text-caption text-foreground">
-          <li>Create a device key below (one per phone).</li>
-          <li>On that phone, install <b>SMS Forwarder</b> (free, Play Store) — or use the Nirman app when SMS sync ships.</li>
-          <li>Add a rule: senders matching <b>*-BANK, *-HDFCBK, *-ICICIB, *-SBIN, *-AXISB, UPI</b> → forward via HTTP POST to the URL below with header <code className="rounded bg-subtle px-1">x-sms-key: &lt;key&gt;</code>.</li>
+          <li>Install the <b>Nirman app</b> on a company phone and log in — it registers itself (no key to paste).</li>
+          <li>Tap <b>Allow</b> on the SMS permission once — done. Bank SMS forwards itself, and the phone can send your OTPs and alerts on its own SIM.</li>
+          <li>Or for a third-party forwarder app: create a device key below and POST SMS to the URL with header <code className="rounded bg-subtle px-1">x-sms-key: &lt;key&gt;</code>.</li>
         </ol>
         <p className="rounded-md border border-border bg-subtle p-2.5 text-caption text-muted-foreground">
-          The same phone can also <b>send</b> your OTP codes and alerts for free with the <b>SMS Gateway for Android</b> app —
-          configure it under <b>Settings → Integrations → SMS Gateway</b>.
+          The same Nirman-app phone also <b>sends</b> your OTP codes and alerts for free — they queue automatically and the
+          phone delivers them on its own SIM. A standalone <b>SMS Gateway for Android</b> app works too —
+          <b>Settings → Integrations → SMS Gateway</b>.
         </p>
 
         <div className="rounded-md border border-border p-2.5">

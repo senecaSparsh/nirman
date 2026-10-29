@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {Bell, Plus, Loader2, CheckCircle2, XCircle, Clock} from "lucide-react";
+import {Bell, Plus, Loader2, CheckCircle2, XCircle, Clock, RefreshCw} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {Label, Select, Textarea} from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,7 @@ const EVENT_TYPES = [
 const CHANNELS = [
   { value: "WHATSAPP", label: "WhatsApp" },
   { value: "EMAIL", label: "Email" },
+  { value: "SMS", label: "SMS" },
   { value: "IN_APP", label: "In-App" },
 ];
 
@@ -52,6 +53,7 @@ export function NotificationsPanel() {
   const stats = data?.stats ?? { total: 0, sent: 0, failed: 0, pending: 0 };
   const [formOpen, setFormOpen] = useState(false);
   const [showLog, setShowLog] = useState(false);
+  const [resending, setResending] = useState<string | null>(null);
   const [logs, setLogs] = useState<Array<{
     id: string;
     eventType: string;
@@ -77,6 +79,28 @@ export function NotificationsPanel() {
       setShowLog(true);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  async function resend(id: string) {
+    setResending(id);
+    try {
+      const res = await fetch(`/api/notifications/log/${id}/resend`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Resend failed");
+      if (data.status === "SENT") {
+        toast.success("Delivered on retry");
+      } else {
+        toast.error(`Retry failed — ${data.error ?? "provider still unreachable"}`);
+      }
+      // Refresh the log + headline stats so the row flips in place.
+      const logRes = await fetch("/api/notifications/log?limit=50");
+      if (logRes.ok) setLogs(((await logRes.json()).rows) ?? []);
+      load();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Resend failed");
+    } finally {
+      setResending(null);
     }
   }
 
@@ -188,6 +212,22 @@ export function NotificationsPanel() {
                     <p className="mt-0.5 text-micro text-muted-foreground truncate">{l.message}</p>
                     {l.errorMessage && <p className="mt-0.5 text-micro text-danger">{l.errorMessage}</p>}
                   </div>
+                  {l.status !== "SENT" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0"
+                      disabled={resending === l.id}
+                      onClick={() => resend(l.id)}
+                    >
+                      {resending === l.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      )}
+                      Resend
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
