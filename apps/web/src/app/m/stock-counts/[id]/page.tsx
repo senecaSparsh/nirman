@@ -1,6 +1,8 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere } from "@/lib/server";
+import { toNum, scopeWhere, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { resolveNextAction } from "@/lib/flow-map";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { DetailPrintButton } from "@/components/mobile/v2/detail-primitives";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
@@ -19,7 +21,7 @@ export default function MobileStockCountDetailPage({
 }) {
   return (
     <MobileDetailPage params={params} perm={PERM.INVENTORY_VIEW} what="stock counts" permission="inventory.view" skeletonSections={6} scopeAware>
-      {async ({ id, company, perms }) => {
+      {async ({ id, company, role, perms }) => {
         const count = await prisma.stockCount.findFirst({
           where: { id, location: { companyId: company.id, deletedAt: null }, ...await scopeWhere("StockCount") },
           include: {
@@ -86,9 +88,17 @@ export default function MobileStockCountDetailPage({
           { label: "Reconciled", state: count.status === "RECONCILED" ? "current" : "pending" },
         ];
 
+        const nextAction = resolveNextAction(
+          "stockCount",
+          count.status,
+          role,
+          await getUserPermissions(),
+        );
+
         return (
           <PageContextProvider value={{
             entityType: "stockCount",
+            flowId: "stockCount",
             status: count.status,
             label: count.location.name,
             recordId: count.id}}>
@@ -97,6 +107,15 @@ export default function MobileStockCountDetailPage({
               <MobilePipelineStepper steps={scPipelineSteps} />
               <DetailPrintButton href={`/m/print/stock-counts/${count.id}`} title="Stock Count" />
             </div>
+            {nextAction && (
+              <NextActionCardView
+                label={nextAction.label}
+                actionVerb={nextAction.verb}
+                reason={nextAction.reason}
+                tone={nextAction.tone ?? "signal"}
+                hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+              />
+            )}
             <MobileStockCountDetailClient
               count={serialized}
               canManage={canManage}

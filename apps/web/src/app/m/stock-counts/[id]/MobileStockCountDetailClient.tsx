@@ -248,6 +248,10 @@ export function MobileStockCountDetailClient({
       )}
 
       {/* ── Action buttons ── */}
+      {/* NextActionCard scroll targets — #confirm (draft),
+          #reconcile (counted). Both land on this row. */}
+      <div id="confirm" />
+      <div id="reconcile" />
       {canManage && (isDraft || isCounted) ? (
         <div className="flex gap-2 mt-4">
           {isDraft ? (

@@ -66,6 +66,7 @@ export function MobileStockHubTabs({
   countsItems,
   countsSummary,
   countsCanCreate,
+  countsCanManage,
 
   scrapItems,
   scrapTotalValue,
@@ -98,6 +99,7 @@ export function MobileStockHubTabs({
   countsItems: StockCountItem[];
   countsSummary: { total: number; draft: number; counted: number; reconciled: number };
   countsCanCreate: boolean;
+  countsCanManage?: boolean;
 
   scrapItems: ScrapGenerationItem[];
   scrapTotalValue: number;
@@ -189,6 +191,7 @@ export function MobileStockHubTabs({
             items={countsItems}
             counts={countsSummary}
             canCreate={countsCanCreate}
+            canManage={countsCanManage ?? countsCanCreate}
           />
           {countsCanCreate && (
             <MobileFab onClick={countFab.toggle} isOpen={countFab.isOpen} label="New stock count" />

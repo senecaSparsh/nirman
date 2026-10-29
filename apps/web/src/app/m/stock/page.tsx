@@ -445,6 +445,7 @@ export default function MobileStockPage({
               counted: counted.length,
               reconciled: reconciled.length}}
             countsCanCreate={canManage}
+            countsCanManage={canManage}
             scrapItems={scrapItems}
             scrapTotalValue={scrapTotalValue}
             scrapCanCreate={canManage}

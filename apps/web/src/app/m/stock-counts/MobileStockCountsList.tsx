@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
+import { useUrlFilter } from "@/lib/use-url-filter";
+import { NextActionCard } from "@/components/mobile/v2/guidance";
+import { PERM } from "@nirman/rbac";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ScanLine, AlertTriangle, CheckCircle2, Clock, Eye, Share2, MapPin, Calendar, ClipboardList, GitCompare, User } from "lucide-react";
@@ -54,17 +57,31 @@ const FILTER_OPTIONS: { label: string; value: CountFilter }[] = [
  * Smart sort: drafts first (action needed), then counted (pending reconcile),
  * then reconciled (most recent first).
  */
-export function MobileStockCountsList({
-  items,
-  counts,
-  canCreate: _canCreate,
-}: {
+type MobileStockCountsListProps = {
   items: StockCountItem[];
   counts: { total: number; draft: number; counted: number; reconciled: number };
   canCreate: boolean;
-}) {
+  /** inventory.manage — gates the reconcile-queue card. */
+  canManage?: boolean;
+};
+
+export function MobileStockCountsList(props: MobileStockCountsListProps) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileStockCountsListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileStockCountsListInner({
+  items,
+  counts,
+  canCreate: _canCreate,
+  canManage = false,
+}: MobileStockCountsListProps) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<CountFilter>("ALL");
+  const [filter, setFilter] = useUrlFilter<CountFilter>("status", "ALL");
 
   const filtered = useMemo(() => {
     let result = items;
@@ -104,6 +121,13 @@ export function MobileStockCountsList({
           { label: "Reconciled", value: String(counts.reconciled), tone: "go" },
           { label: "Total", value: String(counts.total), tone: "default" },
         ]}
+      />
+
+      {/* Queue card — counted sheets awaiting reconciliation */}
+      <NextActionCard
+        flow="stockCount"
+        count={{ COUNTED: counts.counted }}
+        can={(perm) => perm === PERM.INVENTORY_MANAGE ? canManage : false}
       />
 
       {/* ── Sticky search header ── */}

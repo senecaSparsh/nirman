@@ -49,7 +49,8 @@ export type FlowId =
   | "expenseClaim"
   | "gatePass"
   | "tenancy"
-  | "changeOrder";
+  | "changeOrder"
+  | "stockCount";
 
 /** A node in a flow — a screen the user can be on. */
 export interface FlowNode {
@@ -751,6 +752,48 @@ const CHANGE_ORDER_FLOW: FlowDef = {
 };
 
 // ─────────────────────────────────────────────────────────────────
+// STOCK COUNT — physical count → confirm → reconcile into the ledger.
+// ─────────────────────────────────────────────────────────────────
+
+const STOCK_COUNT_FLOW: FlowDef = {
+  id: "stockCount",
+  listHref: "/m/stock-counts",
+  listLead: "Physical stock checks. Counted sheets need reconciling — that's when the books get corrected.",
+  nodes: [
+    { status: "DRAFT", label: "Draft", detailHref: "/m/stock-counts/{id}" },
+    { status: "COUNTED", label: "Counted", detailHref: "/m/stock-counts/{id}" },
+    { status: "RECONCILED", label: "Reconciled", detailHref: "/m/stock-counts/{id}" },
+  ],
+  next: [
+    {
+      when: "DRAFT",
+      label: "Confirm the count",
+      verb: "Confirm",
+      reason: "Quantities are typed in — confirm them before they can be reconciled.",
+      action: { type: "anchor", hash: "#confirm" },
+      perm: PERM.INVENTORY_MANAGE,
+      tone: "signal",
+    },
+    {
+      when: "COUNTED",
+      label: "Reconcile the variance",
+      verb: "Reconcile",
+      reason: "Counted against the books — reconciling posts the correction.",
+      action: { type: "anchor", hash: "#reconcile" },
+      perm: PERM.INVENTORY_MANAGE,
+      tone: "signal",
+    },
+  ],
+  listNext: {
+    countStatuses: ["COUNTED"],
+    label: (n) => `${n} count${n !== 1 ? "s" : ""} awaiting reconciliation`,
+    reason: "Until these reconcile, the books and the shelves disagree.",
+    filterChip: "COUNTED",
+    perm: PERM.INVENTORY_MANAGE,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────
 // REGISTRY + LOOKUP HELPERS
 // ─────────────────────────────────────────────────────────────────
 
@@ -767,6 +810,7 @@ export const FLOWS: Record<FlowId, FlowDef> = {
   gatePass: GATE_PASS_FLOW,
   tenancy: TENANCY_FLOW,
   changeOrder: CHANGE_ORDER_FLOW,
+  stockCount: STOCK_COUNT_FLOW,
 };
 
 /**
@@ -789,6 +833,7 @@ const ROUTE_TO_FLOW: Record<string, FlowId> = {
   "/m/gate-pass": "gatePass",
   "/m/rentals": "tenancy",
   "/m/change-orders": "changeOrder",
+  "/m/stock-counts": "stockCount",
 };
 
 export function flowForRoute(route: string): FlowDef | undefined {
