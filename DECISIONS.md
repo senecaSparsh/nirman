@@ -3249,3 +3249,27 @@ escalation 5%/11mo, security deposit, SAC code.
 
 This closes the last unverified transcript spine. Every transcript-weighted
 flow is now live-verified in SRG REALCON.
+
+## Round 126 — Statement-CSV import verified; imprest advance gap found
+
+**Bank statement CSV import — verified live end-to-end:**
+`/api/bank-statements/import` parsed a 3-row statement (multi-format dates,
+debit/credit columns, CSV-aware splits). Debit row IGNORED; both ₹26,250
+rent credits auto-matched to the tenancy → 2 RECEIVED RentalPayment rows
+(₹52,500 collected). Same matcher + GL posting path as the SMS flow.
+
+**Gap logged — imprest/advance netting:** `EmployeeAdvance` only models
+salary-advance semantics (approved → payroll deductions → settled).
+`settleExpenseClaim` posts Dr Reimbursements Payable / Cr Cash with no
+check of the employee's outstanding advance. Indian site practice also
+runs purpose advances ("₹20k for the Nashik trip — settle with bills"):
+the claim should net against the open advance (unspent returns or owes)
+instead of always paying cash. Needs: claim→advance link + partial
+netting + settle-the-difference posting. Bounded, transcript-plausible —
+queue after launch-critical work unless the owner prioritizes petty cash.
+
+**Verified-complete list now covers:** collections, procurement gate,
+construction, attendance→payroll, tasks, block/unblock, SMS recon,
+statement-CSV import, tenancy (LOI→fit-out→escalation). Open: CO
+self-withdraw affordance, imprest netting, NIC provider (owner creds),
+real WhatsApp provider (owner creds).
