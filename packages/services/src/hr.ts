@@ -1677,6 +1677,7 @@ export async function generatePayroll(input: GeneratePayrollInput) {
     let totalNet = new Decimal(0);
     const zeroGrossEmployees: string[] = [];
     const noDeductionEmployees: string[] = [];
+    const sparseMarkedEmployees: string[] = [];
 
     for (const emp of employees) {
       const attendances = attendancesByEmployee.get(emp.id) ?? [];
@@ -1828,6 +1829,20 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       if (adjustedDaysWorked.gt(0) && grossPay.lte(0)) {
         zeroGrossEmployees.push(emp.name);
       }
+      // A salaried employee whose pay collapsed to ₹0 because only a few
+      // days were marked (unmarked days count as absent under present-
+      // marking) is almost always exception-marking data — the site logged
+      // only leave days. A fully-marked absent month (marks ≥ eligible
+      // days) is a legitimate ₹0 and doesn't flag. Surface the smell so
+      // the draft gets a second look before processing.
+      if (
+        emp.wageType === "MONTHLY" &&
+        attendances.length > 0 &&
+        attendances.length < eligibleDays &&
+        adjustedDaysWorked.lte(0)
+      ) {
+        sparseMarkedEmployees.push(`${emp.name} (${attendances.length}/${eligibleDays} days marked)`);
+      }
 
       totalGross = totalGross.plus(grossPay);
       totalOvertime = totalOvertime.plus(overtimeAmount);
@@ -1845,9 +1860,9 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       action: "PAYROLL_GENERATE",
       entityType: "PayrollPeriod",
       entityId: period.id,
-      after: { month: input.month, year: input.year, employees: employees.length, totalNet: totalNet.toString(), zeroGrossEmployees },
+      after: { month: input.month, year: input.year, employees: employees.length, totalNet: totalNet.toString(), zeroGrossEmployees, sparseMarkedEmployees },
     });
-    return { period: updated, zeroGrossEmployees, noDeductionEmployees };
+    return { period: updated, zeroGrossEmployees, noDeductionEmployees, sparseMarkedEmployees };
   });
 
   // Flag ₹0-earners AFTER the tx commits — emitting inside the Serializable
@@ -1877,6 +1892,11 @@ export async function generatePayroll(input: GeneratePayrollInput) {
   if (result.noDeductionEmployees.length > 0) {
     payrollWarnings.push(
       `${result.noDeductionEmployees.length} employee${result.noDeductionEmployees.length === 1 ? "" : "s"} have no deduction components — no PF/ESI/PT will be deducted. Check their salary structure: ${result.noDeductionEmployees.slice(0, 5).join(", ")}`,
+    );
+  }
+  if (result.sparseMarkedEmployees.length > 0) {
+    payrollWarnings.push(
+      `${result.sparseMarkedEmployees.length} salaried employee${result.sparseMarkedEmployees.length === 1 ? "" : "s"} computed ₹0 pay — attendance marked on only a fraction of working days (unmarked days count as absent): ${result.sparseMarkedEmployees.slice(0, 5).join(", ")}`,
     );
   }
   return Object.assign(result.period, { payrollWarnings });

@@ -531,4 +531,73 @@ describe("Payroll lifecycle — generate → process → pay", () => {
     const result = await processPayroll({ payrollPeriodId: period.id, userId: user.id });
     expect(result.status).toBe("PROCESSED");
   });
+
+  // ── sparse-marking warning (round 128) ──
+  // A MONTHLY employee whose pay collapses to ₹0 because attendance was
+  // marked on only a fraction of working days (exception-marking habit:
+  // only leave days logged) must surface a payroll warning — a silent ₹0
+  // payslip on a salaried employee is exactly what the draft needs
+  // flagged. A fully-marked absent month is legitimate and must NOT warn.
+
+  async function createMonthlyEmployee(companyId: string, projectId: string, salary = 30000) {
+    return prisma.employee.create({
+      data: {
+        name: "Monthly Salaried",
+        phone: "7777777777",
+        companyId,
+        wageType: "MONTHLY",
+        monthlySalary: new Decimal(salary),
+        active: true,
+        activeProjectId: projectId,
+      },
+    });
+  }
+
+  it("MONTHLY employee with sparse marks → ₹0 pay AND a payroll warning", async () => {
+    const { company, user, project } = await setup();
+    const employee = await createMonthlyEmployee(company.id, project.id, 30000);
+    // Exception-marking data: only 2 NPL days logged of Feb-2025's 24
+    // working days — the unmarked 22 days count as absent, pay → ₹0.
+    for (const date of ["2025-02-03", "2025-02-04"]) {
+      await prisma.workerAttendance.create({
+        data: { employeeId: employee.id, companyId: company.id, date: new Date(date), status: "NON_PAID_LEAVE" },
+      });
+    }
+
+    const { generatePayroll } = await import("../hr");
+    const period = await generatePayroll({ companyId: company.id, year: 2025, month: 2, userId: user.id });
+
+    const lines = await prisma.payrollLine.findMany({ where: { payrollPeriodId: period.id } });
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.netPay.toNumber()).toBe(0);
+    expect(
+      (period as { payrollWarnings?: string[] }).payrollWarnings?.some(
+        (w) => w.includes("Monthly Salaried") && w.includes("fraction"),
+      ),
+    ).toBe(true);
+  });
+
+  it("MONTHLY employee fully marked absent → ₹0 pay and NO sparse warning", async () => {
+    const { company, user, project } = await setup();
+    const employee = await createMonthlyEmployee(company.id, project.id, 30000);
+    // Mark every non-Sunday of Feb 2025 NPL — a genuinely absent month,
+    // not sparse data. ₹0 pay is correct and must not warn.
+    for (let d = 1; d <= 28; d++) {
+      const date = new Date(Date.UTC(2025, 1, d));
+      if (date.getUTCDay() === 0) continue;
+      await prisma.workerAttendance.create({
+        data: { employeeId: employee.id, companyId: company.id, date, status: "NON_PAID_LEAVE" },
+      });
+    }
+
+    const { generatePayroll } = await import("../hr");
+    const period = await generatePayroll({ companyId: company.id, year: 2025, month: 2, userId: user.id });
+
+    const lines = await prisma.payrollLine.findMany({ where: { payrollPeriodId: period.id } });
+    expect(lines).toHaveLength(1);
+    expect(lines[0]!.netPay.toNumber()).toBe(0);
+    expect(
+      (period as { payrollWarnings?: string[] }).payrollWarnings?.some((w) => w.includes("fraction")),
+    ).toBeFalsy();
+  });
 });
