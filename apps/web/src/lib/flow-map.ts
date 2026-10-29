@@ -52,7 +52,8 @@ export type FlowId =
   | "changeOrder"
   | "stockCount"
   | "incident"
-  | "hazard";
+  | "hazard"
+  | "workOrder";
 
 /** A node in a flow — a screen the user can be on. */
 export interface FlowNode {
@@ -892,6 +893,71 @@ const HAZARD_FLOW: FlowDef = {
 };
 
 // ─────────────────────────────────────────────────────────────────
+// WORK ORDER — subcontract works: draft → issued → active → completed
+// → closed. RA bills run inside the WO detail as per-bill actions;
+// the WO's own "next" is the lifecycle step on its action bar.
+// ─────────────────────────────────────────────────────────────────
+
+const WORK_ORDER_FLOW: FlowDef = {
+  id: "workOrder",
+  listHref: "/m/work-orders",
+  listLead: "Contracts for subcontracted work. Drafts need issuing; active ones collect RA bills; completed ones release retention.",
+  nodes: [
+    { status: "DRAFT", label: "Draft", detailHref: "/m/work-orders/{id}" },
+    { status: "ISSUED", label: "Issued", detailHref: "/m/work-orders/{id}" },
+    { status: "ACTIVE", label: "Active", detailHref: "/m/work-orders/{id}" },
+    { status: "COMPLETED", label: "Completed", detailHref: "/m/work-orders/{id}" },
+    { status: "CLOSED", label: "Closed", detailHref: "/m/work-orders/{id}" },
+    { status: "CANCELLED", label: "Cancelled", detailHref: "/m/work-orders/{id}" },
+  ],
+  next: [
+    {
+      when: "DRAFT",
+      label: "Issue the work order",
+      verb: "Issue",
+      reason: "A draft can't receive bills — issue it so work and billing can start.",
+      action: { type: "anchor", hash: "#issue" },
+      perm: PERM.WO_MANAGE,
+      tone: "signal",
+    },
+    {
+      when: "ISSUED",
+      label: "Pay the advance",
+      verb: "Pay advance",
+      reason: "Issued — if a mobilization advance was agreed, pay it before work ramps up.",
+      action: { type: "anchor", hash: "#advance" },
+      perm: PERM.WO_MANAGE,
+      tone: "signal",
+    },
+    {
+      when: "ACTIVE",
+      label: "Complete the work order",
+      verb: "Complete",
+      reason: "Work is running and bills are coming in — complete it when the scope is done.",
+      action: { type: "anchor", hash: "#complete" },
+      perm: PERM.WO_MANAGE,
+      tone: "signal",
+    },
+    {
+      when: "COMPLETED",
+      label: "Release the retention",
+      verb: "Release",
+      reason: "Work finished — release the held retention to close out the contract.",
+      action: { type: "anchor", hash: "#retention" },
+      perm: PERM.RA_PAY,
+      tone: "go",
+    },
+  ],
+  listNext: {
+    countStatuses: ["DRAFT"],
+    label: (n) => `${n} draft work order${n !== 1 ? "s" : ""}`,
+    reason: "Drafts can't receive RA bills — issue them to start the work.",
+    filterChip: "DRAFT",
+    perm: PERM.WO_MANAGE,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────
 // REGISTRY + LOOKUP HELPERS
 // ─────────────────────────────────────────────────────────────────
 
@@ -911,6 +977,7 @@ export const FLOWS: Record<FlowId, FlowDef> = {
   stockCount: STOCK_COUNT_FLOW,
   incident: INCIDENT_FLOW,
   hazard: HAZARD_FLOW,
+  workOrder: WORK_ORDER_FLOW,
 };
 
 /**
@@ -934,6 +1001,7 @@ const ROUTE_TO_FLOW: Record<string, FlowId> = {
   "/m/rentals": "tenancy",
   "/m/change-orders": "changeOrder",
   "/m/stock-counts": "stockCount",
+  "/m/work-orders": "workOrder",
 };
 
 export function flowForRoute(route: string): FlowDef | undefined {

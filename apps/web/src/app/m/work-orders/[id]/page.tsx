@@ -1,7 +1,9 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
+import { toNum, scopeWhere, getCurrentUser, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { canWaiveSelfApproval } from "@nirman/services";
+import { resolveNextAction } from "@/lib/flow-map";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber, formatEnumLabel } from "@/lib/utils";
 import {
@@ -29,7 +31,7 @@ export default function MobileWorkOrderDetailPage({
 }) {
   return (
     <MobileDetailPage params={params} perm={[PERM.WO_MANAGE, PERM.RA_SUBMIT, PERM.RA_APPROVE, PERM.RA_PAY, PERM.ASSETS_VIEW]} what="work order details" permission={PERM.ASSETS_VIEW} managePerm={PERM.WO_MANAGE} skeletonSections={5} scopeAware>
-      {async ({ id, company, canManage, actingRole, perms }) => {
+      {async ({ id, company, role, canManage, actingRole, perms }) => {
         const wo = await prisma.subcontractorWorkOrder.findFirst({
           where: {...await scopeWhere("SubcontractorWorkOrder"),  id, companyId: company.id },
           include: {
@@ -98,14 +100,31 @@ export default function MobileWorkOrderDetailPage({
           ...(wo.endDate ? [{ label: "End", value: formatDate(wo.endDate) }] : []),
         ];
 
+        const nextAction = resolveNextAction(
+          "workOrder",
+          wo.status,
+          role,
+          await getUserPermissions(),
+        );
+
         return (
           <PageContextProvider value={{
             entityType: "workOrder",
+            flowId: "workOrder",
             status: wo.status,
             label: wo.workOrderNumber,
             subtitle: wo.subcontractor.name,
             recordId: wo.id}}>
           <div className="flex flex-col gap-4 pb-20">
+            {nextAction && (
+              <NextActionCardView
+                label={nextAction.label}
+                actionVerb={nextAction.verb}
+                reason={nextAction.reason}
+                tone={nextAction.tone ?? "signal"}
+                hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+              />
+            )}
             {/* ── Header card ── */}
             <DetailHeroCard
               icon={Wrench}

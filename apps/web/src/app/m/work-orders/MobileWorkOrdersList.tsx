@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
+import { useUrlFilter } from "@/lib/use-url-filter";
+import { NextActionCard } from "@/components/mobile/v2/guidance";
+import { PERM } from "@nirman/rbac";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
@@ -39,21 +42,35 @@ const FILTER_CHIPS: { label: string; value: WOFilter }[] = [
   { label: "Cancelled", value: "CANCELLED" },
 ];
 
-export function MobileWorkOrdersList({
-  items,
-  exportTitle,
-  exportRows,
-  exportColumns,
-  exportSummary,
-}: {
+type MobileWorkOrdersListProps = {
   items: WorkOrderListItem[];
+  /** wo.manage — gates the draft-issue queue card. */
+  canManage?: boolean;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
   exportSummary?: string;
-}) {
+};
+
+export function MobileWorkOrdersList(props: MobileWorkOrdersListProps) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileWorkOrdersListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileWorkOrdersListInner({
+  items,
+  canManage = false,
+  exportTitle,
+  exportRows,
+  exportColumns,
+  exportSummary,
+}: MobileWorkOrdersListProps) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<WOFilter>("ALL");
+  const [filter, setFilter] = useUrlFilter<WOFilter>("status", "ALL");
 
   const filtered = useMemo(() => {
     let result = items;
@@ -78,6 +95,13 @@ export function MobileWorkOrdersList({
 
   return (
     <div>
+      {/* Queue card — draft work orders waiting to be issued */}
+      <NextActionCard
+        flow="workOrder"
+        count={{ DRAFT: items.filter((w) => w.status === "DRAFT").length }}
+        can={(perm) => perm === PERM.WO_MANAGE ? canManage : false}
+      />
+
       <MobileSearchHeader
         query={query}
         onQueryChange={setQuery}

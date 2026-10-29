@@ -106,6 +106,12 @@ export function MobileWorkOrderActions({
   return (
     <>
       {/* Action buttons — sticky bottom bar keeps workflow actions in the thumb zone */}
+      {/* NextActionCard scroll targets — #issue (draft), #advance
+          (issued), #complete (active), #retention (completed). */}
+      <div id="issue" />
+      <div id="advance" />
+      <div id="complete" />
+      <div id="retention" />
       <ActionBar>
         <div className="flex items-center gap-2">
         {showIssue ? (

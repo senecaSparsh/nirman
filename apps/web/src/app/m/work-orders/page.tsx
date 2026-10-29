@@ -18,7 +18,7 @@ import { MobileWorkOrdersEmptyState } from "./MobileWorkOrdersEmptyState";
 export default function MobileWorkOrdersPage() {
   return (
     <MobileListPage perm={PERM.ASSETS_VIEW} what="work orders" permission="assets.view" managePerm={PERM.ASSETS_MANAGE} scopeAware>
-      {async ({ company }) => {
+      {async ({ company, perms }) => {
         // Scope-aware action permissions (for FAB gating)
         const actions = await getActionPermissions();
         const [workOrders, projects, subcontractors] = await Promise.all([
@@ -81,6 +81,7 @@ export default function MobileWorkOrdersPage() {
 
             <MobileWorkOrdersList
               items={serialized}
+              canManage={perms.includes(PERM.WO_MANAGE)}
               exportTitle="Work Orders"
               exportRows={serialized as unknown as Record<string, unknown>[]}
               exportColumns={[
