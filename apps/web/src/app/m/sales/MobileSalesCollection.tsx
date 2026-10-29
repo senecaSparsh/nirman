@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import {
-  TrendingUp, CheckCircle2,
+  TrendingUp, CheckCircle2, Bell,
   IndianRupee, Loader2, Phone, ArrowRight, ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -54,6 +54,7 @@ export function MobileSalesCollection({
   items,
   stats,
   canCreate = false,
+  canManage = false,
   exportTitle,
   exportRows,
   exportColumns,
@@ -62,6 +63,7 @@ export function MobileSalesCollection({
   items: SaleItem[];
   stats: CollectionStats;
   canCreate?: boolean;
+  canManage?: boolean;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -71,6 +73,7 @@ export function MobileSalesCollection({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"OUTSTANDING" | "SETTLED" | "ALL">("OUTSTANDING");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [sendingReminders, setSendingReminders] = useState(false);
 
   const filtered = useMemo(() => {
     let result = items;
@@ -150,6 +153,33 @@ export function MobileSalesCollection({
             {stats.outstandingCount} deals due
           </span>
         </div>
+
+        {canManage && stats.outstandingCount > 0 && (
+          <button
+            type="button"
+            disabled={sendingReminders}
+            onClick={async () => {
+              setSendingReminders(true);
+              try {
+                const res = await fetch("/api/sales/send-reminders", { method: "POST" });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error ?? "Failed to send reminders");
+                toast.success("Payment reminders sent", {
+                  description: `${data.saleReminders?.sent ?? 0} sale reminders · ${data.rentReminders?.sent ?? 0} rent reminders · ${data.escalations?.escalated ?? 0} escalations`,
+                });
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Failed to send reminders");
+              } finally {
+                setSendingReminders(false);
+              }
+            }}
+            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border py-1.5 text-m-caption font-bold disabled:opacity-50"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-signal-dark)", backgroundColor: "var(--color-paper)" }}
+          >
+            {sendingReminders ? <Loader2 className="size-3.5 animate-spin" /> : <Bell className="size-3.5" />}
+            {sendingReminders ? "Sending…" : "Send payment reminders"}
+          </button>
+        )}
       </div>
 
       {/* ── New sale FAB ── */}

@@ -81,6 +81,7 @@ export function MobileSalesHub({
             items={sales}
             stats={stats}
             canCreate={canCreate ?? canManage}
+            canManage={canManage}
             exportTitle="Sales"
             exportRows={sales as unknown as Record<string, unknown>[]}
             exportColumns={csvColumns}
