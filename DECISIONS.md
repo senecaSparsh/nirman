@@ -3670,3 +3670,16 @@ PackageManager; perms RECEIVE/READ/SEND_SMS in manifest. Sender regex
 verified vs 9 cases (bank+personal). Java not compiled locally (no JDK/
 SDK) — verify on an SDK machine before APK release. iOS untouched (no
 programmatic SMS).
+
+## Round 144 — Industrial comms layer: SMS as a first-class channel
+
+SMS is now a peer of WHATSAPP/EMAIL/IN_APP on the NotificationLog audit
+spine: sendNotification({channel:"SMS"}) → sendGatewaySms → URL gateway
+→ device outbox → provider. Payment reminders fan out WA+SMS+EMAIL to
+external parties (suppliers/tenants without WhatsApp Business). The bus
+NotificationChannel union widened; handlers resolve user.phone for SMS
+same as WHATSAPP, so channel preferences can opt events into SMS.
+docs/MESSAGING.md documents the subsystem: intent/audit → routing →
+delivery, per-business-area channel map, zero-setup contract, delivery
+semantics, security boundaries. Verified: SMS notification → log SENT +
+SmsOutbox QUEUED to +918273850155; cleanup done.

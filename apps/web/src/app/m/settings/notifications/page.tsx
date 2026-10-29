@@ -13,7 +13,7 @@ import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 interface Template {
   id: string;
   eventType: string;
-  channel: "WHATSAPP" | "EMAIL" | "IN_APP";
+  channel: "WHATSAPP" | "EMAIL" | "IN_APP" | "SMS";
   template: string;
   isActive: boolean;
 }
@@ -38,7 +38,7 @@ interface LogEntry {
 interface Preference {
   id: string;
   eventType: string;
-  channel: "WHATSAPP" | "EMAIL" | "IN_APP";
+  channel: "WHATSAPP" | "EMAIL" | "IN_APP" | "SMS";
   enabled: boolean;
 }
 

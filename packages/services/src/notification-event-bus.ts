@@ -159,7 +159,7 @@ export enum NotificationEventType {
 export const ALL_EVENT_TYPES = Object.values(NotificationEventType);
 
 export type NotificationUrgency = "IMMEDIATE" | "DAILY" | "WEEKLY";
-export type NotificationChannel = "WHATSAPP" | "EMAIL" | "IN_APP";
+export type NotificationChannel = "WHATSAPP" | "EMAIL" | "IN_APP" | "SMS";
 
 /** Default urgency per event type */
 export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> = {

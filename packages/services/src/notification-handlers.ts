@@ -181,7 +181,7 @@ export async function processPendingNotifications(): Promise<{
         }
 
         // Resolve the correct contact for the channel
-        const contact = channel === "WHATSAPP" ? user?.phone : user?.email;
+        const contact = channel === "WHATSAPP" || channel === "SMS" ? user?.phone : user?.email;
         if (!contact) continue; // User has no contact info for this channel
 
         // Look up template from the pre-fetched map (no per-iteration query)
@@ -194,7 +194,7 @@ export async function processPendingNotifications(): Promise<{
           await sendNotification({
             recipient: contact,
             recipientName: user?.name,
-            channel: channel as "WHATSAPP" | "EMAIL",
+            channel: channel as "WHATSAPP" | "EMAIL" | "SMS",
             message,
             companyId: log.companyId,
             eventType: log.eventType,
@@ -206,7 +206,7 @@ export async function processPendingNotifications(): Promise<{
           await sendNotification({
             recipient: contact,
             recipientName: user?.name,
-            channel: channel as "WHATSAPP" | "EMAIL",
+            channel: channel as "WHATSAPP" | "EMAIL" | "SMS",
             message: log.message,
             companyId: log.companyId,
             eventType: log.eventType,

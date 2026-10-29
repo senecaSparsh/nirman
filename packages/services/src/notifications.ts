@@ -224,7 +224,7 @@ export function renderTemplate(template: string, context: Record<string, string 
 export interface SendNotificationInput {
   companyId: string;
   eventType: string;
-  channel: "WHATSAPP" | "EMAIL" | "IN_APP";
+  channel: "WHATSAPP" | "EMAIL" | "IN_APP" | "SMS";
   recipient: string;
   recipientName?: string;
   subject?: string;
@@ -300,6 +300,13 @@ export async function sendNotification(
   try {
     if (input.channel === "WHATSAPP") {
       result = await whatsappProvider.sendMessage(input.recipient, message);
+    } else if (input.channel === "SMS") {
+      // Self-hosted path: URL gateway → device outbox → provider fallback.
+      // sent=true may mean "queued for the company phone" — the log tracks
+      // acceptance; the outbox row carries delivery.
+      const { sendGatewaySms } = await import("./gateway-sms");
+      const r = await sendGatewaySms(input.companyId, input.recipient, message);
+      result = { success: r.sent, error: r.error };
     } else if (input.channel === "EMAIL") {
       result = await emailProvider.sendEmail(input.recipient, input.subject ?? "", message);
     } else {
@@ -446,6 +453,18 @@ export async function notifyPaymentDue(
         metadata: { type: payment.type, entityName: payment.entityName, amount: payment.amount },
       });
       results.push(result);
+      // SMS rides the same number — reaches parties without WhatsApp
+      // Business on their accounts line (suppliers, tenants, customers).
+      const smsResult = await sendNotification({
+        companyId,
+        eventType: "PAYMENT_DUE",
+        channel: "SMS",
+        recipient: r.phone,
+        recipientName: r.name,
+        message,
+        metadata: { type: payment.type, entityName: payment.entityName, amount: payment.amount },
+      });
+      results.push(smsResult);
     }
     if (r.email) {
       const result = await sendNotification({
