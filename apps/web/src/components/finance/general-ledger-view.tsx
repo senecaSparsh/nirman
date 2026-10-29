@@ -575,11 +575,21 @@ function JournalVoucherDialog({
     { accountCode: "", debit: "", credit: "", projectId: "" },
     { accountCode: "", debit: "", credit: "", projectId: "" },
   ]);
+  // "transfer" mode — operators think "move ₹50k bank→petty cash", not
+  // debit/credit. Contra voucher = 2 lines between asset accounts.
+  const [mode, setMode] = useState<"journal" | "transfer">("journal");
+  const [fromAcct, setFromAcct] = useState("");
+  const [toAcct, setToAcct] = useState("");
+  const [amount, setAmount] = useState("");
   const [posting, setPosting] = useState(false);
+
+  const assetAccounts = accounts.filter((a) => a.type === "ASSET");
 
   const totalDr = lines.reduce((s, l) => s + (Number(l.debit) || 0), 0);
   const totalCr = lines.reduce((s, l) => s + (Number(l.credit) || 0), 0);
-  const balanced = totalDr === totalCr && totalDr > 0;
+  const balanced = mode === "journal"
+    ? totalDr === totalCr && totalDr > 0
+    : !!fromAcct && !!toAcct && fromAcct !== toAcct && Number(amount) > 0;
 
   function setLine(i: number, patch: Partial<VoucherLine>) {
     setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)));
@@ -595,12 +605,17 @@ function JournalVoucherDialog({
         body: JSON.stringify({
           memo,
           ...(entryDate ? { entryDate } : {}),
-          lines: lines.map((l) => ({
-            accountCode: l.accountCode,
-            debit: Number(l.debit) || 0,
-            credit: Number(l.credit) || 0,
-            ...(l.projectId ? { entityType: "Project", entityId: l.projectId } : {}),
-          })),
+          lines: mode === "transfer"
+            ? [
+                { accountCode: toAcct, debit: Number(amount), credit: 0 },
+                { accountCode: fromAcct, debit: 0, credit: Number(amount) },
+              ]
+            : lines.map((l) => ({
+                accountCode: l.accountCode,
+                debit: Number(l.debit) || 0,
+                credit: Number(l.credit) || 0,
+                ...(l.projectId ? { entityType: "Project", entityId: l.projectId } : {}),
+              })),
         }),
       });
       const data = await res.json();
@@ -609,6 +624,9 @@ function JournalVoucherDialog({
       setLines([{ accountCode: "", debit: "", credit: "", projectId: "" }, { accountCode: "", debit: "", credit: "", projectId: "" }]);
       setMemo("");
       setEntryDate("");
+      setFromAcct("");
+      setToAcct("");
+      setAmount("");
       onClose();
       onPosted();
     } catch (err: unknown) {
@@ -636,6 +654,47 @@ function JournalVoucherDialog({
             <Input id="jv-date" type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
           </div>
         </div>
+        <div className="flex gap-2">
+          {(["journal", "transfer"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`flex-1 rounded-md border px-3 py-1.5 text-caption font-medium ${mode === m ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}
+            >
+              {m === "journal" ? "Journal voucher" : "Fund transfer"}
+            </button>
+          ))}
+        </div>
+        {mode === "transfer" ? (
+          <div className="grid grid-cols-[1fr_1fr_7rem] gap-2 items-end">
+            <div className="space-y-1.5">
+              <Label htmlFor="jv-from">From (credit)</Label>
+              <Select id="jv-from" value={fromAcct} onChange={(e) => setFromAcct(e.target.value)} required>
+                <option value="">Pick account…</option>
+                {assetAccounts.map((a) => (
+                  <option key={a.code} value={a.code}>{a.code} — {a.name}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="jv-to">To (debit)</Label>
+              <Select id="jv-to" value={toAcct} onChange={(e) => setToAcct(e.target.value)} required>
+                <option value="">Pick account…</option>
+                {assetAccounts.map((a) => (
+                  <option key={a.code} value={a.code}>{a.code} — {a.name}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="jv-amt">Amount</Label>
+              <Input id="jv-amt" type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="0" />
+            </div>
+            {fromAcct && toAcct && fromAcct === toAcct && (
+              <p className="col-span-3 text-caption text-danger">Source and destination must differ.</p>
+            )}
+          </div>
+        ) : (
         <div className="space-y-2">
           <div className="grid grid-cols-[1fr_6rem_6rem_7rem_2rem] gap-2 text-caption font-medium text-muted-foreground">
             <span>Account</span><span className="text-right">Debit</span><span className="text-right">Credit</span><span>Project</span><span />
@@ -676,9 +735,10 @@ function JournalVoucherDialog({
             </div>
           </div>
         </div>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose} disabled={posting}>Cancel</Button>
-          <Button type="submit" disabled={posting || !balanced}>{posting ? "Posting…" : "Post voucher"}</Button>
+          <Button type="submit" disabled={posting || !balanced}>{posting ? "Posting…" : mode === "transfer" ? "Transfer funds" : "Post voucher"}</Button>
         </div>
       </form>
     </Dialog>

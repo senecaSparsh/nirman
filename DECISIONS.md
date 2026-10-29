@@ -3406,3 +3406,12 @@ advance exists.
 ₹1,416 claim → paid with netting → `Cr 1650 ₹1,416` (no cash leg),
 advance ₹3,584 outstanding still ACTIVE. 4 mock-tx tests + 47/47
 expense-claim suite green.
+
+## Round 132 — Fund-transfer (contra) mode on the JV dialog
+
+Operators think "move ₹50k SBI→petty cash", not "debit 1050 / credit
+1000". The JV dialog now has a Journal|Transfer toggle: transfer mode
+shows From (credit) / To (debit) / Amount restricted to ASSET accounts
+(1000 Cash-Bank, 1050 Petty Cash, 1060 RERA Escrow), blocks same-account
+pairs, and posts the balanced 2-line contra through the same
+/api/gl/journal path. Verified live: `JE-20261029-00022` bank→petty ₹500.
