@@ -3415,3 +3415,15 @@ shows From (credit) / To (debit) / Amount restricted to ASSET accounts
 (1000 Cash-Bank, 1050 Petty Cash, 1060 RERA Escrow), blocks same-account
 pairs, and posts the balanced 2-line contra through the same
 /api/gl/journal path. Verified live: `JE-20261029-00022` bank→petty ₹500.
+
+## Round 133 — Full workflow regression: 83/83 green
+
+Ran `verify-workflows-full.sh` after the day's changes (gate-pass dead-
+parent guard, sparse-marking payroll warning, imprest netting, FY close +
+lock, fund-transfer mode). All 29 groups passed — DPR hierarchy, MB
+chain, tenancy lifecycle incl. changeTenant, advances, gate-pass exit,
+transfer guards, CO implement, hazard/incident/NCR→CAPA, PO mutations,
+work orders, sale cancel/return GL, cheque clear/bounce, leave +
+punch-fix self-service, negative probes. Fixture cleanup re-zeroed
+inventory GL (₹2,599.06 fixture-opening JE). The previously-seeded
+historical exited-pass row remains the only expected health-check FAIL.
