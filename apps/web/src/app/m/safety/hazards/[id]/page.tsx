@@ -6,6 +6,8 @@ import { scopeWhere, getCompany, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
+import { nextActionFor } from "@/lib/flow-map";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { MobileHazardDetailClient } from "./MobileHazardDetailClient";
 
 export default async function MobileHazardDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -53,14 +55,26 @@ async function MobileHazardDetailContent({ id }: { id: string }) {
     resolvedAt: hazard.resolvedAt?.toISOString() ?? null, resolvedByName: hazard.resolvedBy?.name ?? null,
   };
 
+  const nextAction = nextActionFor("hazard", hazard.status, (p) => __globalPerms.includes(p));
+
   return (
     <PageContextProvider value={{
       entityType: "hazard",
+      flowId: "hazard",
       status: hazard.status,
       label: hazard.hazardNumber,
       subtitle: hazard.project.name,
       recordId: hazard.id,
     }}>
+      {nextAction && (
+        <NextActionCardView
+          label={nextAction.label}
+          actionVerb={nextAction.verb}
+          reason={nextAction.reason}
+          tone={nextAction.tone ?? "signal"}
+          hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+        />
+      )}
       <MobileHazardDetailClient hazard={serialized} canManage={canManage} />
     </PageContextProvider>
   );

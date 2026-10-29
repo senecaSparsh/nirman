@@ -50,7 +50,9 @@ export type FlowId =
   | "gatePass"
   | "tenancy"
   | "changeOrder"
-  | "stockCount";
+  | "stockCount"
+  | "incident"
+  | "hazard";
 
 /** A node in a flow — a screen the user can be on. */
 export interface FlowNode {
@@ -794,6 +796,102 @@ const STOCK_COUNT_FLOW: FlowDef = {
 };
 
 // ─────────────────────────────────────────────────────────────────
+// SAFETY INCIDENT — report → investigate → close. Safety is the one
+// flow where hesitation hurts, so the card names the step plainly.
+// ─────────────────────────────────────────────────────────────────
+
+const INCIDENT_FLOW: FlowDef = {
+  id: "incident",
+  listHref: "/m/safety",
+  listLead: "Accidents and injuries on site. Reported incidents need investigating, investigated ones need closing.",
+  nodes: [
+    { status: "REPORTED", label: "Reported", detailHref: "/m/safety/incidents/{id}" },
+    { status: "UNDER_INVESTIGATION", label: "Investigating", detailHref: "/m/safety/incidents/{id}" },
+    { status: "INVESTIGATED", label: "Investigated", detailHref: "/m/safety/incidents/{id}" },
+    { status: "CLOSED", label: "Closed", detailHref: "/m/safety/incidents/{id}" },
+    { status: "CANCELLED", label: "Cancelled", detailHref: "/m/safety/incidents/{id}" },
+  ],
+  next: [
+    {
+      when: "REPORTED",
+      label: "Investigate the incident",
+      verb: "Investigate",
+      reason: "Reported but not looked into yet — record the root cause and corrective actions.",
+      action: { type: "anchor", hash: "#investigate" },
+      perm: PERM.SAFETY_MANAGE,
+      tone: "signal",
+    },
+    {
+      when: "UNDER_INVESTIGATION",
+      label: "Finish the investigation",
+      verb: "Investigate",
+      reason: "Investigation is open — record root cause and corrective actions to move it on.",
+      action: { type: "anchor", hash: "#investigate" },
+      perm: PERM.SAFETY_MANAGE,
+      tone: "signal",
+    },
+    {
+      when: "INVESTIGATED",
+      label: "Close the incident",
+      verb: "Close",
+      reason: "Findings are in — close it once corrective actions are done.",
+      action: { type: "anchor", hash: "#close" },
+      perm: PERM.SAFETY_MANAGE,
+      tone: "go",
+    },
+  ],
+  listNext: {
+    countStatuses: ["REPORTED", "UNDER_INVESTIGATION"],
+    label: (n) => `${n} incident${n !== 1 ? "s" : ""} open`,
+    reason: "Open incidents need an investigation — don't let them sit.",
+    filterChip: "REPORTED",
+    perm: PERM.SAFETY_MANAGE,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────
+// SAFETY HAZARD — identified → mitigating → resolved.
+// ─────────────────────────────────────────────────────────────────
+
+const HAZARD_FLOW: FlowDef = {
+  id: "hazard",
+  listHref: "/m/safety",
+  listLead: "Dangers spotted on site. Identified hazards need a mitigation plan, then resolution.",
+  nodes: [
+    { status: "IDENTIFIED", label: "Identified", detailHref: "/m/safety/hazards/{id}" },
+    { status: "MITIGATING", label: "Mitigating", detailHref: "/m/safety/hazards/{id}" },
+    { status: "RESOLVED", label: "Resolved", detailHref: "/m/safety/hazards/{id}" },
+  ],
+  next: [
+    {
+      when: "IDENTIFIED",
+      label: "Start mitigation",
+      verb: "Mitigate",
+      reason: "A live hazard on site — write the mitigation plan and start it.",
+      action: { type: "anchor", hash: "#mitigate" },
+      perm: PERM.SAFETY_MANAGE,
+      tone: "signal",
+    },
+    {
+      when: "MITIGATING",
+      label: "Resolve the hazard",
+      verb: "Resolve",
+      reason: "Mitigation is running — resolve it when the danger is controlled.",
+      action: { type: "anchor", hash: "#resolve" },
+      perm: PERM.SAFETY_MANAGE,
+      tone: "go",
+    },
+  ],
+  listNext: {
+    countStatuses: ["IDENTIFIED", "MITIGATING"],
+    label: (n) => `${n} hazard${n !== 1 ? "s" : ""} unresolved`,
+    reason: "Every open hazard is a live risk on a site.",
+    filterChip: "IDENTIFIED",
+    perm: PERM.SAFETY_MANAGE,
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────
 // REGISTRY + LOOKUP HELPERS
 // ─────────────────────────────────────────────────────────────────
 
@@ -811,6 +909,8 @@ export const FLOWS: Record<FlowId, FlowDef> = {
   tenancy: TENANCY_FLOW,
   changeOrder: CHANGE_ORDER_FLOW,
   stockCount: STOCK_COUNT_FLOW,
+  incident: INCIDENT_FLOW,
+  hazard: HAZARD_FLOW,
 };
 
 /**

@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { useUrlFilter } from "@/lib/use-url-filter";
+import { NextActionCard } from "@/components/mobile/v2/guidance";
+import { PERM } from "@nirman/rbac";
 import { MobileEmptyState, MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileFilterIcon, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import type { IncidentListItem } from "./MobileSafetyContent";
@@ -29,9 +32,18 @@ const SEVERITY_COLORS: Record<string, string> = {
   SERIOUS: "var(--color-stop)", FATAL: "var(--color-stop)", PROPERTY_ONLY: "var(--color-ink-500)",
 };
 
-export function MobileIncidentList({ items }: { items: IncidentListItem[] }) {
+export function MobileIncidentList(props: { items: IncidentListItem[]; canManage?: boolean }) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileIncidentListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileIncidentListInner({ items, canManage = false }: { items: IncidentListItem[]; canManage?: boolean }) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("ALL");
+  const [filter, setFilter] = useUrlFilter<Filter>("status", "ALL");
 
   const filtered = useMemo(() => {
     let r = items;
@@ -47,8 +59,20 @@ export function MobileIncidentList({ items }: { items: IncidentListItem[] }) {
     return <MobileEmptyState icon={AlertTriangle} title="No incidents reported" hint="Report accidents, near-misses, and injuries here" />;
   }
 
+  const openCount = {
+    REPORTED: items.filter((i) => i.status === "REPORTED").length,
+    UNDER_INVESTIGATION: items.filter((i) => i.status === "UNDER_INVESTIGATION").length,
+  };
+
   return (
     <div>
+      {/* Queue card — open incidents needing investigation */}
+      <NextActionCard
+        flow="incident"
+        count={openCount}
+        can={(perm) => perm === PERM.SAFETY_MANAGE ? canManage : false}
+      />
+
       <MobileSearchHeader
         query={query}
         onQueryChange={setQuery}

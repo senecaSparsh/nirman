@@ -6,6 +6,8 @@ import { scopeWhere, getCompany, toNum, getEffectivePermissions } from "@/lib/se
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
+import { nextActionFor } from "@/lib/flow-map";
+import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { MobileIncidentDetailClient } from "./MobileIncidentDetailClient";
 
 export default async function MobileIncidentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -55,14 +57,26 @@ async function MobileIncidentDetailContent({ id }: { id: string }) {
     closedAt: incident.closedAt?.toISOString() ?? null, closedByName: incident.closedBy?.name ?? null,
   };
 
+  const nextAction = nextActionFor("incident", incident.status, (p) => __globalPerms.includes(p));
+
   return (
     <PageContextProvider value={{
       entityType: "incident",
+      flowId: "incident",
       status: incident.status,
       label: incident.incidentNumber,
       subtitle: incident.project.name,
       recordId: incident.id,
     }}>
+      {nextAction && (
+        <NextActionCardView
+          label={nextAction.label}
+          actionVerb={nextAction.verb}
+          reason={nextAction.reason}
+          tone={nextAction.tone ?? "signal"}
+          hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
+        />
+      )}
       <MobileIncidentDetailClient incident={serialized} canManage={canManage} />
     </PageContextProvider>
   );

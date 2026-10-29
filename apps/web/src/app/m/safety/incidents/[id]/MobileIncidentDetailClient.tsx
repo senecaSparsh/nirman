@@ -165,6 +165,10 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
       )}
 
       {/* Actions */}
+      {/* NextActionCard scroll targets — #investigate (reported/
+          under-investigation), #close (investigated). Same bar. */}
+      <div id="investigate" />
+      <div id="close" />
       {canManage && (
         <ActionBar>
           <ActionButton onClick={() => setShowEdit(true)} loading={false} icon={Pencil} label="Edit" variant="secondary" />

@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { useUrlFilter } from "@/lib/use-url-filter";
+import { NextActionCard } from "@/components/mobile/v2/guidance";
+import { PERM } from "@nirman/rbac";
 import { MobileEmptyState, MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileFilterIcon, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import type { HazardListItem } from "./MobileSafetyContent";
@@ -27,9 +30,18 @@ const RISK_BG: Record<string, string> = {
   HIGH: "rgba(220,38,38,0.1)", CRITICAL: "rgba(220,38,38,0.15)",
 };
 
-export function MobileHazardList({ items }: { items: HazardListItem[] }) {
+export function MobileHazardList(props: { items: HazardListItem[]; canManage?: boolean }) {
+  // Suspense — useUrlFilter/useSearchParams requires it
+  return (
+    <Suspense fallback={null}>
+      <MobileHazardListInner {...props} />
+    </Suspense>
+  );
+}
+
+function MobileHazardListInner({ items, canManage = false }: { items: HazardListItem[]; canManage?: boolean }) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("ALL");
+  const [filter, setFilter] = useUrlFilter<Filter>("status", "ALL");
 
   const filtered = useMemo(() => {
     let r = items;
@@ -45,8 +57,20 @@ export function MobileHazardList({ items }: { items: HazardListItem[] }) {
     return <MobileEmptyState icon={ShieldAlert} title="No hazards identified" hint="Report site hazards with risk assessment here" />;
   }
 
+  const openCount = {
+    IDENTIFIED: items.filter((h) => h.status === "IDENTIFIED").length,
+    MITIGATING: items.filter((h) => h.status === "MITIGATING").length,
+  };
+
   return (
     <div>
+      {/* Queue card — unresolved hazards on live sites */}
+      <NextActionCard
+        flow="hazard"
+        count={openCount}
+        can={(perm) => perm === PERM.SAFETY_MANAGE ? canManage : false}
+      />
+
       <MobileSearchHeader
         query={query}
         onQueryChange={setQuery}

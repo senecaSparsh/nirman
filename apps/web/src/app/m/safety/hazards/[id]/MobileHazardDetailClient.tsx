@@ -168,6 +168,10 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
       <DetailTimeline steps={timelineSteps} title="Timeline" />
 
       {/* Actions */}
+      {/* NextActionCard scroll targets — #mitigate (identified),
+          #resolve (mitigating). Same bar. */}
+      <div id="mitigate" />
+      <div id="resolve" />
       {canManage && (
         <ActionBar>
           <ActionButton onClick={() => setShowEdit(true)} loading={false} icon={Pencil} label="Edit" variant="secondary" />
