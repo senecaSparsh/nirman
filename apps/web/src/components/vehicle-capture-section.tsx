@@ -49,11 +49,15 @@ export function VehicleCaptureSection({
   value,
   onChange,
   showEwayBill = false,
+  consignmentValue,
 }: {
   value: VehicleData;
   onChange: (v: VehicleData) => void;
   /** B2B goods dispatch — capture the supplier-side e-way bill (>₹50K). */
   showEwayBill?: boolean;
+  /** Total value of goods being moved — over ₹50K the e-way bill is
+   * legally mandatory, so the field flags while empty. */
+  consignmentValue?: number;
 }) {
   const [suggestions, setSuggestions] = useState<Array<{
     vehicleNumber: string;
@@ -188,16 +192,24 @@ export function VehicleCaptureSection({
             maxLength={20}
           />
         </Field>
-        {showEwayBill && (
-          <Field label="E-way Bill No." hint="Required for dispatches over ₹50,000">
+        {showEwayBill && (() => {
+          const ewbRequired = consignmentValue != null && consignmentValue > 50000 && !value.ewayBillNo?.trim();
+          return (
+          <Field
+            label={ewbRequired ? "E-way Bill No. *" : "E-way Bill No."}
+            hint={ewbRequired ? "Dispatch over ₹50,000 — e-way bill required by law" : "Required for dispatches over ₹50,000"}
+          >
             <Input
               value={value.ewayBillNo ?? ""}
               onChange={(e) => onChange({ ...value, ewayBillNo: e.target.value })}
               placeholder="12-digit EWB"
               maxLength={100}
+              aria-required={ewbRequired}
+              className={ewbRequired ? "border-amber-500" : undefined}
             />
           </Field>
-        )}
+          );
+        })()}
       </div>
 
       {/* Vehicle photo — even for cycle/bike/porter */}

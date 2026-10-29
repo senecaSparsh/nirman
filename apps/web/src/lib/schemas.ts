@@ -1,5 +1,15 @@
 import { z } from "zod";
 import { ALL_ROLES } from "@/lib/roles";
+import { isValidGstin } from "@/lib/validate";
+
+/** GSTIN field — optional, but when present must pass format + the
+ * GSTN mod-36 check digit. Empty string is tolerated (forms submit ""
+ * for cleared fields). A bad GSTIN costs input tax credit, so reject
+ * it at the API boundary, not just the form. */
+const gstinSchema = z.string().optional().nullable().refine(
+  (v) => v == null || v === "" || isValidGstin(v),
+  { message: "Invalid GSTIN" },
+);
 
 // ───────────────────────────────────────────────────────────
 
@@ -118,7 +128,7 @@ export const projectPhaseSchema = z.object({
 
 export const supplierSchema = z.object({
   name: z.string().min(1, "Name is required").max(160),
-  gstin: z.string().max(20).optional().nullable(),
+  gstin: gstinSchema,
   phone: z.string().max(30).optional().nullable(),
   email: z.string().max(120).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
@@ -183,7 +193,7 @@ export const addQuoteSchema = z.object({
   // going to a separate "add supplier" page.
   newSupplier: z.object({
     name: z.string().min(1).max(160),
-    gstin: z.string().max(20).optional().nullable(),
+    gstin: gstinSchema,
     phone: z.string().max(30).optional().nullable(),
     email: z.string().max(120).optional().nullable(),
     address: z.string().max(500).optional().nullable(),
@@ -568,7 +578,7 @@ export const landSellerSchema = z.object({
   name: z.string().min(1, "Name is required").max(160),
   phone: z.string().max(30).optional().nullable(),
   email: optionalEmail,
-  gstin: z.string().max(20).optional().nullable(),
+  gstin: gstinSchema,
   address: z.string().max(500).optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
 });
@@ -642,7 +652,7 @@ export const customerSchema = z.object({
   name: z.string().min(1, "Name is required"),
   phone: z.string().optional().nullable(),
   email: optionalEmail,
-  gstin: z.string().optional().nullable(),
+  gstin: gstinSchema,
   address: z.string().optional().nullable(),
 });
 
@@ -1023,7 +1033,7 @@ export const requisitionSchema = z.object({
 // ── Subcontractor ──
 export const subcontractorSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  gstin: z.string().optional().nullable(),
+  gstin: gstinSchema,
   pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, "PAN must be 5 letters + 4 digits + 1 letter (e.g. ABCDE1234F)").optional().nullable().or(z.literal("").transform(() => null)),
   phone: z.string().optional().nullable(),
   email: optionalEmail,

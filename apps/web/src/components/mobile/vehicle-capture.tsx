@@ -60,12 +60,16 @@ export function VehicleCapture({
   onChange,
   compact = false,
   showEwayBill = false,
+  consignmentValue,
 }: {
   value: VehicleData;
   onChange: (v: VehicleData) => void;
   compact?: boolean;
   /** Outbound dispatches above ₹50K need the supplier-side EWB captured. */
   showEwayBill?: boolean;
+  /** Total value of goods being moved — over ₹50K the e-way bill is
+   * legally mandatory, so the field shows a warning while empty. */
+  consignmentValue?: number;
 }) {
   const { data: vehiclesData, loading: loadingVehicles } = useFetch<VehicleListItem[]>("/api/vehicles");
   const [vehicles, setVehicles] = useState<VehicleListItem[]>([]);
@@ -241,14 +245,16 @@ export function VehicleCapture({
             />
           </div>
         </div>
-        {showEwayBill && (
+        {showEwayBill && (() => {
+          const ewbRequired = consignmentValue != null && consignmentValue > 50000 && !value.ewayBillNo?.trim();
+          return (
           <div className="pl-2">
             <div
               className="flex items-center justify-between gap-1 pb-0.5 border-b focus-within:border-b-2 transition-colors"
-              style={{ borderColor: "var(--color-line)" }}
+              style={{ borderColor: ewbRequired ? "var(--color-signal)" : "var(--color-line)" }}
             >
-              <span className="text-m-caption font-bold shrink-0" style={labelStyle}>
-                E-way Bill:
+              <span className="text-m-caption font-bold shrink-0" style={ewbRequired ? { color: "var(--color-signal)" } : labelStyle}>
+                E-way Bill{ewbRequired ? " *" : ""}:
               </span>
               <input
                 type="text"
@@ -257,13 +263,20 @@ export function VehicleCapture({
                 value={value.ewayBillNo ?? ""}
                 onChange={(e) => onChange({ ...value, ewayBillNo: e.target.value })}
                 aria-label="E-way Bill"
+                aria-required={ewbRequired}
                 placeholder="12-digit (dispatches >₹50K)"
                 className="flex-1 min-w-0 h-7 px-1 text-m-caption text-right outline-none"
                 style={{ backgroundColor: "transparent", color: "var(--color-ink-950)" }}
               />
             </div>
+            {ewbRequired && (
+              <p className="text-m-caption font-semibold mt-1" style={{ color: "var(--color-signal)" }}>
+                Dispatch over ₹50,000 — e-way bill required by law
+              </p>
+            )}
           </div>
-        )}
+          );
+        })()}
       </div>
       </div>
 

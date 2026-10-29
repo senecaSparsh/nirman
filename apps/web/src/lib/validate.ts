@@ -53,9 +53,31 @@ export function phone(value: string): string | undefined {
   if (!/^[+]?[\d\s-]{10,15}$/.test(value)) return "Invalid phone number";
 }
 
+// ── GSTIN checksum (GSTN mod-36) ─────────────────────────────────
+// The 15th character is a check digit over the first 14. A mistyped
+// GSTIN on a supplier means your input tax credit is rejected at
+// filing; on a customer it breaks their invoice. Catching a bad digit
+// here costs nothing (pure local math) and saves real money.
+const GSTIN_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+function gstinCheckDigit(first14: string): string {
+  let sum = 0;
+  for (let i = 0; i < 14; i++) {
+    const product = GSTIN_CHARS.indexOf(first14[i]!) * (i % 2 === 0 ? 1 : 2);
+    sum += Math.floor(product / 36) + (product % 36);
+  }
+  return GSTIN_CHARS[(36 - (sum % 36)) % 36]!;
+}
+
+export function isValidGstin(value: string): boolean {
+  if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(value)) return false;
+  return gstinCheckDigit(value.slice(0, 14)) === value[14];
+}
+
 export function gstin(value: string): string | undefined {
   if (!value) return;
   if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(value)) return "Invalid GSTIN format";
+  if (gstinCheckDigit(value.slice(0, 14)) !== value[14]) return "Invalid GSTIN — check digit mismatch";
 }
 
 export function validateForm<T>(values: T, rules: Partial<Record<keyof T, (value: T[keyof T], allValues: T) => string | undefined>>): ValidationErrors<T> {

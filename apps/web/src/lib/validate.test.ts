@@ -168,7 +168,20 @@ describe("gstin", () => {
 
   it("returns undefined for valid GSTIN", () => {
     // Format: 2 digits + 5 letters + 4 digits + 1 letter + 1 alphanumeric + Z + 1 alphanumeric
-    expect(gstin("27ABCDE1234F1Z5")).toBeUndefined();
+    // Correct check digit for 27ABCDE1234F1Z is 0 (GSTN mod-36).
+    expect(gstin("27ABCDE1234F1Z0")).toBeUndefined();
+    // Real published GSTINs — checksum must pass:
+    expect(gstin("27AAACJ5678K1Z2")).toBeUndefined(); // Reliance Jio
+    expect(gstin("27AAPFU0939F1ZV")).toBeUndefined(); // Flipkart
+  });
+
+  it("returns error for wrong check digit", () => {
+    // Same body as the valid case but '5' instead of the correct '0'.
+    expect(gstin("27ABCDE1234F1Z5")).toBe("Invalid GSTIN — check digit mismatch");
+    // Single-character corruption of a real GSTIN must be caught —
+    // this is the typo that loses input tax credit at filing.
+    expect(gstin("27AAACJ5678K1Z3")).toBe("Invalid GSTIN — check digit mismatch");
+    expect(gstin("27AAACJ5679K1Z2")).toBe("Invalid GSTIN — check digit mismatch");
   });
 
   it("returns error for GSTIN with wrong length", () => {

@@ -1433,7 +1433,7 @@ function SaleForm({
 
           {/* Vehicle / Carrier — how goods are dispatched */}
           <div>
-            <VehicleCapture value={vehicle} onChange={setVehicle} compact showEwayBill />
+            <VehicleCapture value={vehicle} onChange={setVehicle} compact showEwayBill consignmentValue={total} />
           </div>
 
         {/* Notes — inline label, full-width underline */}

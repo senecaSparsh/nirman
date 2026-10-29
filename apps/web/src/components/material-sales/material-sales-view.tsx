@@ -873,7 +873,7 @@ export function MaterialSalesView({
             <Textarea aria-label="Notes" value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={2} />
           </div>
 
-          <VehicleCaptureSection value={fVehicle} onChange={setFVehicle} showEwayBill />
+          <VehicleCaptureSection value={fVehicle} onChange={setFVehicle} showEwayBill consignmentValue={formTotals.total} />
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setFormOpen(false)}>Cancel</Button>
