@@ -32,6 +32,9 @@ export type CompanyRow = {
   parentName: string | null;
   memberCount: number;
   hasChildren: boolean;
+  /** The viewer holds an active membership here — the switch API rejects
+   *  non-members, so we only offer the button where it can succeed. */
+  isMember: boolean;
 };
 
 type ScopeEntry = {
@@ -291,14 +294,16 @@ export function CompaniesManager({
             <Badge variant="muted" className="shrink-0">{c.memberCount} member{c.memberCount !== 1 ? "s" : ""}</Badge>
             {c.hasChildren && <Badge variant="outline" className="shrink-0">parent</Badge>}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="shrink-0"
-            onClick={() => switchTo(c.id)}
-          >
-            Switch to
-          </Button>
+          {c.isMember && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0"
+              onClick={() => switchTo(c.id)}
+            >
+              Switch to
+            </Button>
+          )}
           {canManageCompanies && !c.hasChildren && (
             <Button
               variant="ghost"

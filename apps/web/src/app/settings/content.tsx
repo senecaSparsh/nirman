@@ -70,6 +70,9 @@ export async function SettingsContent() {
       include: {
         parent: { select: { id: true, name: true } },
         _count: { select: { userMemberships: { where: { user: { isHidden: { not: true } } } }, children: true } },
+        // Whether the viewer holds an active membership here — "Switch to" is
+        // only valid on member companies; the switch API 403s otherwise.
+        userMemberships: { where: { userId: user?.id ?? "", active: true }, select: { id: true } },
       },
     }),
     prisma.department.findMany({
@@ -183,6 +186,7 @@ export async function SettingsContent() {
         parentName: c.parent?.name ?? null,
         memberCount: c._count.userMemberships,
         hasChildren: c._count.children > 0,
+        isMember: c.userMemberships.length > 0,
       }))}
       canManageCompanies={isSuperuser}
       canManageFinance={__effPerms.includes(PERM.FINANCE_MANAGE)}
