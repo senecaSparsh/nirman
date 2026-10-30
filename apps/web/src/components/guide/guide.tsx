@@ -168,7 +168,7 @@ export function GuideLauncher({ mobile }: { mobile: boolean }) {
         aria-label="Help & guide"
         data-tour="guide-launcher"
         onClick={() => setOpen(true)}
-        className="fixed bottom-20 right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-zinc-900 text-zinc-200 shadow-lg ring-1 ring-zinc-700 hover:bg-zinc-800 md:bottom-6 md:right-6"
+        className="fixed bottom-24 right-4 z-[90] flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xl ring-2 ring-emerald-400/50 hover:bg-emerald-500 md:bottom-6 md:right-6"
       >
         <CircleHelp className="h-5 w-5" />
       </button>
