@@ -507,17 +507,17 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
                             <button onClick={() => setDetailWO(wo)} className="p-1 text-muted-foreground hover:text-primary rounded" title="Details">
                               <Info className="h-3.5 w-3.5" />
                             </button>
-                            {canCreate && wo.status === "DRAFT" && (
+                            {permissions.canManage && wo.status === "DRAFT" && (
                               <button onClick={() => onAction(wo.id, "issue")} className="p-1 text-muted-foreground hover:text-primary rounded" title="Issue">
                                 <Send className="h-3.5 w-3.5" />
                               </button>
                             )}
-                            {canCreate && wo.status === "ACTIVE" && (
+                            {permissions.canManage && wo.status === "ACTIVE" && (
                               <button onClick={() => onAction(wo.id, "complete")} className="p-1 text-muted-foreground hover:text-indigo-600 rounded" title="Mark complete">
                                 <CheckCircle className="h-3.5 w-3.5" />
                               </button>
                             )}
-                            {canCreate && wo.status === "COMPLETED" && (
+                            {permissions.canPay && wo.status === "COMPLETED" && (
                               <button onClick={() => onAction(wo.id, "release-retention")} className="p-1 text-muted-foreground hover:text-success rounded" title="Release retention">
                                 <Lock className="h-3.5 w-3.5" />
                               </button>
@@ -554,7 +554,6 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
       <WorkOrderDetailDialog
         wo={detailWO}
         onClose={() => setDetailWO(null)}
-        canCreate={canCreate}
         permissions={permissions}
         onAction={onAction}
         onRefresh={fetchWOs}
@@ -639,7 +638,6 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
 function WorkOrderDetailDialog({
   wo,
   onClose,
-  canCreate,
   permissions,
   onAction,
   onRefresh,
@@ -647,7 +645,6 @@ function WorkOrderDetailDialog({
 }: {
   wo: WorkOrder | null;
   onClose: () => void;
-  canCreate: boolean;
   permissions: { canManage: boolean; canSubmit: boolean; canApprove: boolean; canPay: boolean };
   onAction: (id: string, action: string, body?: Record<string, unknown>) => void;
   onRefresh: () => void;
@@ -817,7 +814,7 @@ function WorkOrderDetailDialog({
                 <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
                   Scope <span className="text-muted-foreground font-normal">— BOQ Items ({detail.lines.length})</span>
                 </h3>
-                {canCreate && (detail.status === "DRAFT" || detail.status === "ISSUED" || detail.status === "ACTIVE") && extraBoqItems.length > 0 && (
+                {permissions.canManage && (detail.status === "DRAFT" || detail.status === "ISSUED" || detail.status === "ACTIVE") && extraBoqItems.length > 0 && (
                   <Button size="sm" variant="ghost" onClick={() => { setAddBoqId(""); setAddRate(""); setAddLineOpen(true); }}>
                     <Plus className="mr-1 h-3.5 w-3.5" /> Extra Item
                   </Button>
@@ -892,7 +889,7 @@ function WorkOrderDetailDialog({
                 <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
                   RA Bills <span className="text-muted-foreground font-normal">({detail.raBills.length})</span>
                 </h3>
-                {canCreate && (detail.status === "ISSUED" || detail.status === "ACTIVE") && (
+                {permissions.canSubmit && (detail.status === "ISSUED" || detail.status === "ACTIVE") && (
                   <Button size="sm" variant="ghost" onClick={() => setRaBillDialogOpen(true)}>
                     <Plus className="mr-1 h-3.5 w-3.5" /> Create RA Bill
                   </Button>
@@ -928,17 +925,17 @@ function WorkOrderDetailDialog({
                             </td>
                             <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-0.5">
-                {canCreate && permissions.canSubmit && (rb.status === "DRAFT" || rb.status === "REJECTED") && (
+                {permissions.canSubmit && (rb.status === "DRAFT" || rb.status === "REJECTED") && (
                   <button disabled={actionLoading} onClick={() => onRaBillAction(rb.id, "submit", onRefresh)} className="p-1 text-muted-foreground hover:text-primary disabled:opacity-50" title={rb.status === "REJECTED" ? "Resubmit" : "Submit"}>
                     <Send className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {canCreate && permissions.canApprove && rb.status === "SUBMITTED" && canApproveBill(rb) && (
+                {permissions.canApprove && rb.status === "SUBMITTED" && canApproveBill(rb) && (
                   <button disabled={actionLoading} onClick={() => onRaBillAction(rb.id, "approve", onRefresh)} className="p-1 text-muted-foreground hover:text-success disabled:opacity-50" title="Approve">
                     <ShieldCheck className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {canCreate && permissions.canPay && rb.status === "APPROVED" && canPayBill(rb) && (
+                {permissions.canPay && rb.status === "APPROVED" && canPayBill(rb) && (
                   <button disabled={actionLoading} onClick={() => onRaBillAction(rb.id, "pay", onRefresh)} className="p-1 text-muted-foreground hover:text-indigo-600 disabled:opacity-50" title="Mark paid">
                     <Banknote className="h-3.5 w-3.5" />
                   </button>
@@ -956,22 +953,22 @@ function WorkOrderDetailDialog({
 
             {/* ── Actions ── */}
             <div className="flex justify-end gap-2 pt-1 border-t border-border">
-              {canCreate && permissions.canManage && detail.status === "DRAFT" && (
+              {permissions.canManage && detail.status === "DRAFT" && (
                 <Button size="sm" disabled={actionLoading} onClick={() => { onAction(detail.id, "issue"); }}>
                   <Send className="mr-1 h-3.5 w-3.5" /> Issue Work Order
                 </Button>
               )}
-              {canCreate && permissions.canManage && (detail.status === "ISSUED" || detail.status === "ACTIVE") && (
+              {permissions.canManage && (detail.status === "ISSUED" || detail.status === "ACTIVE") && (
                 <Button size="sm" variant="outline" disabled={actionLoading} onClick={() => { setAdvanceAmount(""); setAdvanceRef(""); setAdvanceOpen(true); }}>
                   <Banknote className="mr-1 h-3.5 w-3.5" /> Pay Advance
                 </Button>
               )}
-              {canCreate && permissions.canManage && detail.status === "ACTIVE" && (
+              {permissions.canManage && detail.status === "ACTIVE" && (
                 <Button size="sm" disabled={actionLoading} onClick={() => { onAction(detail.id, "complete"); }}>
                   <CheckCircle className="mr-1 h-3.5 w-3.5" /> Mark Complete
                 </Button>
               )}
-              {canCreate && permissions.canPay && detail.status === "COMPLETED" && (
+              {permissions.canPay && detail.status === "COMPLETED" && (
                 <Button size="sm" disabled={actionLoading} onClick={() => { onAction(detail.id, "release-retention"); }}>
                   <Lock className="mr-1 h-3.5 w-3.5" /> Release Retention
                 </Button>
@@ -1005,8 +1002,9 @@ function WorkOrderDetailDialog({
       >
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-foreground mb-1.5 block">BOQ item</label>
+            <label htmlFor="extra-item-boq" className="text-xs font-medium text-foreground mb-1.5 block">BOQ item</label>
             <select
+              id="extra-item-boq"
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
               value={addBoqId}
               onChange={(e) => {
@@ -1022,8 +1020,9 @@ function WorkOrderDetailDialog({
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-foreground mb-1.5 block">Agreed rate (₹)</label>
+            <label htmlFor="extra-item-rate" className="text-xs font-medium text-foreground mb-1.5 block">Agreed rate (₹)</label>
             <input
+              id="extra-item-rate"
               type="number"
               min="0"
               step="0.01"
@@ -1054,7 +1053,6 @@ function WorkOrderDetailDialog({
           raBillId={raBillDetail.id}
           raBillNumber={raBillDetail.number}
           onClose={() => setRaBillDetail(null)}
-          canCreate={canCreate}
           permissions={permissions}
           onAction={(action, rejectReason, body) => { onRaBillAction(raBillDetail.id, action, onRefresh, rejectReason, body); setRaBillDetail(null); }}
         />
@@ -1754,14 +1752,12 @@ function RaBillDetailDialog({
   raBillId,
   raBillNumber,
   onClose,
-  canCreate,
   permissions,
   onAction,
 }: {
   raBillId: string;
   raBillNumber: string;
   onClose: () => void;
-  canCreate: boolean;
   permissions: { canManage: boolean; canSubmit: boolean; canApprove: boolean; canPay: boolean };
   onAction: (action: string, rejectReason?: string, body?: Record<string, unknown>) => void;
 }) {
@@ -1967,12 +1963,12 @@ function RaBillDetailDialog({
               )}
             </div>
             <div className="flex gap-2">
-              {canCreate && permissions.canSubmit && (detail.status === "DRAFT" || detail.status === "REJECTED") && (
+              {permissions.canSubmit && (detail.status === "DRAFT" || detail.status === "REJECTED") && (
                 <Button size="sm" disabled={actionLoading} onClick={() => { setActionLoading(true); onAction("submit"); }}>
                   <Send className="mr-1 h-3.5 w-3.5" /> {detail.status === "REJECTED" ? "Resubmit" : "Submit for Approval"}
                 </Button>
               )}
-              {canCreate && permissions.canApprove && detail.status === "SUBMITTED" && (
+              {permissions.canApprove && detail.status === "SUBMITTED" && (
                 <>
                   {!selfBilled && (
                     <Button size="sm" variant="ghost" disabled={actionLoading} onClick={() => { setRejectReason(""); setRejectOpen(true); }}>
@@ -1984,14 +1980,14 @@ function RaBillDetailDialog({
                       <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Approve
                     </Button>
                   )}
-                  {canCreate && permissions.canPay && !selfBilled && (
+                  {permissions.canPay && !selfBilled && (
                     <Button size="sm" disabled={actionLoading} onClick={() => { setActionLoading(true); onAction("approve"); setPayOpen(true); }}>
                       <Banknote className="mr-1 h-3.5 w-3.5" /> Approve & Pay
                     </Button>
                   )}
                 </>
               )}
-              {canCreate && permissions.canPay && detail.status === "APPROVED" && !selfBilled && (
+              {permissions.canPay && detail.status === "APPROVED" && !selfBilled && (
                 <Button size="sm" disabled={actionLoading} onClick={() => setPayOpen(true)}>
                   <Banknote className="mr-1 h-3.5 w-3.5" /> Mark as Paid
                 </Button>

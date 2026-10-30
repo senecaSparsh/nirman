@@ -16,6 +16,7 @@ import {
   companyRequisitionFilter,
   notCreatedBy,
   notSubmittedBy,
+  notSubmittedByUser,
   poValueThresholds,
   type ApprovalGate,
 } from "@/lib/approval-queue";
@@ -131,7 +132,11 @@ export async function actionableApprovalCounts(companyId: string): Promise<Appro
   // gets the same self-approval treatment as the delegator.
   const acting = await getActingRole();
   const canSelfApproveAny = canAutoApprove(acting);
-  const selfNotSubmitted = canWaiveSelfApproval(acting) ? {} : notSubmittedBy(user.id);
+  // submittedById-only guard — NOT notSubmittedBy: that helper also emits a
+  // requestedById clause, which only MaterialRequisition has. Spreading it
+  // into DPR/Expense/ExpenseClaim/RaBill counts crashed Prisma
+  // ("Unknown argument `requestedById`") for every non-waived approver.
+  const selfNotSubmitted = canWaiveSelfApproval(acting) ? {} : notSubmittedByUser(user.id);
   const selfNotCreated = canSelfApproveAny ? {} : notCreatedBy(user.id);
 
   const dprStatuses: DprApprovalStatus[] = [];
