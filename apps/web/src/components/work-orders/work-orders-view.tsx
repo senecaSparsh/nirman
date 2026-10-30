@@ -195,7 +195,7 @@ function printCertificate(detail: RaBillDetailData, raBillNumber: string) {
   <p style="margin:0;font-size:12px;color:#666">RA Bill ${raBillNumber}</p>
 
   <div class="meta">
-    <div><span class="label">Subcontractor:</span> <span>${wo.subcontractor.name}</span></div>
+    <div><span class="label">Contractor (Thekedar):</span> <span>${wo.subcontractor.name}</span></div>
     <div><span class="label">Work Order:</span> <span>${wo.workOrderNumber}</span></div>
     <div><span class="label">Project:</span> <span>${detail.project.name}</span></div>
     <div><span class="label">Bill Date:</span> <span>${formatDate(detail.billDate)}</span></div>
@@ -235,7 +235,7 @@ function printCertificate(detail: RaBillDetailData, raBillNumber: string) {
   <div class="signature">
     <div>Prepared by</div>
     <div>Approved by</div>
-    <div>Received by (Subcontractor)</div>
+    <div>Received by (Contractor / Thekedar)</div>
   </div>
 </body></html>`;
 
@@ -455,11 +455,11 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
                 <thead className="bg-muted/40 text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
                   <tr>
                     <th className="px-3 py-2 text-left">WO No.</th>
-                    <th className="px-3 py-2 text-left">Title / Subcontractor</th>
+                    <th className="px-3 py-2 text-left">Work / Contractor</th>
                     <th className="px-3 py-2 text-right">Scope</th>
                     <th className="px-3 py-2 text-right">Work Done</th>
                     <th className="px-3 py-2 text-right">Paid</th>
-                    <th className="px-3 py-2 text-right">Retention</th>
+                    <th className="px-3 py-2 text-right">SD / Retention</th>
                     <th className="px-3 py-2 text-center">RA Bills</th>
                     <th className="px-3 py-2 text-left">Status</th>
                     <th className="px-2 py-2"><span className="sr-only">Actions</span></th>
@@ -736,7 +736,7 @@ function WorkOrderDetailDialog({
                 <div className="text-base font-bold tabular-nums text-muted-foreground">{formatCurrency(detail.totalPaid)}</div>
               </div>
               <div className="rounded-lg border border-border p-3">
-                <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-1">Retention Held</div>
+                <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-1">SD / Retention Held</div>
                 <div className="text-base font-bold tabular-nums text-warning">{formatCurrency(detail.retentionBalance)}</div>
               </div>
             </div>
@@ -746,7 +746,7 @@ function WorkOrderDetailDialog({
               <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-2.5">Financial Terms</h3>
               <div className="grid grid-cols-4 gap-3 text-sm">
                 <div className="rounded-md bg-muted/30 px-3 py-2">
-                  <div className="text-[10px] text-muted-foreground mb-0.5">Retention</div>
+                  <div className="text-[10px] text-muted-foreground mb-0.5">Retention %</div>
                   <div className="tabular-nums font-medium">{detail.retentionPct}%</div>
                 </div>
                 <div className="rounded-md bg-muted/30 px-3 py-2">
@@ -791,7 +791,7 @@ function WorkOrderDetailDialog({
             {detail.contractType === "LUMPSUM" && (
               <div>
                 <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-2.5">
-                  Milestones <span className="text-muted-foreground font-normal">— fixed price {detail.lumpSumAmount != null ? formatCurrency(detail.lumpSumAmount) : ""}</span>
+                  Stages <span className="text-muted-foreground font-normal">— theka amount {detail.lumpSumAmount != null ? formatCurrency(detail.lumpSumAmount) : ""}</span>
                 </h3>
                 <div className="rounded-lg border border-border overflow-hidden">
                   {(detail.milestones ?? []).map((m, i) => (
@@ -1000,7 +1000,7 @@ function WorkOrderDetailDialog({
         open={addLineOpen}
         onOpenChange={(open) => { if (!open) setAddLineOpen(false); }}
         title="Add extra item"
-        description="Work beyond the original scope — the agreed rate is added to this work order and billed through the normal measurement → RA bill chain."
+        description="Thekedar ne scope se bahar kaam kiya — agree the rate, add it to this work order, and it bills through the normal measurement → RA bill chain."
         className="max-w-md"
       >
         <div className="space-y-3">
@@ -1064,7 +1064,7 @@ function WorkOrderDetailDialog({
       <Dialog
         open={advanceOpen}
         onOpenChange={setAdvanceOpen}
-        title="Pay Advance to Subcontractor"
+        title="Pay Advance to Contractor"
         description={detail ? `${detail.workOrderNumber} — ${detail.subcontractor.name}` : ""}
         className="max-w-md"
       >
@@ -1256,7 +1256,7 @@ function RaBillDialog({
       return;
     }
     if (selectedIds.size === 0) {
-      toast.error(isLumpsum ? "Select at least one milestone to bill" : "Select at least one MB entry to bill");
+      toast.error(isLumpsum ? "Select at least one stage to bill" : "Select at least one MB entry to bill");
       return;
     }
     setSaving(true);
@@ -1324,7 +1324,7 @@ function RaBillDialog({
             <div className="space-y-2">
               <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
                 {isLumpsum
-                  ? `Pending Milestones — ${selectedIds.size} of ${totalUnbilledEntries} selected`
+                  ? `Pending Stages — ${selectedIds.size} of ${totalUnbilledEntries} selected`
                   : `Unbilled MB Entries — ${selectedIds.size} of ${totalUnbilledEntries} selected`}
               </div>
               <div className="rounded-md border border-border overflow-hidden">
@@ -1342,8 +1342,8 @@ function RaBillDialog({
                       </th>
                       {isLumpsum ? (
                         <>
-                          <th className="px-2 py-1.5 text-left">Milestone</th>
-                          <th className="px-2 py-1.5 text-right">% of contract</th>
+                          <th className="px-2 py-1.5 text-left">Stage</th>
+                          <th className="px-2 py-1.5 text-right">% of theka</th>
                           <th className="px-2 py-1.5 text-right">Amount</th>
                         </>
                       ) : (
@@ -1531,7 +1531,7 @@ function WorkOrderDialog({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!projectId || !form.subcontractorId || !form.workTitle.trim()) {
-      toast.error("Subcontractor and title are required");
+      toast.error("Contractor and work title are required");
       return;
     }
     const isLumpsum = contractType === "LUMPSUM";
@@ -1601,15 +1601,15 @@ function WorkOrderDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="New Subcontractor Work Order"
-      description="Issue a work order against BOQ items with agreed rates, retention %, and TDS category."
+      title="New Work Order (Theka)"
+      description="Issue a work order to a contractor — item-rate (measured kaam) or lump-sum theka — with agreed rates, retention/SD %, and TDS."
       className="max-w-3xl"
     >
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Subcontractor" required>
+          <Field label="Contractor (Thekedar)" required>
             <Select value={form.subcontractorId} onChange={(e) => set("subcontractorId", e.target.value)} required>
-              <option value="">— Select subcontractor —</option>
+              <option value="">— Select contractor —</option>
               {subcontractors.map((s) => <option key={s.id} value={s.id}>{s.name}{s.trade ? ` (${s.trade})` : ""}</option>)}
             </Select>
           </Field>
@@ -1651,26 +1651,26 @@ function WorkOrderDialog({
             onClick={() => setContractType("ITEM_RATE")}
             className={cn("flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors", contractType === "ITEM_RATE" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50")}
           >
-            Item-rate — measured work
+            Item rate — measured kaam (MB)
           </button>
           <button
             type="button"
             onClick={() => setContractType("LUMPSUM")}
             className={cn("flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors", contractType === "LUMPSUM" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50")}
           >
-            Lump-sum — fixed price, milestone billing
+            Lump-sum theka — stage-wise bill
           </button>
         </div>
 
         {contractType === "LUMPSUM" && (
           <div className="space-y-3">
-            <Field label="Contract Amount (₹)" hint="Total fixed price for the whole work" required>
+            <Field label="Theka Amount (₹)" hint="Total fixed price for the whole work" required>
               <Input type="number" step="0.01" min="0" value={lumpSumAmount} onChange={(e) => setLumpSumAmount(e.target.value)} placeholder="e.g. 800000" />
             </Field>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">
-                  Billing Milestones{" "}
+                  Billing Stages{" "}
                   <span className={cn("text-xs font-normal", Math.abs(milestones.reduce((s, m) => s + (parseFloat(m.pct) || 0), 0) - 100) < 0.001 ? "text-success" : "text-warning")}>
                     ({milestones.reduce((s, m) => s + (parseFloat(m.pct) || 0), 0)}% / 100%)
                   </span>

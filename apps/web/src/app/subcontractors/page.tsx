@@ -61,11 +61,11 @@ export default async function SubcontractorsPage() {
   return (
     <>
       <PageHeader
-        title="Subcontractors"
-        description="Subcontractor master — trades, contact info, work order history, and financial summary."
+        title="Contractors (Thekedar)"
+        description="Thekedar master — trades, contact, work order history, and financial summary."
         stats={[
-          { label: "Subcontractors", value: rows.length, hint: "Total subcontractors in your network." },
-          { label: "Work Done", value: formatCurrency(totalWorkDone), hint: "Total work done across all subcontractors." },
+          { label: "Contractors", value: rows.length, hint: "Total thekedars in your network." },
+          { label: "Work Done", value: formatCurrency(totalWorkDone), hint: "Total work done across all contractors." },
           { label: "Retention Held", value: formatCurrency(totalRetention), hint: `Total retention held. ${formatCurrency(totalPaid)} paid out.` },
         ]}
       />

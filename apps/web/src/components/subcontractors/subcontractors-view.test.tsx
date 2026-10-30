@@ -38,19 +38,19 @@ describe("SubcontractorsView", () => {
     expect(screen.getByText("Plumbing")).toBeInTheDocument();
   });
 
-  it("renders Add Subcontractor button when canCreate is true", () => {
+  it("renders Add Contractor button when canCreate is true", () => {
     render(<SubcontractorsView subcontractors={subs} canCreate canEdit canDelete />);
-    expect(screen.getAllByText("Add Subcontractor").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Add Contractor").length).toBeGreaterThan(0);
   });
 
-  it("does not render Add Subcontractor when canCreate is false", () => {
+  it("does not render Add Contractor when canCreate is false", () => {
     render(<SubcontractorsView subcontractors={subs} canCreate={false} canEdit canDelete />);
-    expect(screen.queryByText("Add Subcontractor")).not.toBeInTheDocument();
+    expect(screen.queryByText("Add Contractor")).not.toBeInTheDocument();
   });
 
   it("renders empty state when no subcontractors", () => {
     render(<SubcontractorsView subcontractors={[]} canCreate canEdit canDelete />);
-    expect(screen.getByText("No subcontractors yet")).toBeInTheDocument();
+    expect(screen.getByText("No contractors yet")).toBeInTheDocument();
   });
 
   it("renders search input", () => {

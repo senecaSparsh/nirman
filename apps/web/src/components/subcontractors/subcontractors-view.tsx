@@ -33,7 +33,7 @@ export function SubcontractorsView({
   const baseColumns: Column<SubcontractorRow>[] = [
     {
       key: "name",
-      label: "Subcontractor",
+      label: "Contractor (Thekedar)",
       sortable: true,
       render: (s) => (
         <div>
@@ -137,11 +137,11 @@ export function SubcontractorsView({
       {subcontractors.length === 0 ? (
         <EmptyState
           icon={<HardHat className="h-6 w-6" />}
-          title="No subcontractors yet"
-          description="Add subcontractors to issue work orders, track RA bills, and manage TDS/retention."
+          title="No contractors yet"
+          description="Add your thekedars to issue work orders, track RA bills, and manage TDS/retention."
           action={canCreate ? (
             <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
-              <Plus className="h-4 w-4" /> Add your first subcontractor
+              <Plus className="h-4 w-4" /> Add your first contractor
             </Button>
           ) : undefined}
         />
@@ -161,11 +161,11 @@ export function SubcontractorsView({
             sumColumns={["totalWorkDone", "totalPaid", "retentionBalance"]}
             totalFormat={(_k, sum) => formatCurrency(sum)}
             onAddRow={canCreate ? () => { setEditing(null); setFormOpen(true); } : undefined}
-            addRowLabel="Add Subcontractor"
+            addRowLabel="Add Contractor"
             toolbarTrailing={
               canCreate ? (
                 <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
-                  <Plus className="size-3.5" /> Add Subcontractor
+                  <Plus className="size-3.5" /> Add Contractor
                 </Button>
               ) : undefined
             }
@@ -186,7 +186,7 @@ export function SubcontractorsView({
         endpoint={deleting ? `/api/subcontractors/${deleting.id}` : ""}
         title="Delete subcontractor"
         description={`Delete "${deleting?.name}"${deleting?.trade ? ` (${deleting.trade})` : ""}? This won't affect past work orders or RA bills that reference this subcontractor.`}
-        successMessage="Subcontractor deleted"
+        successMessage="Contractor deleted"
       />
     </div>
   );
@@ -228,7 +228,7 @@ function SubcontractorFormDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
-      toast.error("Subcontractor name is required");
+      toast.error("Contractor name is required");
       return;
     }
     setSaving(true);
@@ -253,7 +253,7 @@ function SubcontractorFormDialog({
         const err = await res.json();
         throw new Error(err.error ?? "Failed to save subcontractor");
       }
-      toast.success(subcontractor ? "Subcontractor updated" : "Subcontractor created");
+      toast.success(subcontractor ? "Contractor updated" : "Contractor created");
       onOpenChange(false);
       router.refresh();
     } catch (err) {
@@ -267,7 +267,7 @@ function SubcontractorFormDialog({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={subcontractor ? "Edit Subcontractor" : "Add Subcontractor"}
+      title={subcontractor ? "Edit Contractor" : "Add Contractor"}
       description={subcontractor ? subcontractor.name : "Add a subcontractor or contractor."}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -299,7 +299,7 @@ function SubcontractorFormDialog({
         </Field>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="submit" disabled={saving || !canEdit}>{saving ? "Saving…" : subcontractor ? "Update Subcontractor" : "Create Subcontractor"}</Button>
+          <Button type="submit" disabled={saving || !canEdit}>{saving ? "Saving…" : subcontractor ? "Update Contractor" : "Create Contractor"}</Button>
         </div>
       </form>
     </Dialog>
