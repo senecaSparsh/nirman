@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { MessageSquare, Plus, Link2, Check, X, AlertCircle, Loader2, Upload, Smartphone, Copy, Trash2 } from "lucide-react";
+import { MessageSquare, Plus, Link2, Check, X, AlertCircle, Loader2, Upload, Smartphone, Copy, Trash2, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { useFetch } from "@/lib/use-fetch";
@@ -395,6 +395,35 @@ function IngestDialog({
   const [sender, setSender] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
+
+  // Paper → parsed payment: photograph a bank statement/passbook/UTR slip,
+  // OCR it client-side (free, on-device), and the extracted text flows into
+  // the same parser+matcher as a forwarded SMS. Staff review before ingest —
+  // OCR isn't perfect, the human confirms what the machine read.
+  async function scanPhoto(file: File) {
+    setScanning(true);
+    try {
+      const { createWorker } = await import("tesseract.js");
+      const worker = await createWorker("eng");
+      try {
+        const { data } = await worker.recognize(file);
+        const text = data.text.trim();
+        if (!text) {
+          toast.error("Couldn't read any text — try a clearer photo");
+          return;
+        }
+        setMessage(text);
+        toast.success("Text extracted — review it below, then ingest");
+      } finally {
+        await worker.terminate();
+      }
+    } catch {
+      toast.error("OCR failed — try a clearer photo or paste the SMS text");
+    } finally {
+      setScanning(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -455,15 +484,36 @@ function IngestDialog({
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="sms-message">SMS Message</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="sms-message">SMS Message</Label>
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                disabled={scanning}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) scanPhoto(f);
+                  e.target.value = "";
+                }}
+              />
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                {scanning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                {scanning ? "Reading photo…" : "Scan statement photo"}
+              </span>
+            </label>
+          </div>
           <Textarea
             id="sms-message"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Paste the full SMS text here…"
+            placeholder="Paste the full SMS text here… or scan a bank statement/passbook photo above"
             rows={5}
             required
           />
+          {scanning && <p className="text-micro text-muted-foreground">Reading the photo — large statements take ~10s…</p>}
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

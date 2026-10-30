@@ -10,6 +10,7 @@ allowBuilds:
   msw: false
   prisma: true
   sharp: true
+  tesseract.js: true
   unrs-resolver: true
 
 minimumReleaseAgeExclude:
