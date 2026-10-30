@@ -31,7 +31,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       },
     }),
     prisma.materialSale.findMany({
-      where: { companyId: company.id, status: { not: "CANCELLED" }, paymentStatus: { not: "PAID" } },
+      where: { companyId: company.id, status: { notIn: ["CANCELLED", "RETURNED"] }, paymentStatus: { not: "PAID" } },
       orderBy: { createdAt: "desc" },
       take: 30,
       select: {

@@ -711,10 +711,14 @@ export async function matchPayment(
   // 3. Check material sale payments — unique outstanding match only, and
   //    outstanding counts realised money only (VOID rows, OUT refunds and
   //    BOUNCED cheques excluded — the canonical sale-payment sum rule).
+  // PARTIALLY_RETURNED is still receivable — the schema comment says "kept
+  // portion still receivable" — and PENDING sales can take advance payments.
+  // Only RETURNED (economically void) and CANCELLED rows are dead books; the
+  // manual-match list (/api/sms/receivables) already treats them as dead.
   const materialSales = await prisma.materialSale.findMany({
     where: {
       companyId,
-      status: "ACTIVE",
+      status: { notIn: ["CANCELLED", "RETURNED"] },
       paymentStatus: { in: ["PENDING", "PARTIAL"] },
     },
     include: {
@@ -991,6 +995,7 @@ export async function manualMatchSms(input: ManualMatchInput) {
       });
       if (!sale) throw new ServiceError("Material sale not found", 404);
       if (sale.status === "CANCELLED") throw new ServiceError("Cannot apply a payment to a cancelled sale — refund the payer instead", 400);
+      if (sale.status === "RETURNED") throw new ServiceError("Cannot apply a payment to a fully-returned sale — the credit note settled it; refund the payer instead", 400);
       if (sale.paymentStatus === "PAID") throw new ServiceError("Sale is already fully paid — record this as customer credit from the sale's payments view instead", 400);
       const p = await tx.materialSalePayment.create({
         data: {
