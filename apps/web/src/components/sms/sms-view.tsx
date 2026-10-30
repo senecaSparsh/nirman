@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { useFetch } from "@/lib/use-fetch";
 import { Dialog } from "@/components/ui/dialog";
+import { parseStatementCsv } from "@/lib/statement-csv";
 import { formatCurrency, formatDate, formatEnumLabel } from "@/lib/utils";
 import { EmptyState } from "@/components/empty-state";
 
@@ -425,6 +426,37 @@ function IngestDialog({
     }
   }
 
+  // Bank statement CSV (SBI/HDFC/ICICI downloads) → credit rows become
+  // messages through the same ingest batch. Dedup hash makes re-imports safe.
+  async function importCsv(file: File) {
+    setSaving(true);
+    try {
+      const csv = await file.text();
+      const { rows, skipped, error } = parseStatementCsv(csv);
+      if (error) { toast.error(error); return; }
+      if (rows.length === 0) { toast.warning(`No credit rows found${skipped ? ` (${skipped} rows skipped)` : ""}`); return; }
+      const res = await fetch("/api/sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: rows.map((r) => ({ sender: "STMT", message: r.message, receivedAt: r.receivedAt?.toISOString() })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Import failed");
+      const s = data.summary;
+      toast.success(`Statement imported — ${s.matched} matched, ${s.unmatched} unmatched, ${s.duplicates} duplicates`, {
+        description: skipped ? `${skipped} non-credit/blank rows skipped` : undefined,
+      });
+      onOpenChange(false);
+      onDone();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!sender.trim() || !message.trim()) {
@@ -486,24 +518,42 @@ function IngestDialog({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="sms-message">SMS Message</Label>
-            <label className="cursor-pointer">
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                disabled={scanning}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) scanPhoto(f);
-                  e.target.value = "";
-                }}
-              />
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-                {scanning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
-                {scanning ? "Reading photo…" : "Scan statement photo"}
-              </span>
-            </label>
+            <span className="inline-flex items-center gap-3">
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  disabled={scanning || saving}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) scanPhoto(f);
+                    e.target.value = "";
+                  }}
+                />
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                  {scanning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                  {scanning ? "Reading photo…" : "Scan photo"}
+                </span>
+              </label>
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  disabled={saving || scanning}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) importCsv(f);
+                    e.target.value = "";
+                  }}
+                />
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                  <Upload className="h-3 w-3" /> Import statement CSV
+                </span>
+              </label>
+            </span>
           </div>
           <Textarea
             id="sms-message"

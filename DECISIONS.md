@@ -3787,3 +3787,21 @@ Candidate OSS upgrades (zero license cost, ranked for this product):
    without Razorpay lock-in; heavy infra, only if UPI isn't enough.
 4. Chatwoot (MIT) — support inbox for portal customers (call tracking
    exists; this is the multi-channel support desk if needed).
+
+## Round 151 — Unified bank-feed: statement CSV adapter (agent-reach model)
+
+Every bank-data source now lands in ONE pipeline — {sender, message,
+receivedAt} → parse → UPI-ref/amount → receivable match. Adapters:
+
+- SMS (phone auto-forward / paste) — existing
+- OCR photo (Tesseract.js) — round 150
+- Statement CSV (this round) — SBI/HDFC/ICICI formats verified: column
+  auto-detection, credits only (debits skipped — they flow via supplier
+  payments), Indian date formats, refs preserved; dedup hash makes
+  re-imports free
+- Account Aggregator (RBI Sahamati) — documented future: consent-based
+  official bank-statement pull via an FIU partner (Setu/Finvu); the
+  adapter contract already exists — AA transactions become the same
+  {sender:"AA", message, receivedAt} inputs
+- Portal agent (Puppeteer driving GST/EPFO portals) — documented future;
+  same adapter contract
