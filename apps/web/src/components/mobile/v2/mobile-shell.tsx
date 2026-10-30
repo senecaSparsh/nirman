@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFetch } from "@/lib/use-fetch";
@@ -104,11 +103,10 @@ function NavProgressBar() {
 }
 
 // The assistant is a heavy client-only island (voice, chat thread) —
-// mount it lazily, same as the desktop AppShell does.
-const AssistantChat = dynamic(
-  () => import("@/components/mobile/assistant/assistant-chat").then((m) => m.AssistantChat),
-  { ssr: false },
-);
+// mount it lazily, same as the desktop AppShell does. The mobile header
+// already carries VoiceAgentButton, so the floating AssistantChat FAB is
+// intentionally not mounted here (it duplicated the header affordance and
+// floated over orbit/home content).
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MOBILE SHELL V2 — "site-grade" minimal layout
@@ -1245,11 +1243,6 @@ function MobileShellInner({
         enabled={tourEnabled}
       />
 
-      {/* ══ OWNER ASSISTANT — floating chat with voice (Hindi/English).
-          Mounts on every /m page — it was previously only inside the
-          desktop AppShell, which mobile routes bypass, so field users
-          never saw it. ══ */}
-      <AssistantChat />
     </div>
   );
 }

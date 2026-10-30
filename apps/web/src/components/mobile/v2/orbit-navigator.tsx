@@ -173,10 +173,10 @@ type LabelSpot = { side: "above" | "below" | "left" | "right"; row: number; dx: 
 type Box = { x0: number; y0: number; x1: number; y1: number };
 
 // Collision-aware label placement for the ring (nominal box 344 × 372px, 1 : 1.08).
-// Each label tries its own side of the chip in stacked rows, sliding
-// horizontally when a neighbour is in the way, then beside the chip, then the
-// opposite side. Anything still colliding drops to icon + count (the name
-// stays in the chip's accessible label and the list it opens).
+// Labels always hang vertically on their node — above for top-half chips,
+// below for bottom-half — stacked into rows with horizontal slides when a
+// neighbour is in the way, then the opposite side. Anything still colliding
+// drops to icon + count (the name stays in the chip's accessible label).
 function layoutOrbitLabels(
   chips: { x: number; y: number; label: string; above: boolean }[],
   chipRem: number,
@@ -187,7 +187,6 @@ function layoutOrbitLabels(
   const H = 372;
   const LH = 16;
   const rC = chipRem * 8;
-  const gap = rC + 6;
   const pts = chips.map((c) => ({ x: (c.x / 100) * W, y: (c.y / 100) * H }));
   const cy = (card.yPct / 100) * H;
   const cardBox: Box = { x0: W / 2 - card.halfW, x1: W / 2 + card.halfW, y0: cy - card.halfH, y1: cy + card.halfH };
@@ -205,27 +204,21 @@ function layoutOrbitLabels(
       const y0 = up ? p.y - 25.6 - 19.2 * row - LH : p.y + 22.4 + 19.2 * row;
       return { x0: p.x + dx - w / 2, x1: p.x + dx + w / 2, y0, y1: y0 + LH };
     };
-    const beside = (left: boolean): Box => ({
-      x0: left ? p.x - gap - w : p.x + gap,
-      x1: left ? p.x - gap : p.x + gap + w,
-      y0: p.y - LH / 2,
-      y1: p.y + LH / 2,
-    });
     const up = chip.above;
-    const outward = p.x >= W / 2;
-    const rows = up ? 2 : 3;
+    // Labels always hang vertically on their node — above for top-half
+    // chips, below for bottom-half. Beside/outward labels looked detached
+    // on the left margin and clipped off the right edge at 12+ chips.
+    const rows = 3;
     const cands: [LabelSpot, Box][] = [];
     for (let row = 0; row <= rows; row++) {
       for (const dx of SLIDES) {
         cands.push([{ side: up ? "above" : "below", row, dx }, near(row, up, dx)]);
       }
     }
-    cands.push(
-      [{ side: outward ? "right" : "left", row: 0, dx: 0 }, beside(!outward)],
-      [{ side: outward ? "left" : "right", row: 0, dx: 0 }, beside(outward)],
-    );
-    for (let row = 0; row <= 1; row++) {
-      cands.push([{ side: up ? "below" : "above", row, dx: 0 }, near(row, !up, 0)]);
+    for (let row = 0; row <= 2; row++) {
+      for (const dx of SLIDES) {
+        cands.push([{ side: up ? "below" : "above", row, dx }, near(row, !up, dx)]);
+      }
     }
     const free = ([, b]: [LabelSpot, Box]) =>
       b.x0 >= -8 && b.x1 <= W + 8 && b.y0 >= -16 && b.y1 <= H + 16 &&
