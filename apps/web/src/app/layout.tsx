@@ -15,7 +15,6 @@ import { SurfaceAdapter } from "@/components/surface-adapter";
 // in Server Components).
 import { LazySwRegister } from "@/components/lazy-sw-register";
 import { ChunkErrorRecovery } from "@/components/dev/chunk-error-recovery";
-import { GuideLauncher } from "@/components/guide/guide";
 import { NativeAppInit } from "@/components/native/native-app-init";
 import { CurrencyProvider } from "@/components/currency-provider";
 import { runWithCurrencyMode, type CurrencyMode } from "@/lib/currency-server";
@@ -156,7 +155,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {/* Enforces mustChangePassword + call-recording consent —
                   redirects to /change-password or /consent when flagged. */}
               <AuthGate />
-              <AppShell isDev={process.env.NODE_ENV !== "production"} hasSession={!!nav}>{children}<GuideLauncher mobile={false} /></AppShell>
               {/* Surface selection — two layers:
                   1. Server-side (middleware): redirects mobile UA from
                      desktop routes to /m equivalents (landing + deep routes).
@@ -172,6 +170,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {/* Error catcher — captures all client-side errors and
                   sends them to /api/error-logs for the developer. */}
               <ErrorCatcher />
+              <AppShell isDev={process.env.NODE_ENV !== "production"} hasSession={!!nav}>{children}</AppShell>
             </CurrencyProvider>
           </SWRConfig>
         </Suspense>

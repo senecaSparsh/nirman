@@ -1,6 +1,5 @@
 import { MobileShellV2 } from "@/components/mobile/v2/mobile-shell";
 import { ChunkErrorRecovery } from "@/components/dev/chunk-error-recovery";
-import { GuideLauncher } from "@/components/guide/guide";
 import { getNavBootstrap } from "@/lib/server";
 
 /**
@@ -25,7 +24,6 @@ export default async function MobileLayout({ children }: { children: React.React
     <MobileShellV2 initial={nav} isDev={process.env.NODE_ENV !== "production"}>
       {children}
       <ChunkErrorRecovery />
-      <GuideLauncher mobile />
     </MobileShellV2>
   );
 }
