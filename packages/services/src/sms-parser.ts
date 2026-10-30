@@ -648,11 +648,22 @@ export async function matchPayment(
     },
   });
 
-  const rentMatches = tenancies.filter((t) =>
-    new Decimal(t.monthlyRent).minus(amount).abs().lt(1),
-  );
+  // Corporate tenants deduct 10% TDS u/s 194I (rent > ₹2.4L/yr) and remit
+  // the net — the credit lands at monthlyRent × 0.9. Try gross first, then
+  // the net-of-TDS amount; the payment row records both sides like the
+  // manual receipt path does.
+  const rentMatches = tenancies
+    .map((t) => {
+      const gross = new Decimal(t.monthlyRent);
+      if (gross.minus(amount).abs().lt(1)) return { tenancy: t, tds: new Decimal(0) };
+      const tds = gross.mul(0.1).toDecimalPlaces(2);
+      if (gross.minus(tds).minus(amount).abs().lt(1)) return { tenancy: t, tds };
+      return null;
+    })
+    .filter((x): x is { tenancy: (typeof tenancies)[number]; tds: Decimal } => x !== null);
   if (rentMatches.length === 1) {
-    const tenancy = rentMatches[0]!;
+    const { tenancy, tds } = rentMatches[0]!;
+    const gross = new Decimal(tenancy.monthlyRent);
     const confidence =
       counterparty &&
       tenancy.tenantName
@@ -665,7 +676,8 @@ export async function matchPayment(
       const p = await tx.rentalPayment.create({
         data: {
           tenancyId: tenancy.id,
-          amount,
+          amount: gross,
+          tdsAmount: tds,
           netReceived: amount,
           paymentDate: new Date(),
           dueDate: new Date(),
@@ -673,12 +685,13 @@ export async function matchPayment(
           status: "RECEIVED",
         },
       });
-      // Post GL: Dr Cash, Cr Rent Revenue
+      // Post GL: Dr Cash (net), Dr TDS Receivable, Cr Revenue (gross) —
+      // same shape as the manual rent receipt.
       await postJournalEntry(tx, {
         companyId,
         sourceType: "RENT_PAYMENT",
         sourceId: p.id,
-        memo: `Rent received from ${tenancy.tenantName} (bank SMS auto-match)`,
+        memo: `Rent received from ${tenancy.tenantName} (bank SMS auto-match${tds.gt(0) ? ", net of 10% TDS" : ""})`,
         lines: [
           {
             accountCode: ACCT.CASH,
@@ -687,10 +700,19 @@ export async function matchPayment(
             entityType: "RentalPayment",
             entityId: p.id,
           },
+          ...(tds.gt(0)
+            ? [{
+                accountCode: ACCT.TDS_RECEIVABLE,
+                debit: tds,
+                credit: 0,
+                entityType: "Tenancy" as const,
+                entityId: tenancy.id,
+              }]
+            : []),
           {
             accountCode: ACCT.SALES_REVENUE,
             debit: 0,
-            credit: amount,
+            credit: gross,
             entityType: "Tenancy",
             entityId: tenancy.id,
           },
@@ -704,7 +726,7 @@ export async function matchPayment(
       entityId: tenancy.id,
       paymentId: payment.id,
       confidence,
-      reason: `Matched to tenancy (${tenancy.tenantName}) — monthly rent amount`,
+      reason: `Matched to tenancy (${tenancy.tenantName}) — ${tds.gt(0) ? "monthly rent net of 10% TDS" : "monthly rent amount"}`,
     };
   }
 
