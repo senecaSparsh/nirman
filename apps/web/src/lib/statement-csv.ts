@@ -25,7 +25,7 @@ function normHeader(h: string): string {
 
 function pickCol(headers: string[], key: keyof typeof COL_MAP): number {
   const norms = headers.map(normHeader);
-  for (const re of COL_MAP[key]) {
+  for (const re of COL_MAP[key] ?? []) {
     const idx = norms.findIndex((n) => re.test(n) || n.includes(re.source.replace(/\\\w|\/i/g, "")));
     if (idx >= 0) return idx;
   }
@@ -38,7 +38,7 @@ function pickCol(headers: string[], key: keyof typeof COL_MAP): number {
     amount: ["amount", "amt"],
     ref: ["ref", "utr", "chq", "cheque"],
   };
-  for (const hint of fallback[key]) {
+  for (const hint of fallback[key] ?? []) {
     const idx = norms.findIndex((n) => n.includes(hint));
     if (idx >= 0) return idx;
   }
@@ -55,10 +55,10 @@ function parseDate(raw: string): Date | null {
   // DD/MM/YYYY or DD-MM-YYYY (Indian formats first — d/m, not m/d)
   const dmy = t.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
   if (dmy) {
-    const y = dmy[3].length === 2 ? 2000 + parseInt(dmy[3]) : parseInt(dmy[3]);
+    const y = dmy[3]!.length === 2 ? 2000 + parseInt(dmy[3]!) : parseInt(dmy[3]!);
     // Noon UTC keeps the calendar date stable across server timezones —
     // a statement's "15/10" must not serialize back as the 14th.
-    return new Date(Date.UTC(y, parseInt(dmy[2]) - 1, parseInt(dmy[1]), 12));
+    return new Date(Date.UTC(y, parseInt(dmy[2]!) - 1, parseInt(dmy[1]!), 12));
   }
   const d = new Date(t);
   return Number.isNaN(d.getTime()) ? null : d;
@@ -96,12 +96,12 @@ export function parseStatementCsv(csv: string): { rows: StatementRow[]; skipped:
   let cols = { date: -1, narration: -1, credit: -1, debit: -1, amount: -1, ref: -1 };
   for (let i = 0; i < Math.min(all.length, 10); i++) {
     const c = {
-      date: pickCol(all[i], "date"),
-      narration: pickCol(all[i], "narration"),
-      credit: pickCol(all[i], "credit"),
-      debit: pickCol(all[i], "debit"),
-      amount: pickCol(all[i], "amount"),
-      ref: pickCol(all[i], "ref"),
+      date: pickCol(all[i]!, "date"),
+      narration: pickCol(all[i]!, "narration"),
+      credit: pickCol(all[i]!, "credit"),
+      debit: pickCol(all[i]!, "debit"),
+      amount: pickCol(all[i]!, "amount"),
+      ref: pickCol(all[i]!, "ref"),
     };
     const score = Object.values(c).filter((v) => v >= 0).length;
     if (score >= 2 && (c.credit >= 0 || c.amount >= 0)) {
