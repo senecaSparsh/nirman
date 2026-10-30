@@ -7,6 +7,7 @@ import { Building2, FileText } from "lucide-react";
 import type { PortalCustomer } from "@/lib/portal-auth";
 import { EmptyState } from "@/components/empty-state";
 import { useFetch } from "@/lib/use-fetch";
+import { buildUpiLink } from "@/lib/upi";
 
 import { toNum } from "@/lib/utils";
 interface PortalSale {
@@ -81,9 +82,11 @@ interface PortalProject {
 
 export function PortalDashboard({ customer }: { customer: PortalCustomer }) {
   const router = useRouter();
-  const salesQ = useFetch<{ sales?: PortalSale[] }>("/api/portal/sales");
+  const salesQ = useFetch<{ sales?: PortalSale[]; companyUpiId?: string | null; companyName?: string }>("/api/portal/sales");
   const projectsQ = useFetch<{ projects?: PortalProject[] }>("/api/portal/projects");
   const sales = salesQ.data?.sales ?? [];
+  const companyUpiId = salesQ.data?.companyUpiId ?? null;
+  const companyName = salesQ.data?.companyName ?? customer.companyName;
   const projects = projectsQ.data?.projects ?? [];
   const loading = salesQ.loading || projectsQ.loading;
   const [selectedSale, setSelectedSale] = useState<PortalSale | null>(null);
@@ -286,13 +289,13 @@ export function PortalDashboard({ customer }: { customer: PortalCustomer }) {
 
       {/* Sale detail modal */}
       {selectedSale && (
-        <SaleDetailModal sale={selectedSale} onClose={() => setSelectedSale(null)} />
+        <SaleDetailModal sale={selectedSale} companyUpiId={companyUpiId} companyName={companyName} onClose={() => setSelectedSale(null)} />
       )}
     </div>
   );
 }
 
-function SaleDetailModal({ sale, onClose }: { sale: PortalSale; onClose: () => void }) {
+function SaleDetailModal({ sale, companyUpiId, companyName, onClose }: { sale: PortalSale; companyUpiId: string | null; companyName: string; onClose: () => void }) {
   const documents = [
     { label: "Agreement to Sell (ATS)", url: sale.atsDocumentUrl, no: sale.atsNo },
     { label: "Allotment Letter", url: sale.allotmentDocumentUrl, no: sale.allotmentLetterNo },
@@ -374,10 +377,13 @@ function SaleDetailModal({ sale, onClose }: { sale: PortalSale; onClose: () => v
                     <th className="px-3 py-2 text-right">Amount</th>
                     <th className="px-3 py-2 text-right">Due</th>
                     <th className="px-3 py-2 text-center">Status</th>
+                    {companyUpiId ? <th className="px-3 py-2 text-right"></th> : null}
                   </tr>
                 </thead>
                 <tbody>
-                  {sale.paymentSchedule.items.map((item) => (
+                  {sale.paymentSchedule.items.map((item) => {
+                    const outstanding = item.amount - item.paidAmount;
+                    return (
                     <tr key={item.id} className="border-t border-slate-100">
                       <td className="px-3 py-2 text-slate-500">{item.installmentNo}</td>
                       <td className="px-3 py-2 text-slate-700">{item.description}</td>
@@ -386,18 +392,40 @@ function SaleDetailModal({ sale, onClose }: { sale: PortalSale; onClose: () => v
                         {item.dueDate ? fmtDate(item.dueDate) : "—"}
                       </td>
                       <td className="px-3 py-2 text-center">
-                        <span
-                          className="portal-badge"
-                          style={{
-                            background: item.status === "PAID" ? "#10b98115" : item.status === "OVERDUE" ? "#ef444415" : "#f59e0b15",
-                            color: item.status === "PAID" ? "#10b981" : item.status === "OVERDUE" ? "#ef4444" : "#f59e0b",
-                          }}
-                        >
-                          {item.status === "PAID" ? "Paid" : item.status === "OVERDUE" ? "Overdue" : "Pending"}
-                        </span>
+                        {(() => {
+                          const overdue = (item.status === "DUE" || item.status === "PARTIAL") && !!item.dueDate && new Date(item.dueDate) < new Date();
+                          const [label, color] =
+                            item.status === "PAID" ? ["Paid", "#10b981"]
+                            : item.status === "WAIVED" ? ["Waived", "#64748b"]
+                            : overdue ? ["Overdue", "#ef4444"]
+                            : item.status === "DUE" ? ["Due now", "#ef4444"]
+                            : item.status === "PARTIAL" ? ["Part paid", "#f59e0b"]
+                            : ["Pending", "#f59e0b"];
+                          return (
+                            <span className="portal-badge" style={{ background: `${color}15`, color }}>{label}</span>
+                          );
+                        })()}
                       </td>
+                      {companyUpiId ? (
+                        <td className="px-3 py-2 text-right">
+                          {(item.status === "DUE" || item.status === "PARTIAL") && outstanding > 0 ? (
+                            <a
+                              href={buildUpiLink({
+                                vpa: companyUpiId,
+                                name: companyName,
+                                amount: outstanding,
+                                note: `${sale.saleNumber} inst ${item.installmentNo}`,
+                              })}
+                              className="portal-btn portal-btn-primary text-xs"
+                            >
+                              Pay {fmtCurrency(outstanding)}
+                            </a>
+                          ) : null}
+                        </td>
+                      ) : null}
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

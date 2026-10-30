@@ -13,6 +13,11 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       return NextResponse.json({ error: "Not logged in" }, { status: 401 });
     }
 
+    const company = await prisma.company.findUnique({
+      where: { id: customer.companyId },
+      select: { name: true, upiId: true },
+    });
+
     const sales = await prisma.assetSale.findMany({
       where: { customerId: customer.id, status: "ACTIVE" },
       take: 200,
@@ -27,6 +32,8 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     });
 
     return NextResponse.json({
+      companyUpiId: company?.upiId ?? null,
+      companyName: company?.name ?? customer.companyName,
       sales: sales.map((s) => {
         const totalPaid = s.payments.reduce((sum, p) => sum + (p.status === "VOID" || p.chequeStatus === "PENDING" || p.chequeStatus === "BOUNCED" ? 0 : toNum(p.amount) - toNum(p.interestAmount)), 0);
         const totalAmount = toNum(s.salePrice) + toNum(s.gstAmount);
