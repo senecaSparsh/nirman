@@ -6,6 +6,7 @@ import { getPortalCustomer } from "@/lib/portal-auth";
 import { PERM } from "@/lib/roles";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
+import { buildUpiLink, upiQrDataUrl } from "@/lib/upi";
 import { formatCurrency, formatDate, formatEnumLabel } from "@/lib/utils";
 import { amountInWords, computeLateInterest } from "@nirman/services";
 
@@ -166,6 +167,24 @@ export default async function SaleStatementPage({
           <div className="text-[10px] text-slate-500">{amountInWords(balanceDue + totalAccrued)}</div>
         </div>
       </div>
+
+      {/* Pay via UPI — scannable QR so a printed statement collects money */}
+      {company.upiId && balanceDue + totalAccrued > 0 && (
+        <div className="mt-3 flex items-center gap-4 rounded border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={await upiQrDataUrl(buildUpiLink({ vpa: company.upiId, name: company.name, amount: balanceDue + totalAccrued, note: `${sale.saleNumber} balance` }))}
+            alt="UPI payment QR"
+            width={100}
+            height={100}
+            className="shrink-0"
+          />
+          <div>
+            <p className="font-semibold">Pay instantly via UPI</p>
+            <p className="mt-1">Scan with GPay / PhonePe / Paytm, or pay to <span className="font-mono font-bold">{company.upiId}</span> with remark <span className="font-mono">{sale.saleNumber} balance</span>.</p>
+          </div>
+        </div>
+      )}
 
       <p className="mt-4 text-[10px] text-slate-500">
         *Late interest accrues at SBI MCLR + 2% p.a. on overdue installments per the agreement terms.

@@ -3764,3 +3764,26 @@ Item-rate was the only contract shape. Added WoContractType + lumpSumAmount
   Verified: 8L WO 30/40/30 → gross 2.4L → net 1.8L → milestone BILLED.
   Pending: WorkOrderDialog contract-type picker + milestone editor + detail
   milestone list (API complete, UI not wired).
+
+## Round 150 — UPI QR collection (free OSS payments) + cost-reduction stack
+
+UPI intent links already existed in reminders/portal/prints. Added the
+missing piece — scannable QR via the OSS `qrcode` lib (MIT): demand-notice
+and sale-statement printouts now render a pay-QR with the sale number in
+the txn note — paper bills collect money, and the bank-SMS auto-matcher
+closes the loop (QR → customer pays → SMS → auto-matched to receivable).
+
+The free/OSS collection stack now: UPI QR + intent links (₹0 fee, any
+UPI app) → bank SMS intake → auto-receivable matching. No Razorpay/PayU
+needed for the core collection path.
+
+Candidate OSS upgrades (zero license cost, ranked for this product):
+
+1. Tesseract.js — OCR for bank statements/cheques/invoice photos → the
+   next collection input beyond SMS (photo of statement → same matcher).
+2. Documenso (AGPL) — legal e-sign on offer letters/agreements (token
+   acceptance exists; Documenso adds verifiable signatures).
+3. Hyperswitch (Apache-2.0, Juspay) — if cards/netbanking PG is wanted
+   without Razorpay lock-in; heavy infra, only if UPI isn't enough.
+4. Chatwoot (MIT) — support inbox for portal customers (call tracking
+   exists; this is the multi-channel support desk if needed).

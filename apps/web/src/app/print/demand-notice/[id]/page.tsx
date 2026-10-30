@@ -6,6 +6,7 @@ import { getPortalCustomer } from "@/lib/portal-auth";
 import { PERM } from "@/lib/roles";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
+import { buildUpiLink, upiQrDataUrl } from "@/lib/upi";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { amountInWords, computeLateInterest, LATE_INTEREST_RATE } from "@nirman/services";
 
@@ -298,14 +299,25 @@ export default async function DemandNoticePage({
         </div>
       </section>
 
-      {/* How to pay — UPI VPA when configured, else office contact */}
+      {/* How to pay — UPI VPA + scannable QR when configured */}
       {company.upiId && (
-        <section className="mt-4 rounded border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">
-          <p className="font-semibold">Pay instantly via UPI</p>
-          <p className="mt-1">
-            UPI ID: <span className="font-mono font-bold">{company.upiId}</span> — pay {formatCurrency(Number(late?.totalPayable ?? balanceDue))} with
-            remark <span className="font-mono">{sale.saleNumber} inst {item.installmentNo}</span>
-          </p>
+        <section className="mt-4 flex items-center gap-4 rounded border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={await upiQrDataUrl(buildUpiLink({ vpa: company.upiId, name: company.name, amount: Number(late?.totalPayable ?? balanceDue), note: `${sale.saleNumber} inst ${item.installmentNo}` }))}
+            alt="UPI payment QR"
+            width={110}
+            height={110}
+            className="shrink-0"
+          />
+          <div>
+            <p className="font-semibold">Pay instantly via UPI</p>
+            <p className="mt-1">
+              Scan with any UPI app (GPay, PhonePe, Paytm) or pay to UPI ID: <span className="font-mono font-bold">{company.upiId}</span> —
+              pay {formatCurrency(Number(late?.totalPayable ?? balanceDue))} with
+              remark <span className="font-mono">{sale.saleNumber} inst {item.installmentNo}</span>
+            </p>
+          </div>
         </section>
       )}
 
