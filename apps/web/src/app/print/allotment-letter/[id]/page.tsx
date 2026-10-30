@@ -48,7 +48,9 @@ export default async function AllotmentLetterPage({
     const customer = await getPortalCustomer();
     if (customer) {
       sale = await prisma.assetSale.findFirst({
-        where: { ...await scopeWhere("AssetSale"), id, customerId: customer.id },
+        // customerId IS the access scope — no staff scopeWhere here:
+        // it calls getCompany() which redirects when no staff session exists.
+        where: { id, customerId: customer.id },
         include: saleInclude,
       });
       if (sale) {
