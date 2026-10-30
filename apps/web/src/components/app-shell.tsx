@@ -104,6 +104,9 @@ function isAuthRoute(pathname: string): boolean {
     // briefing badge, staff nav) must never wrap it.
     pathname === "/portal" ||
     pathname.startsWith("/portal/") ||
+    // Supplier portal — same public-surface rule as /portal.
+    pathname === "/supplier-portal" ||
+    pathname.startsWith("/supplier-portal/") ||
     // Public token-auth pages (offer acceptance, agreement signing) —
     // the token IS the auth; no internal shell may wrap them.
     pathname === "/accept" ||
