@@ -1951,3 +1951,56 @@ input[type="number"] {
     bottom: calc(4.75rem + max(env(safe-area-inset-bottom), 0px) + 4.25rem);
   }
 }
+
+/* In-app guide (driver.js) — dark theme to match the app shell. */
+.driver-popover.nirman-guide-popover {
+  background: #09090b;
+  border: 1px solid #3f3f46;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  max-width: 320px;
+}
+.driver-popover.nirman-guide-popover .driver-popover-title {
+  color: #fafafa;
+  font-family: inherit;
+  font-size: 15px;
+}
+.driver-popover.nirman-guide-popover .driver-popover-description {
+  color: #a1a1aa;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.driver-popover.nirman-guide-popover .driver-popover-progress-text {
+  color: #71717a;
+}
+.driver-popover.nirman-guide-popover .driver-popover-next-btn,
+.driver-popover.nirman-guide-popover .driver-popover-prev-btn {
+  background: #27272a;
+  color: #fafafa;
+  border: 1px solid #3f3f46;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  text-shadow: none;
+  padding: 6px 12px;
+}
+.driver-popover.nirman-guide-popover .driver-popover-next-btn:hover,
+.driver-popover.nirman-guide-popover .driver-popover-prev-btn:hover {
+  background: #3f3f46;
+}
+.driver-popover.nirman-guide-popover .driver-popover-close-btn {
+  color: #71717a;
+}
+.driver-popover.nirman-guide-popover .driver-popover-arrow-side-left {
+  border-left-color: #3f3f46;
+}
+.driver-popover.nirman-guide-popover .driver-popover-arrow-side-right {
+  border-right-color: #3f3f46;
+}
+.driver-popover.nirman-guide-popover .driver-popover-arrow-side-top {
+  border-top-color: #3f3f46;
+}
+.driver-popover.nirman-guide-popover .driver-popover-arrow-side-bottom {
+  border-bottom-color: #3f3f46;
+}
